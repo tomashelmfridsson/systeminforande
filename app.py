@@ -89,21 +89,24 @@ def submit(message, doc_id, debug_mode):
         for q in doc["subquestions"]:
             if q["question"] == message:
                 fact_answer = format_answer(q["answer"])
-                
-                reasoning = generate_reasoning(
+                reasoning = safe_generate_reasoning(
                     title=doc["title"],
                     main_question=doc["main_question"],
                     question=message,
-                    answer=q["answer"]
+                    answer=q["answer"],
                 )
                 
                 combined = (
                     "### Svar\n\n"
                     + fact_answer
-                    + "\n\n---\n\n"
-                    + "### Resonemang\n\n"
-                    + reasoning
                 )
+
+                if reasoning:
+                    combined += (
+                        "\n\n---\n\n"
+                        + "### Resonemang\n\n"
+                        + reasoning
+                    )
                 
                 return combined, "<h3>Svar</h3>"
     
@@ -121,6 +124,36 @@ def format_answer(answer):
             out.append(value)
         out.append("")
     return "\n".join(out)
+
+
+def format_llm_error(exc: Exception) -> str:
+    message = str(exc).strip()
+    if "model_not_supported" in message or "not supported by any provider" in message:
+        return (
+            "Resonemang kunde inte genereras just nu eftersom den konfigurerade "
+            "språkmodellen inte är tillgänglig för nuvarande Hugging Face-provider."
+        )
+
+    return f"Resonemang kunde inte genereras just nu. Tekniskt fel: {message}"
+
+
+def safe_generate_reasoning(**kwargs) -> str:
+    try:
+        return generate_reasoning(**kwargs)
+    except Exception as exc:
+        print(f"LLM-fel i generate_reasoning: {exc}")
+        return format_llm_error(exc)
+
+
+def safe_generate_reasoning_from_prompt(prompt: str) -> str:
+    try:
+        return generate_reasoning_from_prompt(prompt)
+    except Exception as exc:
+        print(f"LLM-fel i generate_reasoning_from_prompt: {exc}")
+        return (
+            "Det gick inte att generera ett sammanhängande resonemang just nu.\n\n"
+            + format_llm_error(exc)
+        )
 
 
 def clear_all():
@@ -183,7 +216,7 @@ def handle_rag_query(query: str, debug: bool):
     # Generera svar
     # -----------------------------
     prompt = rag_prompt(query=query, chunks=chunks)
-    answer = generate_reasoning_from_prompt(prompt)
+    answer = safe_generate_reasoning_from_prompt(prompt)
 
     # -----------------------------
     # Bygg använda källor (VIKTIGT: DEFINIERAS HÄR)
