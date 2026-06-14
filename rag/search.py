@@ -8,6 +8,11 @@ import re
 
 DATA_DIR = "rag/data"
 CHUNKS_FILE = os.path.join(DATA_DIR, "chunks.json")
+STOPWORDS = {
+    "vad", "är", "hur", "ska", "kan", "det", "de", "den", "och", "att", "som",
+    "för", "från", "med", "till", "om", "i", "på", "av", "en", "ett", "vid",
+    "utifrån", "finns", "används", "ingår", "vilka", "vilken", "då", "har"
+}
 
 
 # =========================
@@ -27,7 +32,10 @@ def load_chunks():
 def score_chunk(query: str, chunk: dict) -> float:
     query = query.lower()
 
-    query_terms = set(re.findall(r"\w+", query))
+    query_terms = {
+        term for term in re.findall(r"\w+", query)
+        if term not in STOPWORDS and len(term) > 2
+    }
     text = (chunk.get("title", "") + " " + chunk.get("text", "")).lower()
     text_terms = set(re.findall(r"\w+", text))
 
@@ -35,10 +43,17 @@ def score_chunk(query: str, chunk: dict) -> float:
 
     boost = 0
 
+    title = chunk.get("title", "").lower()
+    title_overlap = len(query_terms & set(re.findall(r"\w+", title)))
+    boost += title_overlap * 2
+
     # 🔹 Definition-fråga
     if query.startswith("vad är"):
         if any(k in chunk["title"].lower() for k in ["inledning", "syfte", "omfattning"]):
             boost += 3
+
+    if not query_terms:
+        return 0
 
     return overlap + boost
 

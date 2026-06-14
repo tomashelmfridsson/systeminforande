@@ -3,10 +3,8 @@ import os
 from urllib.parse import quote
 import gradio as gr
 
+from rag.extractive import build_extractive_reasoning
 from rag.search import search
-from rag.prompts import rag_prompt
-from llm.reasoning import generate_reasoning
-from llm.reasoning import generate_reasoning_from_prompt
 DATA_DIR = "rag/data"
 CHUNKS_FILE = os.path.join(DATA_DIR, "chunks.json")
 GITHUB_PAGES_BASE_URL = "https://tomashelmfridsson.github.io/systeminforande"
@@ -68,11 +66,9 @@ def submit(message, doc_id, debug_mode):
             if q["question"] == message:
                 fact_answer = format_answer(q["answer"])
                 source_results = search(f"{doc['title']} {message}", top_k=5)
-                reasoning = safe_generate_reasoning(
-                    title=doc["title"],
-                    main_question=doc["main_question"],
-                    question=message,
-                    answer=q["answer"],
+                reasoning = build_extractive_reasoning(
+                    message,
+                    [chunk for _, chunk in source_results],
                 )
                 
                 combined = (
@@ -116,25 +112,6 @@ def format_llm_error(exc: Exception) -> str:
         )
 
     return f"Resonemang kunde inte genereras just nu. Tekniskt fel: {message}"
-
-
-def safe_generate_reasoning(**kwargs) -> str:
-    try:
-        return generate_reasoning(**kwargs)
-    except Exception as exc:
-        print(f"LLM-fel i generate_reasoning: {exc}")
-        return format_llm_error(exc)
-
-
-def safe_generate_reasoning_from_prompt(prompt: str) -> str:
-    try:
-        return generate_reasoning_from_prompt(prompt)
-    except Exception as exc:
-        print(f"LLM-fel i generate_reasoning_from_prompt: {exc}")
-        return (
-            "Det gick inte att generera ett sammanhängande resonemang just nu.\n\n"
-            + format_llm_error(exc)
-        )
 
 
 def build_sources_md(results) -> str:
@@ -208,11 +185,7 @@ def handle_rag_query(query: str, debug: bool):
 
     chunks = [chunk for _, chunk in results]
 
-    # -----------------------------
-    # Generera svar
-    # -----------------------------
-    prompt = rag_prompt(query=query, chunks=chunks)
-    answer = safe_generate_reasoning_from_prompt(prompt)
+    answer = build_extractive_reasoning(query, chunks)
 
     sources_md = build_sources_md(results)
 
