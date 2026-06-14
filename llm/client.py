@@ -7,7 +7,7 @@ def get_llm_client():
     global _client
     if _client is None:
         _client = InferenceClient(
-            model="mistralai/Mistral-7B-Instruct-v0.2",
+            model="Qwen/Qwen2.5-1.5B-Instruct",
             token=os.environ.get("HF_TOKEN")
         )
     return _client
