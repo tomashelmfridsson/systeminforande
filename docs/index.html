@@ -1,0 +1,78 @@
+<!doctype html>
+<html lang="sv">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Systeminforande Dokument</title>
+    <style>
+      :root {
+        color-scheme: light;
+        --bg: #f6f3ea;
+        --panel: #fffdf8;
+        --text: #1f2933;
+        --muted: #52606d;
+        --line: #d9d3c3;
+        --accent: #9f2d1f;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        font-family: Georgia, "Times New Roman", serif;
+        background:
+          radial-gradient(circle at top left, rgba(159, 45, 31, 0.12), transparent 35%),
+          linear-gradient(180deg, #f1eadb 0%, var(--bg) 100%);
+        color: var(--text);
+      }
+
+      main {
+        max-width: 760px;
+        margin: 0 auto;
+        padding: 48px 20px 64px;
+      }
+
+      .panel {
+        background: var(--panel);
+        border: 1px solid var(--line);
+        border-radius: 18px;
+        padding: 28px;
+        box-shadow: 0 18px 40px rgba(31, 41, 51, 0.08);
+      }
+
+      h1 {
+        margin: 0 0 12px;
+        font-size: clamp(2rem, 6vw, 3.6rem);
+        line-height: 0.95;
+      }
+
+      p {
+        margin: 0 0 16px;
+        font-size: 1.05rem;
+        line-height: 1.6;
+        color: var(--muted);
+      }
+
+      a {
+        color: var(--accent);
+      }
+
+      code {
+        font-family: "SFMono-Regular", Consolas, monospace;
+        font-size: 0.95em;
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <section class="panel">
+        <h1>Systeminforande</h1>
+        <p>Detta är den publika dokumentsamlingen som chatboten länkar till.</p>
+        <p>PDF-filerna finns under <a href="./pdfs/">/pdfs/</a> och används som öppna källor för svar i appen.</p>
+        <p>Exempel: <code>https://tomashelmfridsson.github.io/systeminforande/pdfs/101_Styrande_planeringsdokument.pdf</code></p>
+      </section>
+    </main>
+  </body>
+</html>

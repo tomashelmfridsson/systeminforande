@@ -1,0 +1,648 @@
+/* ===============================
+   Tvinga vit bakgrund i HF Spaces
+   =============================== */
+
+html, body {
+    background: #ffffff !important;
+}
+
+/* Gradio root */
+.gradio-container {
+    background: #ffffff !important;
+}
+
+}
+
+/* HF wrapper runt appen */
+#root,
+#app,
+.app,
+main {
+    background: #ffffff !important;
+}
+
+/* =====================================================
+   BAS / RESET (kontrollerad)
+   ===================================================== */
+
+
+:root {
+    color-scheme: light !important;
+    --body-background-fill: #ffffff !important;
+    --background-fill-primary: #ffffff !important;
+    --body-text-color: #000000 !important;
+    --block-label-background-fill: #ffffff !important;
+    --background-fill-secondary: #ffffff !important;
+    --panel-background-fill: #ffffff !important;
+    --block-label-text-color: #000000 !important;
+    --checkbox-background-color: #ffffff;
+}
+
+body {
+    background: #ffffff !important;
+    color: #000000 !important;
+    font-family: Arial, Helvetica, sans-serif;
+}
+
+h1 {
+  color: #1e5bd7 !important;
+  text-align: center;
+}
+
+h2, h3, h4, p, span, label, li {
+    color: #000000 !important;
+    background-color: #ffffff !important;
+    background: #ffffff !important;
+    border: none !important;
+}
+
+/* ===============================
+   BILD – brain.png (SLUTGILTIG)
+   =============================== */
+
+/* Dölj bildens toolbar (zoom / download / share) */
+.brain-icon .image-toolbar,
+.brain-icon button,
+.brain-icon [role="toolbar"] {
+    display: none !important;
+}
+
+/* Själva bilden */
+.brain-icon img {
+    width: 100px;
+    height: auto;
+    pointer-events: none; !important;
+    user-select: none; !important;
+    display: block;
+    margin: 0 auto;
+    border: none !important;
+}
+
+.icon-button-wrapper {
+    display: none;
+    border: none !important;
+}
+
+/* ===============================
+   TA BORT GRADIO IMAGE TOOLBAR
+   =============================== */
+
+/* Själva toolbaren */
+.brain-icon .image-toolbar {
+    display: none !important;
+}
+
+/* Alla toolbar-knappar (säkerhetsnät) */
+.brain-icon button,
+.brain-icon [role="toolbar"] {
+    display: none !important;
+}
+
+/* Se till att bilden inte är klickbar */
+.brain-icon img {
+    pointer-events: none;
+    user-select: none;
+}
+.icon-button-wrapper,
+.image-container,
+.brain-header {
+    border: none !important; 
+}
+
+
+/* ===============================
+   TOP HEADER – BRAIN IMAGE
+   =============================== */
+
+.header {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    padding: 16px 0 8px 0;
+    background: #ffffff;
+}
+
+/* Själva bilden */
+.brain-header {
+    max-width: 120px;
+    height: auto;
+    display: block;
+}
+
+.brain-icon img {
+    display: block;
+    margin: 0 auto;
+    width: 120px;
+}
+
+.gradio-container hr {
+    display: none !important;
+}
+
+
+
+/* ===============================
+   TA BORT GRADIO TOP BAR / BLÅ LINJE
+   =============================== */
+
+/* Gradio container header */
+.gradio-container > header,
+.gradio-container > footer,
+.gradio-container .topbar,
+.gradio-container .app-header {
+    display: none !important;
+}
+
+/* Ibland ligger den som hr */
+.gradio-container hr {
+    display: none !important;
+}
+
+/* Ta bort Gradio-h1-linjen */
+.prose h1 {
+    border-bottom: none !important;
+}
+
+/* Header */
+.header {
+    display: flex;
+    justify-content: center;
+    margin: 20px 0;
+}
+
+.brain-header {
+    width: 120px;
+    height: auto;
+}
+
+/* =====================================================
+   HUVUDFRÅGOR (Buttons / Cards)
+   ===================================================== */
+.card,
+.card .wrap,
+.card.gr-button {
+    background-color: #ffffff !important;
+    color: #000000 !important;
+  
+    width: 260px;
+    height: 150px;
+
+    background: #ffffff !important;
+    color: #000000 !important;
+
+    border: 2px solid #1e5bd7 !important;
+    border-radius: 14px !important;
+
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+
+    text-align: center;
+    line-height: 1.2;
+    white-space: normal;
+}
+
+.card.gr-button:hover {
+    background: #eef3ff !important;
+}
+
+button.gr-button.card {
+    background-color: #ffffff !important;
+    color: #000000 !important;
+    border: 2px solid #1e5bd7 !important;
+    border-radius: 14px !important;
+}
+
+/* Innehåll i huvudfråge-kort */
+.card-content {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    text-align: center;
+}
+
+/* Titel – fet */
+.card-title {
+    font-weight: 700;
+    font-size: 14px;
+    color: #000000;
+}
+
+/* Huvudfråga – normal text */
+.card-question {
+    font-weight: 400;
+    font-size: 13px;
+    color: #000000;
+}
+
+.card {
+    position: relative;
+    padding: 12px;
+}
+
+/* Osynlig klick-yta */
+.card-overlay {
+    position: absolute !important;
+    inset: 0;
+    opacity: 0;
+    cursor: pointer;
+}
+
+.card {
+    position: relative;
+    padding: 12px;
+}
+
+/* Osynlig klickyta ovanpå kortet */
+.card-overlay {
+    position: absolute !important;
+    inset: 0;
+    opacity: 0;
+    cursor: pointer;
+}
+
+/* =====================================================
+   UNDERFRÅGOR (Dataframe / ag-grid)
+   ===================================================== */
+
+/* Ytterram */
+.question-list *,
+.question-list .wrap,
+.question-list .table,
+.question-list .cell-menu-button,
+.question-list .thead,
+.question-list .header-button,
+.question-list .text,
+.question-list .cell-wrap,
+.question-list .header-content,
+.question-list.gr-box {
+    background: #ffffff !important;
+    border: none !important;
+}
+
+.question-list {
+    background: #ffffff !important;
+    border: none !important;
+    min-height: 220px; 
+    border: 2px solid #1e5bd7 !important;
+    border-radius: 16px !important;
+    padding: 10px;
+}
+
+/*
+.question-list cell-wrap{
+    background: #ffffff !important;
+}*/
+
+/* Ta bort ALLA inre ramar */
+.question-list *,
+.question-list .ag-root,
+.question-list .ag-body,
+.question-list .ag-body-viewport,
+.question-list .ag-center-cols-container,
+.question-list .ag-row,
+.question-list .ag-cell {
+    border: none !important;
+    box-shadow: none !important;
+    background: #ffffff !important;
+    color: #000000 !important;
+}
+
+/* Ta bort svart header-rad */
+.question-list .ag-header {
+    display: none !important;
+}
+
+/* Celler */
+.question-list td {
+    background: #ffffff !important;
+    color: #000000 !important;
+    padding: 10px;
+    cursor: pointer;
+}
+
+/* Hover */
+.question-list tr:hover td {
+    background: #eef3ff !important;
+}
+
+/* Ingen orange selection */
+.question-list .ag-row-selected {
+    background: #eef3ff !important;
+}
+
+/* Ingen fokusram */
+.question-list *:focus {
+    outline: none !important;
+    box-shadow: none !important;
+}
+
+/* Ingen scrollbar */
+.question-list,
+.question-list .ag-root,
+.question-list .ag-body-viewport {
+    overflow: hidden !important;
+}
+
+/* Yttre ram – behåll */
+.question-list {
+    border: 2px solid #1e5bd7 !important;
+    border-radius: 16px !important;
+    background: #ffffff !important;
+}
+
+/* Tillåt intern scroll (annars buggar ag-grid) */
+.question-list .ag-body-viewport {
+    overflow-y: auto !important;
+}
+
+/* Markering av vald rad */
+.question-list .ag-row-selected,
+.question-list .ag-row-selected .ag-cell {
+    background-color: #eef3ff !important;
+}
+
+/* Hover */
+.question-list .ag-row:hover .ag-cell {
+    background-color: #eef3ff !important;
+}
+
+/* Ta bort onödiga ramar */
+.question-list .ag-cell,
+.question-list .ag-row {
+    border: none !important;
+}
+
+/* Ta bort markeringsrutor / fokusramar helt */
+.question-list .ag-cell-focus,
+.question-list .ag-cell-focus:focus,
+.question-list .ag-cell-focus:focus-visible,
+.question-list .ag-row-focus,
+.question-list .ag-row-focus * {
+    outline: none !important;
+    box-shadow: none !important;
+}
+
+/* Ta bort selection-outline */
+.question-list .ag-cell::after {
+    display: none !important;
+}
+
+/* =====================================================
+   MEDDELANDE (Textbox) – STABIL LÖSNING
+   ===================================================== */
+
+/* Yttre container */
+.message-box {
+    background: #ffffff !important;
+    border: 2px solid #1e5bd7 !important;
+    border-radius: 16px !important;
+    padding: 10px !important;
+    min-height: 220px;
+}
+
+/* Ta bort Gradio-inre effekter */
+.message-box .wrap,
+.message-box.gr-box {
+    background: #ffffff !important;
+    border: none !important;
+    box-shadow: none !important;
+}
+
+/* YTTRE BLOCK – döda Gradio-ram + mörka hörn */
+.block.message-box {
+    background: #ffffff !important;
+    border: none !important;
+    box-shadow: none !important;
+}
+
+/* Label-container som Gradio använder för extra ram */
+.message-box label.show_textbox_border {
+    border: none !important;
+    box-shadow: none !important;
+    background: #ffffff !important;
+}
+
+/* Själva textarea – ALL text ritas här */
+.message-box textarea {
+    width: 100% !important;
+    /*padding: 14px !important;*/
+
+    background-color: #ffffff !important;
+    color: #000000 !important;
+
+    border: none !important;
+    outline: none !important;
+    resize: none;
+
+    font-size: 15px;
+    line-height: 1.4;
+
+    -webkit-text-fill-color: #000000 !important;
+}
+
+/* Placeholder */
+.message-box textarea::placeholder {
+    color: #6b6b6b !important;
+    opacity: 1 !important;
+}
+
+/* ===============================
+   TA BORT YTTRE GRADIO-RAM PÅ TEXTBOX
+   =============================== */
+
+/* Label-containern runt textbox */
+label.show_textbox_border,
+label.container.show_textbox_border {
+    border: none !important;
+    background: #ffffff !important;
+    box-shadow: none !important;
+    padding: 10px !important;
+}
+
+/* Säkerhetsnät – om Gradio ändrar klassnamn */
+.block:has(.message-box) > label {
+    border: none !important;
+    background: #ffffff !important;
+    box-shadow: none !important;
+}
+
+/* ===============================
+   TA BORT FOCUS-RUTA I TEXTAREA
+   =============================== */
+
+/* Browser focus */
+.message-box textarea:focus,
+.message-box textarea:focus-visible,
+.message-box textarea:active {
+    outline: none !important;
+    box-shadow: none !important;
+}
+
+/* Gradio / Svelte focus-layer */
+.message-box textarea::after,
+.message-box textarea::before {
+    display: none !important;
+}
+
+/* Om Gradio lägger focus på wrapper */
+.message-box .wrap:focus,
+.message-box .wrap:focus-within {
+    outline: none !important;
+    box-shadow: none !important;
+    border-color: #1e5bd7 !important; /* behåll din blå ram */
+}
+
+/* Safari / Chromium specialfall */
+.message-box textarea {
+    -webkit-tap-highlight-color: #ffffff !important;
+}
+
+/* =====================================================
+   SVAR
+   ===================================================== */
+
+
+.answer-box .wrap,
+.answer-box.gr-box {
+    color: #1e5bd7 !important;
+    background: #ffffff !important;
+    border: none !important;
+}
+.answer-box {
+    border: 2px solid #1e5bd7 !important;
+    border-radius: 10px !important;
+    min-height: 220px; 
+    padding: 10px;
+}
+
+
+.answer-box * {
+    color: #000000 !important;
+    background: #ffffff !important;
+    border: none !important;
+    /*border: 2px solid #000000 !important;
+    border-radius: 10px !important;*/
+}
+
+/* ===============================
+   SKICKA & RENSA – ABSOLUT LJUST
+   =============================== */
+
+.gradio-container button.gr-button.send-btn,
+.gradio-container button.gr-button.send-btn.primary,
+.gradio-container button.gr-button.send-btn.secondary {
+    background-color: #ffffff !important;
+    color: #000000 !important;
+    border: 2px solid #000000 !important;
+    border-radius: 10px !important;
+
+    box-shadow: none !important;
+    font-weight: 600;
+
+    --button-primary-background-fill: #ffffff !important;
+    --button-primary-background-fill-hover: #f2f2f2 !important;
+    --button-primary-text-color: #000000 !important;
+}
+
+.gradio-container button.gr-button.send-btn:hover {
+    background-color: #f2f2f2 !important;
+}
+
+/* ===============================
+   CHECKBOX – TA BORT SVART BAKGRUND
+   =============================== */
+
+/* Wrapper runt checkbox */
+.gradio-container .gr-checkbox,
+.gradio-container .gr-checkbox *,
+.gradio-container .form:has(.gr-checkbox) {
+    background: #ffffff !important;
+    box-shadow: none !important;
+    border: none !important;
+}
+
+/* Själva checkboxen */
+.gradio-container .gr-checkbox input[type="checkbox"] {
+    accent-color: #000000;
+}
+
+/* Texten */
+.gradio-container .gr-checkbox label {
+    color: #000000 !important;
+    font-weight: 500;
+}
+
+  /* ===============================
+   TA BORT SVARTA HÖRN I MEDDELANDE
+   =============================== */
+
+label.show_textbox_border::before,
+label.show_textbox_border::after {
+    display: none !important;
+    content: none !important;
+}
+
+label.show_textbox_border {
+    background: #ffffff !important;
+    border: none !important;
+    box-shadow: none !important;
+}
+
+/* ===============================
+   TVINGA LJUSA KNAPPAR (ÄVEN SECONDARY)
+   =============================== */
+
+.gradio-container button.gr-button.secondary,
+.gradio-container button.gr-button.primary {
+    background-color: #ffffff !important;
+    color: #000000 !important;
+    border: 2px solid #000000 !important;
+    border-radius: 10px !important;
+    box-shadow: none !important;
+}
+
+.gradio-container button.gr-button.secondary:hover,
+.gradio-container button.gr-button.primary:hover {
+    background-color: #f2f2f2 !important;
+}  
+
+  /* ===============================
+   TA BORT SVART PLATTA BAKOM CHECKBOX
+   =============================== */
+
+.gradio-container .form:has(.gr-checkbox) {
+    background: #ffffff !important;
+    box-shadow: none !important;
+    border: none !important;
+}
+
+label.checkbox-container * input[type="checkbox"] {
+  background-color: #ffffff !important;
+  border-color: #000000 !important;
+  /* You might also want to ensure the border style and width are consistent */
+  border-style: solid;
+  border-width: 2px;
+}
+
+/* ===============================
+   CHECKBOX – FUNGERANDE SVART BOCK
+   =============================== */
+/*
+.gradio-container input[type="checkbox"] {
+    accent-color: #000000 !important;
+    background-color: #ffffff !important;
+}
+*/
+.form .block{
+    background: #ffffff !important;
+}
+
+/* ===============================
+   CHECKBOX – KORREKT STYLING
+   =============================== */
+
+.gradio-container .gr-checkbox {
+    --checkbox-background-color: #ffffff;
+    --checkbox-border-color: #000000;
+}

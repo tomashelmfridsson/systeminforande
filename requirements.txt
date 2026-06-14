@@ -1,0 +1,7 @@
+gradio
+transformers
+sentence-transformers
+torch
+pymupdf
+beautifulsoup4
+requests

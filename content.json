@@ -1,0 +1,288 @@
+{
+  "documents": [
+    {
+      "id": "införandekrav",
+      "title": "Områden för införandekrav",
+      "main_question": "Hur definieras och struktureras införandekrav?",
+      "subquestions": [
+        {
+          "id": "syfte",
+          "question": "Vad är syftet med införandekrav?",
+          "answer": {
+            "Syfte": "Att säkerställa att alla förutsättningar för införandet är identifierade, hanterade och beslutade innan genomförande.",
+            "Beskrivning": "Införandekrav tydliggör krav på verksamhet, teknik och organisation vid införandet av ett IT-system.",
+            "Exempel": [
+              "Utbildning ska vara genomförd innan driftsättning",
+              "IT-miljöer ska vara etablerade för test och provdrift"
+            ],
+            "Resultat": "Minskad risk för sena åtgärder och omtag."
+          }
+        },
+        {
+          "id": "kravomraden",
+          "question": "Vilka kravområden ingår i införandekrav?",
+          "answer": {
+            "Beskrivning": "Införandekrav delas in i kravområden som tillsammans täcker hela införandet.",
+            "Lista": [
+              "Övergripande krav",
+              "Arbetsrutiner",
+              "Systemsamband",
+              "Systemuppsättning",
+              "Säkerhet och behörigheter",
+              "Acceptanstest",
+              "Utbildning och information",
+              "Användarstöd",
+              "Dokumentation",
+              "Registerinformation",
+              "Teknisk plattform",
+              "IT-miljöer",
+              "Konvertering och laddning",
+              "Omläggning",
+              "Provdrift",
+              "Driftsättning",
+              "Förvaltningsöverlämnande"
+            ]
+          }
+        },
+        {
+          "id": "identifiering",
+          "question": "Hur identifieras införandekrav per kravområde?",
+          "answer": {
+            "Beskrivning": "Kraven identifieras genom analys av verksamhetens behov, arbetssätt och tekniska förutsättningar.",
+            "Exempel": [
+              "Workshops med verksamheten",
+              "Analys av befintliga system och processer"
+            ],
+            "Resultat": "Dokumenterade och förankrade införandekrav per område."
+          }
+        },
+        {
+          "id": "uppfoljning",
+          "question": "Hur används införandekrav i planering och uppföljning?",
+          "answer": {
+            "Beskrivning": "Införandekrav används som styrande underlag för planering, uppföljning och beslut per etapp.",
+            "Exempel": [
+              "Kontroll av utbildningskrav före driftsättning",
+              "Uppföljning av säkerhetskrav inför provdrift"
+            ],
+            "Resultat": "Strukturerad uppföljning och tydliga beslut."
+          }
+        },
+        {
+          "id": "beslut",
+          "question": "När ska införandekrav vara fastställda och beslutade?",
+          "answer": {
+            "Beskrivning": "Införandekrav ska vara beslutade innan genomförandefasen startar.",
+            "Resultat": "Stabil grund för införandet."
+          }
+        }
+      ]
+    },
+
+    {
+      "id": "arbetsomraden",
+      "title": "Arbetsområden",
+      "main_question": "Hur delas införandet upp i arbetsområden?",
+      "subquestions": [
+        {
+          "id": "definition",
+          "question": "Vad är ett arbetsområde?",
+          "answer": {
+            "Beskrivning": "Ett arbetsområde samlar aktiviteter som hör ihop funktionellt eller organisatoriskt.",
+            "Exempel": [
+              "Acceptanstest",
+              "Utbildning",
+              "IT-miljöer"
+            ],
+            "Resultat": "Tydlig ansvarsfördelning."
+          }
+        },
+        {
+          "id": "typer",
+          "question": "Vilka typer av arbetsområden finns?",
+          "answer": {
+            "Beskrivning": "Arbetsområden kan vara verksamhetsnära, tekniska eller samordnande.",
+            "Resultat": "Heltäckande införande."
+          }
+        },
+        {
+          "id": "planering",
+          "question": "Hur används arbetsområden i planeringen?",
+          "answer": {
+            "Beskrivning": "Arbetsområden ligger till grund för etapp- och aktivitetsplanering.",
+            "Resultat": "Uppföljningsbart genomförande."
+          }
+        }
+      ]
+    },
+
+    {
+      "id": "arbetsomraden_etapper_aktiviteter",
+      "title": "Arbetsområden, etapper och aktiviteter",
+      "main_question": "Hur hänger arbetsområden, etapper och aktiviteter ihop?",
+      "subquestions": [
+        {
+          "id": "relation",
+          "question": "Vad är relationen mellan arbetsområden, etapper och aktiviteter?",
+          "answer": {
+            "Beskrivning": "Arbetsområde anger vad som ska göras, etapp när och aktivitet hur.",
+            "Resultat": "Gemensam struktur."
+          }
+        },
+        {
+          "id": "nedbrytning",
+          "question": "Hur bryts ett arbetsområde ner i etapper och aktiviteter?",
+          "answer": {
+            "Exempel": [
+              "Acceptanstest → Etapp acceptanstest → Testplan, tester, rapport"
+            ],
+            "Resultat": "Planeringsbar helhet."
+          }
+        }
+      ]
+    },
+
+    {
+      "id": "faser_etapper",
+      "title": "Faser och etapper",
+      "main_question": "Vilka faser ingår i införandet?",
+      "subquestions": [
+        {
+          "id": "faser",
+          "question": "Vilka huvudfaser ingår i införandet?",
+          "answer": {
+            "Beskrivning": "Initiering, förberedelse, genomförande och avslut.",
+            "Resultat": "Kontrollerat införande."
+          }
+        },
+        {
+          "id": "etapper",
+          "question": "Hur används etapper i faserna?",
+          "answer": {
+            "Beskrivning": "Varje fas innehåller en eller flera etapper som avslutas med beslut.",
+            "Resultat": "Tydliga beslutspunkter."
+          }
+        }
+      ]
+    },
+
+    {
+      "id": "faser_aktiviteter",
+      "title": "Faser och aktiviteter",
+      "main_question": "Hur delas faser upp i aktiviteter?",
+      "subquestions": [
+        {
+          "id": "aktivitet",
+          "question": "Vad är en aktivitet?",
+          "answer": {
+            "Beskrivning": "Minsta planerings- och uppföljningsbara enhet.",
+            "Exempel": ["Ta fram utbildningsmaterial"],
+            "Resultat": "Genomförbar plan."
+          }
+        },
+        {
+          "id": "koppling",
+          "question": "Hur kopplas aktiviteter till faser?",
+          "answer": {
+            "Beskrivning": "Aktiviteter grupperas per fas och etapp.",
+            "Resultat": "Spårbarhet."
+          }
+        }
+      ]
+    },
+
+    {
+      "id": "aktivitetsbeskrivningar",
+      "title": "Faser och aktivitetsbeskrivningar",
+      "main_question": "Hur beskrivs aktiviteter strukturerat?",
+      "subquestions": [
+        {
+          "id": "innehall",
+          "question": "Vad ska ingå i en aktivitetsbeskrivning?",
+          "answer": {
+            "Beskrivning": "Syfte, ansvar, underlag och resultat.",
+            "Resultat": "Enhetlig dokumentation."
+          }
+        }
+      ]
+    },
+
+    {
+      "id": "införandeprocess",
+      "title": "Införandeprocess för IT-system",
+      "main_question": "Hur ser den övergripande införandeprocessen ut?",
+      "subquestions": [
+        {
+          "id": "process",
+          "question": "Vad är införandeprocessen?",
+          "answer": {
+            "Beskrivning": "Från uppdrag till överlämning till förvaltning.",
+            "Resultat": "Helhetsperspektiv."
+          }
+        }
+      ]
+    },
+
+    {
+      "id": "arbetsmodell",
+      "title": "Arbetsmodell vid införande av IT-system",
+      "main_question": "Vilken arbetsmodell används vid införandet?",
+      "subquestions": [
+        {
+          "id": "modell",
+          "question": "Vad innebär arbetsmodellen?",
+          "answer": {
+            "Beskrivning": "Planera, utföra, följa upp och stämma av.",
+            "Resultat": "Iterativ kontroll."
+          }
+        }
+      ]
+    },
+
+    {
+      "id": "mallar",
+      "title": "Mallar – översikt",
+      "main_question": "Vilka mallar används i införandet och när?",
+      "subquestions": [
+        {
+          "id": "syfte",
+          "question": "Varför används mallar?",
+          "answer": {
+            "Beskrivning": "För att skapa enhetlighet och kvalitet.",
+            "Resultat": "Effektiv dokumentation."
+          }
+        },
+        {
+          "id": "exempel",
+          "question": "Vilka mallar används?",
+          "answer": {
+            "Exempel": [
+              "Projektplan",
+              "Etappplan",
+              "Aktivitetsplan",
+              "Statusrapport",
+              "Acceptanstest"
+            ],
+            "Resultat": "Stöd för styrning. Se mer på https://www.systeminforande.se/checklistor-och-mallar-till-verktyget-1"
+          }
+        }
+      ]
+    },
+
+    {
+      "id": "oversikt",
+      "title": "Översikt och aktivitetsbeskrivningar",
+      "main_question": "Hur hänger införandets alla delar ihop?",
+      "subquestions": [
+        {
+          "id": "helhet",
+          "question": "Vad visar översikten?",
+          "answer": {
+            "Beskrivning": "Samband mellan krav, arbetsområden, faser och aktiviteter.",
+            "Resultat": "Gemensam förståelse."
+          }
+        }
+      ]
+    }
+  ]
+}
