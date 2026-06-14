@@ -20,19 +20,37 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
-        with:
-          lfs: true
 
-      - name: Configure git and LFS
+      - name: Configure git
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git lfs install
+
+      - name: Prepare deploy workspace
+        run: |
+          rm -rf /tmp/hf-deploy
+          mkdir -p /tmp/hf-deploy
+          cp app.py /tmp/hf-deploy/
+          cp content.json /tmp/hf-deploy/
+          cp requirements.txt /tmp/hf-deploy/
+          cp style.css /tmp/hf-deploy/
+          cp README.md /tmp/hf-deploy/
+          cp -R llm /tmp/hf-deploy/
+          cp -R rag /tmp/hf-deploy/
+          rm -rf /tmp/hf-deploy/rag/__pycache__
+          rm -rf /tmp/hf-deploy/rag/web
+          mkdir -p /tmp/hf-deploy/rag/web
+          cp rag/web/source.txt /tmp/hf-deploy/rag/web/source.txt
 
       - name: Push to Hugging Face Space
         env:
           HF_TOKEN: ${{ secrets.HF_TOKEN }}
         run: |
           test -n "$HF_TOKEN"
+          cd /tmp/hf-deploy
+          git init
+          git checkout -b main
+          git add .
+          git commit -m "Deploy from GitHub Actions"
           git remote add hf "https://oauth2:${HF_TOKEN}@huggingface.co/spaces/helmfridsson/systeminforande"
-          git push --force hf HEAD:main
+          git push --force hf main:main
