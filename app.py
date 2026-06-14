@@ -1,6 +1,5 @@
 import json
 import os
-import time
 from urllib.parse import quote
 import gradio as gr
 
@@ -10,7 +9,6 @@ from llm.reasoning import generate_reasoning
 from llm.reasoning import generate_reasoning_from_prompt
 DATA_DIR = "rag/data"
 CHUNKS_FILE = os.path.join(DATA_DIR, "chunks.json")
-LOCAL_PDF_DIR = "docs/pdfs"
 GITHUB_PAGES_BASE_URL = "https://tomashelmfridsson.github.io/systeminforande"
 GITHUB_PAGES_PDF_BASE_URL = f"{GITHUB_PAGES_BASE_URL}/pdfs"
 HEADER_IMAGE_URL = (
@@ -18,30 +16,10 @@ HEADER_IMAGE_URL = (
     "tomashelmfridsson/systeminforande/main/brain.jpg"
 )
 
-from rag.ingest import ingest_pdfs_and_web, save_chunks
-
-
-def ensure_rag_data():
-    if os.path.isdir(LOCAL_PDF_DIR):
-        print("🔄 Startar RAG-ingest")
-        start_time = time.perf_counter()
-        chunks = ingest_pdfs_and_web()
-        save_chunks(chunks, out_dir=DATA_DIR)
-        elapsed = time.perf_counter() - start_time
-        print(f"✅ Ingest klar – {len(chunks)} chunkar skapade")
-        print(f"⏱️ Ingest-tid: {elapsed:.2f} sekunder")
-        return
-
-    if os.path.exists(CHUNKS_FILE):
-        print("ℹ️ Lokala PDF-filer saknas, använder förgenererade chunks")
-        return
-
+if not os.path.exists(CHUNKS_FILE):
     raise FileNotFoundError(
-        "Varken docs/pdfs eller rag/data/chunks.json finns tillgängliga."
+        "rag/data/chunks.json saknas. Bygg indexet innan appen startas."
     )
-
-
-ensure_rag_data()
 
 
 print("HF_TOKEN present:", bool(os.getenv("HF_TOKEN")))

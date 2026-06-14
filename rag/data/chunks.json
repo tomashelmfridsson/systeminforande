@@ -1108,7 +1108,7 @@
     "source_type": "pdf"
   },
   {
-    "id": "507_Dokumentation_anv„ndarhandbok_UTBETALNING",
+    "id": "507_Dokumentation_anvandarhandbok_UTBETALNING",
     "title": "UTBETALNING",
     "section": "UTBETALNING",
     "text": "I fliken Utbetalning kan du se uppgifter om en medlems utbetalningar.\nFliken är uppdelad i två delar, en övre och en nedre del. I den övre delen visas\nen sammanfattning av utbetalningarna per datum. I den nedre delen kan du se\nen viss utbetalning preciserad vecka för vecka.\nDokument\nVersion\nDatum\nSida\nHandbok i OAS 3 - Pilotversion\n1.1\n2002-04-30\n1",
@@ -1116,11 +1116,11 @@
       9,
       10
     ],
-    "source": "507_Dokumentation_anv„ndarhandbok.pdf",
+    "source": "507_Dokumentation_anvandarhandbok.pdf",
     "source_type": "pdf"
   },
   {
-    "id": "507_Dokumentation_anv„ndarhandbok_KASSAKORT",
+    "id": "507_Dokumentation_anvandarhandbok_KASSAKORT",
     "title": "KASSAKORT",
     "section": "KASSAKORT",
     "text": "I denna flik behandlas allt som har med kassakorten att göra.\nI fliken Kassakort kan du se och göra flera saker.\nDu kan bl a….\n…se ett inläst kassakort,\n…registrera ett kassakort manuellt,\n…återsända kassakort,\n…öppna bild av kassakort,\n…se uppgifter om förväntad hindertid och åtgärder/bevakningar.\nDokument\nVersion\nDatum\nSida\nHandbok i OAS 3 - Pilotversion\n1.1\n2002-04-30\n1\nBREV\nI fliken brev hamnar de brev som skapas på medlemmen. Du kan även skapa en\ndel egna brev och om du vill så kan du ha en bevakning på dessa.\nNär du går till fliken brev så tänds verktygsraden som berör brevfliken.\nOm du markerar ett visst brev så kan du se de brevvariabler som finns för just\ndet brevet.\nINTYG\nHär kan du registrera intyg som berör medlemmen. Intyg som skannas in ska\nockså hamna i denna flik.\nDokument\nVersion\nDatum\nSida\nHandbok i OAS 3 - Pilotversion\n1.1\n2002-04-30\n1\nUTBILDNING/PROGRAM\nI fliken Utbildning/Program så ser du de utbildningar/program som överförs via\nfiler från/till CSN/RFV. Här hanterar du de medlemmar som ska gå utbildning vad\ngäller dagpenning prövning, numera behöver du inte göra en\nförstagångsprövning.\nHär ser du samordningsdagarna som medlemmen erhållit. Har medlemmen en\nfast deltid så ser du även erhållna deltidsveckor.",
@@ -1129,11 +1129,11 @@
       12,
       13
     ],
-    "source": "507_Dokumentation_anv„ndarhandbok.pdf",
+    "source": "507_Dokumentation_anvandarhandbok.pdf",
     "source_type": "pdf"
   },
   {
-    "id": "507_Dokumentation_anv„ndarhandbok_MEDLEM",
+    "id": "507_Dokumentation_anvandarhandbok_MEDLEM",
     "title": "MEDLEM",
     "section": "MEDLEM",
     "text": "I fliken medlem behandlas och visas medlemsspecifika uppgifter. Exempelvis\nhittar du här uppgifter om namn, adressuppgifter inklusive tillfällig adress och\nmailadress, skatteuppgifter, organisationstillhörighet osv\nFliken är uppdelad i olika grupper av fält: Medlemsuppgifter, Medlemskap och\nSkatt och jämkning.\nDokument\nVersion\nDatum\nSida\nHandbok i OAS 3 - Pilotversion\n1.1\n2002-04-30\n1\nProcesser\nInnehållsförteckning\nProcess\nSida\nAdressuppgifter – registrera\n16\nAnteckning – skriva, ändra och ta bort\n17\nAvdrag – anstånd\n18\nAvdrag – förändra\n19\nAvdrag – manuell inbetalning\n20\nAvdrag – skapa\n21\nAvdrag – ta bort\n22\nAvslag – registrera\n23\nAvstängning – registrera\n24\nBeviljad from\n25\nBisyssla – registrera/ändra\n26\nBrev – beställa\n27\nBrev – editera\n28\nBrev – förhandsgranska\n29\nBrev – lokal utskrift\n30\nBrev – skapa\n31\nBrev – stoppa utskrift\n32\nDagpenninghandläggning\n33\nDeltidsföretag – registrera/ändra\n34\nDelutbetalning – registrera\n35\nEj medlemsavgift\n36\nErsättning från annan\n37\nErsättningsnivå – ändra\n38\nFrånkännande – registrera\n39\nFörstagångsprövning\n40\nFörväntad hindertid – registrera\n42\nHandläggare – ändra\n43\nIntyg –registrera\n44\nJämkning – registrera/ändra\n45\nKassakort – manuellt beställa\n46\nKassakort – godkänna dubblett av\n47\nKassakort – registrera\n48\nKassakort – stoppa\n49\nKassakort – visa alla för medlem\n50\nKassakort – återskick av inskannade\n51\nKassakortstyp – ändra\n52\nKommande arbetsvillkor\n53\nManuell utbetalning\n54\nMedlem – registrera\n55\nMedlem – söka\n56\nMedlem – ta bort\n57\nNA, NI och Utbud – ändra\n58\nNedsättning – registrera\n59\nPension – registrera\n60\nPersonnummer – byta/ändra\n61\nSekretess\n62\nSpärr – registrera\n63\nEU-handläggning (E303)\n64\nTalsvarskod – ändra\n65\nUnder handläggning\n66\nVilande företag – registrera\n67\nÅterkrav – registrera manuellt förslag\n68\nÅterkrav – registrera\n69\nÅterkrav – rätta\n70\nÅtgärder och bevakningar\n71\nÖvergångsuppgifter – registrera\n72\nDokument\nVersion\nDatum\nSida\nHandbok i OAS 3 - Pilotversion\n1.1\n2002-04-30\n1",
@@ -1142,11 +1142,11 @@
       15,
       16
     ],
-    "source": "507_Dokumentation_anv„ndarhandbok.pdf",
+    "source": "507_Dokumentation_anvandarhandbok.pdf",
     "source_type": "pdf"
   },
   {
-    "id": "507_Dokumentation_anv„ndarhandbok_ADRESSUPPGIFTER - REGISTRERA",
+    "id": "507_Dokumentation_anvandarhandbok_ADRESSUPPGIFTER - REGISTRERA",
     "title": "ADRESSUPPGIFTER - REGISTRERA",
     "section": "ADRESSUPPGIFTER - REGISTRERA",
     "text": "1. Klicka på fliken Medlem\n2. Den adressrad som har vit bakgrund i översiktsrutan är de adressuppgifter\nsom visas i gruppen av fält - Medlemsuppgifter. Du ändrar dessa uppgifter\ndirekt i varje fält.\n3. För att lägga till en adress klickar man först i rutan och trycker på ”insert-\ntangenten”\n4. Klicka på\n(spara) eller [Ctrl + S]\nDokument\nVersion\nDatum\nSida\nHandbok i OAS 3 - Pilotversion\n1.1\n2002-04-30\n1\nANTECKNING – SKRIVA, ÄNDRA OCH TA BORT\nOm anteckning\nAnteckningsfältet består av två fält. I det övre fältet visas den textrad som\nhandläggaren bör observera. I det undre fältet skriver handläggarna in de olika\nanteckningarna som ska göras på denna medlem.",
@@ -1154,11 +1154,11 @@
       16,
       17
     ],
-    "source": "507_Dokumentation_anv„ndarhandbok.pdf",
+    "source": "507_Dokumentation_anvandarhandbok.pdf",
     "source_type": "pdf"
   },
   {
-    "id": "507_Dokumentation_anv„ndarhandbok_ATT ANTECKNA",
+    "id": "507_Dokumentation_anvandarhandbok_ATT ANTECKNA",
     "title": "ATT ANTECKNA",
     "section": "ATT ANTECKNA",
     "text": "1. Du kan ha vilken flik som helst framme.\n2. Klicka\npå\n3. Följande fält visas :\nI det översta fältet skriver man in den text man vill ska visas i obsfältet\nI det understa fältet skriver man själva anteckningen\nKlicka på\n(spara) eller [Ctrl + S]\nDokument\nVersion\nDatum\nSida\nHandbok i OAS 3 - Pilotversion\n1.1\n2002-04-30\n1",
@@ -1166,11 +1166,11 @@
       17,
       18
     ],
-    "source": "507_Dokumentation_anv„ndarhandbok.pdf",
+    "source": "507_Dokumentation_anvandarhandbok.pdf",
     "source_type": "pdf"
   },
   {
-    "id": "507_Dokumentation_anv„ndarhandbok_AVDRAG - FÖRÄNDRA",
+    "id": "507_Dokumentation_anvandarhandbok_AVDRAG - FÖRÄNDRA",
     "title": "AVDRAG - FÖRÄNDRA",
     "section": "AVDRAG - FÖRÄNDRA",
     "text": "1. Klicka på fliken Avdrag\n2. Markera det avdrag som du vill förändra\n3. Avdragets uppgifter flyttas då upp i den övre delen.\n4. Du förändrar avdragstyp via rullisten.\n3. Du kan förändra kontonummer.\n4. Du kan förändra Diarienummer\n5. Förändra giltighetstid.\n6. Förändra totalbelopp.\n7. Förändra belopp/dag eller belopp/vecka beroende på vad som angivits på\nhandlingen/beslutet.\n8. Förändra förbehållsbelopp.\n9. Förändra anstånd om det är aktuellt.\n10.  Klicka på\n(spara) eller [Ctrl + S]\nDokument\nVersion\nDatum\nSida\nHandbok i OAS 3 - Pilotversion\n1.1\n2002-04-30\n1",
@@ -1178,11 +1178,11 @@
       19,
       20
     ],
-    "source": "507_Dokumentation_anv„ndarhandbok.pdf",
+    "source": "507_Dokumentation_anvandarhandbok.pdf",
     "source_type": "pdf"
   },
   {
-    "id": "507_Dokumentation_anv„ndarhandbok_AVDRAG - MANUELL INBETALNING",
+    "id": "507_Dokumentation_anvandarhandbok_AVDRAG - MANUELL INBETALNING",
     "title": "AVDRAG - MANUELL INBETALNING",
     "section": "AVDRAG - MANUELL INBETALNING",
     "text": "1. Klicka på fliken Avdrag\n2. Välj Registrera inbetalning under menyvalet Avdrag\n3. Registrera inbetalningsdatum och inbetalat belopp i fälten, år/mån/dag\n4. Klicka på OK om registreringen är korrekt alternativt Cancel (avbryt) om du\ninte vill/ångrar dig att registrera inbetalningen\n5. Klicka på          (spara) eller Ctrl + S.\nDokument\nVersion\nDatum\nSida\nHandbok i OAS 3 - Pilotversion\n1.1\n2002-04-30\n1\nAVDRAG – SKAPA\n1. Klicka på fliken Avdrag\n2. Du väljer avdragstyp i rullisten, ex Kronofogdemyndigheten, Socialförvaltning\no s v.\n3. Skriv in det kontonummer beloppet ska inbetalas till.\n4. Skriv in Diarienummer.\n5. Registrera giltighetstid, from datum är alltid från dagens datum och det\nkommer upp med automatik.\n6. Skriv in totalbelopp, om det finns angivet\n7. Skriv in belopp/dag eller belopp/vecka beroende på vad som angivits på\nhandlingen/beslutet.\n8. Skriv in förbehållsbelopp om det finns angivet\n9. Skriv in anstånd om det är aktuellt, from datum är dagens datum och det\nläggs ut automatiskt. Avdragets anstånd gäller under de utbetalningar som\nkassan gör under den tiden, exempel anstånd 1/12 – 31/12. Detta innebär att\nutbetalningar som görs under denna tid har anstånd oavsett vilka\nkassakortsveckor som utbetalas under den perioden.\n10. Klicka på\n(spara) eller [Ctrl + S]\n11.Har du flera avdrag börjar du nu om processen.\nDokument\nVersion\nDatum\nSida\nHandbok i OAS 3 - Pilotversion\n1.1\n2002-04-30\n1\nAVDRAG - AVSLUTA/TA BORT\nSkillnaden mellan att avsluta och ta bort ett avdrag är att ett avslutat avdrag\nligger kvar i listboxen med status ”makulerad” medan ett avdrag som man tagit\nbort inte syns i listboxen.",
@@ -1191,22 +1191,22 @@
       21,
       22
     ],
-    "source": "507_Dokumentation_anv„ndarhandbok.pdf",
+    "source": "507_Dokumentation_anvandarhandbok.pdf",
     "source_type": "pdf"
   },
   {
-    "id": "507_Dokumentation_anv„ndarhandbok_AVSLUTA",
+    "id": "507_Dokumentation_anvandarhandbok_AVSLUTA",
     "title": "AVSLUTA",
     "section": "AVSLUTA",
     "text": "De avdrag där regleringen är påbörjad kan du avsluta.\n1. Klicka på fliken avdrag\n2. Dubbelklicka på raden i listboxen och förändra statusen på avdraget till\navslutat\n3. Klicka på\n(spara) eller [Ctrl + S]\nAvdraget kommer fortfarande synas i listboxen men statusen kommer\nvara ”makulerad”.",
     "pages": [
       22
     ],
-    "source": "507_Dokumentation_anv„ndarhandbok.pdf",
+    "source": "507_Dokumentation_anvandarhandbok.pdf",
     "source_type": "pdf"
   },
   {
-    "id": "507_Dokumentation_anv„ndarhandbok_TA BORT",
+    "id": "507_Dokumentation_anvandarhandbok_TA BORT",
     "title": "TA BORT",
     "section": "TA BORT",
     "text": "De avdrag som inte är reglerade kan du ta bort.\n1. Klicka på fliken avdrag\n2. Markera en rad i listboxen och tryck på delete-tangenten.\n3. Klicka på\n(spara) eller [Ctrl + S].\nDokument\nVersion\nDatum\nSida\nHandbok i OAS 3 - Pilotversion\n1.1\n2002-04-30\n1",
@@ -1214,11 +1214,11 @@
       22,
       23
     ],
-    "source": "507_Dokumentation_anv„ndarhandbok.pdf",
+    "source": "507_Dokumentation_anvandarhandbok.pdf",
     "source_type": "pdf"
   },
   {
-    "id": "507_Dokumentation_anv„ndarhandbok_AVSLAG - REGISTRERA",
+    "id": "507_Dokumentation_anvandarhandbok_AVSLAG - REGISTRERA",
     "title": "AVSLAG - REGISTRERA",
     "section": "AVSLAG - REGISTRERA",
     "text": "1. Klicka på fliken Ersättningsperiod\n2. Klicka på rutan och tryck på ”Insert-tangenten”\n3. Välj Avslag och klicka på OK\n4. Fältet ändrar utseende, du fyller i Typen genom att klicka på pilen och välja i\nlistan, fyll i From-datum och är det ett avslag under en begränsad tid fyller du\näven i Tom-datum.\n5. Klicka\npå (spara) eller [Ctrl + S]\nDokument\nVersion\nDatum\nSida\nHandbok i OAS 3 - Pilotversion\n1.1\n2002-04-30\n1",
@@ -1226,11 +1226,11 @@
       23,
       24
     ],
-    "source": "507_Dokumentation_anv„ndarhandbok.pdf",
+    "source": "507_Dokumentation_anvandarhandbok.pdf",
     "source_type": "pdf"
   },
   {
-    "id": "507_Dokumentation_anv„ndarhandbok_AVSTÄNGNING - REGISTRERA",
+    "id": "507_Dokumentation_anvandarhandbok_AVSTÄNGNING - REGISTRERA",
     "title": "AVSTÄNGNING - REGISTRERA",
     "section": "AVSTÄNGNING - REGISTRERA",
     "text": "1. Klicka på fliken Ersättningsperiod\n2. Klicka i rutan och tryck på ”Insert-tangenten”\n3. Välj vilken typ av avstängning som ska göras och klicka på OK\n4. Välj antalet dagar genom att klicka på pilen och välj i listan.\n5. Fyll i from datum och tom datum. Fyll eventuellt i antalet manuellt avräknade\ndagar.\n6. Klicka på\n(spara) eller [Ctrl + S]\nDokument\nVersion\nDatum\nSida\nHandbok i OAS 3 - Pilotversion\n1.1\n2002-04-30\n1",
@@ -1238,11 +1238,11 @@
       24,
       25
     ],
-    "source": "507_Dokumentation_anv„ndarhandbok.pdf",
+    "source": "507_Dokumentation_anvandarhandbok.pdf",
     "source_type": "pdf"
   },
   {
-    "id": "507_Dokumentation_anv„ndarhandbok_BREV - EDITERA",
+    "id": "507_Dokumentation_anvandarhandbok_BREV - EDITERA",
     "title": "BREV - EDITERA",
     "section": "BREV - EDITERA",
     "text": "1. Klicka på fliken Brev\n2. Markera det brev som du vill ändra/lägga till text i.\n4. Tryck sedan på knappen\noch brevet kommer upp.\n5. Gör de ändringar du vill och skriv ut brevet. Svara Ja eller Nej på frågan om\nbrevet ska markeras som utskrivet.\n6. Brevet har nu ändrat status till ”Edit-utskriven”.\nDokument\nVersion\nDatum\nSida\nHandbok i OAS 3 - Pilotversion\n1.1\n2002-04-30\n1",
@@ -1250,11 +1250,11 @@
       28,
       29
     ],
-    "source": "507_Dokumentation_anv„ndarhandbok.pdf",
+    "source": "507_Dokumentation_anvandarhandbok.pdf",
     "source_type": "pdf"
   },
   {
-    "id": "507_Dokumentation_anv„ndarhandbok_BREV - STOPPA UTSKRIFT",
+    "id": "507_Dokumentation_anvandarhandbok_BREV - STOPPA UTSKRIFT",
     "title": "BREV - STOPPA UTSKRIFT",
     "section": "BREV - STOPPA UTSKRIFT",
     "text": "Om du inte vill att ett brev ska gå ut till medlemmen så kan du stoppa brevet.\n1. Gå till brevfliken.\n2. I stopprutan på det brev som du vill stoppa så sätter du en bock.\n3. Tryck sedan på knappen         och brevet ändrar status till Stoppat.\nDokument\nVersion\nDatum\nSida\nHandbok i OAS 3 - Pilotversion\n1.1\n2002-04-30\n1",
@@ -1262,11 +1262,11 @@
       32,
       33
     ],
-    "source": "507_Dokumentation_anv„ndarhandbok.pdf",
+    "source": "507_Dokumentation_anvandarhandbok.pdf",
     "source_type": "pdf"
   },
   {
-    "id": "507_Dokumentation_anv„ndarhandbok_DAGPENNINGHANDLÄGGNING",
+    "id": "507_Dokumentation_anvandarhandbok_DAGPENNINGHANDLÄGGNING",
     "title": "DAGPENNINGHANDLÄGGNING",
     "section": "DAGPENNINGHANDLÄGGNING",
     "text": "En medlem ska gå utbildning och eller omfattas av i aktivitetsgarantin. Kassan\nfår via filöverföring fråga från CSN eller RFV om medlemmens ersättningsrätt –\nnormalarbetstid och dagpenning. Kassans svar lämnas också via filöverföring.\nMedlem som har pågående ersättning och har fått ersättning xx veckor\ninnan utbildning/aktivitet ska börja:\n< KOMPLETTERAS INOM KORT!>\nDokument\nVersion\nDatum\nSida\nHandbok i OAS 3 - Pilotversion\n1.1\n2002-04-30\n1\nDELTIDSFÖRETAG - REGISTRERA / ÄNDRA\n1. Klicka på fliken Ersättningsperiod\n2. Klicka på rutan och tryck på ”Insert-tangenten”\n3.  Välj Deltidsföretagare och klicka på OK\n4.  Fältet ändrar utseende, ange From-datum, Namn på företaget,\nBelopp/vecka, Timmar/vecka och Bransch i respektive kolumn.\n5.  Om deltidsföretaget upphör lägger du in ett Tom-datum.\n6.  Klicka på\n(spara) eller [Ctrl + S]\nDokument\nVersion\nDatum\nSida\nHandbok i OAS 3 - Pilotversion\n1.1\n2002-04-30\n1",
@@ -1275,11 +1275,11 @@
       34,
       35
     ],
-    "source": "507_Dokumentation_anv„ndarhandbok.pdf",
+    "source": "507_Dokumentation_anvandarhandbok.pdf",
     "source_type": "pdf"
   },
   {
-    "id": "507_Dokumentation_anv„ndarhandbok_ÄNDRA ERSÄTTNINGSNIVÅ",
+    "id": "507_Dokumentation_anvandarhandbok_ÄNDRA ERSÄTTNINGSNIVÅ",
     "title": "ÄNDRA ERSÄTTNINGSNIVÅ",
     "section": "ÄNDRA ERSÄTTNINGSNIVÅ",
     "text": "1. Klicka på fliken Ersättningsperiod\n2. Ändra Ersättningsnivå genom att klicka på pilen och välja i listan\n3. Ange från vilket datum  den nya ersättningsnivån ska gälla i fältet bredvid.\n4. Klicka på\n(spara) eller [Ctrl + S]\nDokument\nVersion\nDatum\nSida\nHandbok i OAS 3 - Pilotversion\n1.1\n2002-04-30\n1",
@@ -1287,11 +1287,11 @@
       38,
       39
     ],
-    "source": "507_Dokumentation_anv„ndarhandbok.pdf",
+    "source": "507_Dokumentation_anvandarhandbok.pdf",
     "source_type": "pdf"
   },
   {
-    "id": "507_Dokumentation_anv„ndarhandbok_FÖRSTAGÅNGSPRÖVNING",
+    "id": "507_Dokumentation_anvandarhandbok_FÖRSTAGÅNGSPRÖVNING",
     "title": "FÖRSTAGÅNGSPRÖVNING",
     "section": "FÖRSTAGÅNGSPRÖVNING",
     "text": "Förstagångsprövning är ett processfönster till fliken ersättningsperiod, som\nanvänds när man ska förstagångspröva en medlem.\nGör så här\n1. Klicka på fliken Ersättningsperiod\n2. Klicka på\n(Förstagångsprövning)\n3. Följande fönster öppnas\n4. I de översta fälten fyller man i uppgifterna direkt i varje fält\nDokument\nVersion\nDatum\nSida\nHandbok i OAS 3 - Pilotversion\n1.1\n2002-04-30\n1\n5. I de andra fälten klickar man först på rutan (se pilen) under varje rubrik som\nska fyllas i, och trycker sedan på ”insert-tangenten”\n6. Därefter kan du fylla i de olika uppgifterna du ska besluta om.\n7. Klicka på\n(spara) eller [Alt + S]\nDokument\nVersion\nDatum\nSida\nHandbok i OAS 3 - Pilotversion\n1.1\n2002-04-30\n1",
@@ -1300,11 +1300,11 @@
       41,
       42
     ],
-    "source": "507_Dokumentation_anv„ndarhandbok.pdf",
+    "source": "507_Dokumentation_anvandarhandbok.pdf",
     "source_type": "pdf"
   },
   {
-    "id": "507_Dokumentation_anv„ndarhandbok_FÖRVÄNTAD HINDERTID - REGISTRERA",
+    "id": "507_Dokumentation_anvandarhandbok_FÖRVÄNTAD HINDERTID - REGISTRERA",
     "title": "FÖRVÄNTAD HINDERTID - REGISTRERA",
     "section": "FÖRVÄNTAD HINDERTID - REGISTRERA",
     "text": "1. Klicka på fliken ersättningsperiod\n2. Klicka i rutan och tryck på ”insert-tangenten”\n3. Översiktsrutan ändrar utseende. Välj Typ av hindertid genom att klicka på\npilen och markera i listan.\n4. Ange From-datum, Tom-datum, välj Status och Anställningsform genom att\nklicka på pilen och markera i listan, ange Timmar eller Procent.\nOBS! Kontrollen mot hur medlemmen deklarerat på kassakorten sker\nendast på hindertider med status ”Definitiv”.\n5. Om du inte vill att det ska gå ut brev till medlemmen sätter du en bock i\nrutan vid Brevspärr.\n6. Klicka på\n(spara) eller [Ctrl + S]\nDokument\nVersion\nDatum\nSida\nHandbok i OAS 3 - Pilotversion\n1.1\n2002-04-30\n1",
@@ -1312,11 +1312,11 @@
       42,
       43
     ],
-    "source": "507_Dokumentation_anv„ndarhandbok.pdf",
+    "source": "507_Dokumentation_anvandarhandbok.pdf",
     "source_type": "pdf"
   },
   {
-    "id": "507_Dokumentation_anv„ndarhandbok_INTYG - REGISTRERA",
+    "id": "507_Dokumentation_anvandarhandbok_INTYG - REGISTRERA",
     "title": "INTYG - REGISTRERA",
     "section": "INTYG - REGISTRERA",
     "text": "1. Klicka på fliken Intyg\n2. Klicka i översta vänstra hörnet och tryck på ”insert-tangenten”\n3. Välj dokumenttyp genom att klicka på pilen och markera i listan.\n4. Ange datumfrom och datumtom\n5. Klicka på\n(spara) eller [Ctrl + S]\nDokument\nVersion\nDatum\nSida\nHandbok i OAS 3 - Pilotversion\n1.1\n2002-04-30\n1\nJÄMKNING - REGISTRERA / ÄNDRA\n1. Klicka på fliken Medlem\n2. Ange jämkningsvärdet (kronor eller procent) i första fältet. Välj i typ av\njämkning genom att klicka på pilen och markera i listan.\n3. Vid Period: anger du först From-datum och sedan Tom-datum.\n4. Vid Belopp min/max anger du eventuella begränsningar i jämkningen.\n5. Klicka på\n(spara) eller [Ctrl + S].\nDokument\nVersion\nDatum\nSida\nHandbok i OAS 3 - Pilotversion\n1.1\n2002-04-30\n1\nKASSAKORT – MANUELLT BESTÄLLA\nFönstret beställa kassakort finns under fliken kassakort. Man använder det när\nman manuellt ska skicka kassakort till en medlem.",
@@ -1325,11 +1325,11 @@
       45,
       46
     ],
-    "source": "507_Dokumentation_anv„ndarhandbok.pdf",
+    "source": "507_Dokumentation_anvandarhandbok.pdf",
     "source_type": "pdf"
   },
   {
-    "id": "507_Dokumentation_anv„ndarhandbok_KASSAKORT - REGISTRERA",
+    "id": "507_Dokumentation_anvandarhandbok_KASSAKORT - REGISTRERA",
     "title": "KASSAKORT - REGISTRERA",
     "section": "KASSAKORT - REGISTRERA",
     "text": "1. Klicka på fliken Kassakort\n2. Klicka på\n(Ny) eller [Ctrl + N], markören står då i fältet för vecka\n1.\n3. Ange i detta fält veckonumret för den första veckan som ska registreras, tryck\npå ”tab-tangenten” och ange i fältet för vecka 2 numret på den andra veckan\nsom ska registreras.\n4. Fyll i kassakortet med medlemmens uppgifter\n5. Klicka på\n(spara) eller [Ctrl + S].\nDokument\nVersion\nDatum\nSida\nHandbok i OAS 3 - Pilotversion\n1.1\n2002-04-30\n1",
@@ -1337,11 +1337,11 @@
       48,
       49
     ],
-    "source": "507_Dokumentation_anv„ndarhandbok.pdf",
+    "source": "507_Dokumentation_anvandarhandbok.pdf",
     "source_type": "pdf"
   },
   {
-    "id": "507_Dokumentation_anv„ndarhandbok_MANUELL UTBETALNING",
+    "id": "507_Dokumentation_anvandarhandbok_MANUELL UTBETALNING",
     "title": "MANUELL UTBETALNING",
     "section": "MANUELL UTBETALNING",
     "text": "I fönstret manuell utbetalning registrerar man uppgifterna som gäller när\nsystemet av någon anledning inte beräknar/betalar ut ersättning.\nEtt exempel på detta är när en TAE-blankett inkommit för sent.\nFönstret ser ut så här:\nGör så här:\n1. Klicka på fliken utbetalning\n2. Välj Registrera Manuell utbetalning under menyvalet Utbetalning\n3. Fyll i de uppgifter som gäller för utbetalning i fälten.\n4. Klicka på\n(spara) eller [Ctrl + S]\nDokument\nVersion\nDatum\nSida\nHandbok i OAS 3 - Pilotversion\n1.1\n2002-04-30\n1",
@@ -1349,11 +1349,11 @@
       54,
       55
     ],
-    "source": "507_Dokumentation_anv„ndarhandbok.pdf",
+    "source": "507_Dokumentation_anvandarhandbok.pdf",
     "source_type": "pdf"
   },
   {
-    "id": "507_Dokumentation_anv„ndarhandbok_MEDLEM - REGISTRERA",
+    "id": "507_Dokumentation_anvandarhandbok_MEDLEM - REGISTRERA",
     "title": "MEDLEM - REGISTRERA",
     "section": "MEDLEM - REGISTRERA",
     "text": "Registrera en medlem kan man behöva göra om t ex medlemmen finns i\nmedlemsystemet men inte överförts till OAS ännu och han/hon söker ersättning.\n1. Om du har någon medlem öppen och ska registrera en ny måste du se till att\ndu INTE står i fliken Avdrag eller Kassakort (alternativt stänger den medlem\ndu har öppen).\n2. Klicka på\n(Ny) eller [Ctrl + N]\n3. Följande fönster visas\n4. Ange Personnummer, Efternam, Förnamn, Adress, (ev. c/o-adress),\nPostnummer, From-datum, Välj Handläggare genom att klicka på pilen och\nmarkera i listan, Org nivå och inträdesdatum.\n5. Klicka på\n(spara) eller [Alt + S]\nDokument\nVersion\nDatum\nSida\nHandbok i OAS 3 - Pilotversion\n1.1\n2002-04-30\n1",
@@ -1361,11 +1361,11 @@
       55,
       56
     ],
-    "source": "507_Dokumentation_anv„ndarhandbok.pdf",
+    "source": "507_Dokumentation_anvandarhandbok.pdf",
     "source_type": "pdf"
   },
   {
-    "id": "507_Dokumentation_anv„ndarhandbok_MEDLEM - TA BORT",
+    "id": "507_Dokumentation_anvandarhandbok_MEDLEM - TA BORT",
     "title": "MEDLEM - TA BORT",
     "section": "MEDLEM - TA BORT",
     "text": "1. Klicka på fliken Medlem.\n2. Välj Ta bort medlem i menyvalet Medlem.\n3. Svara ja på frågan om du vill ta bort medlemmen.\nDokument\nVersion\nDatum\nSida\nHandbok i OAS 3 - Pilotversion\n1.1\n2002-04-30\n1\nNA, NI OCH UTBUD - ÄNDRA\n1. Klicka på fliken ersättningsperiod.\n2. Ändra direkt i fälten för NI, NA och Utbud.\n3. I fälten bredvid anger du From-datum på ändringen.\n4. Vid ändring av NI ska du även välja vilken typ av inkomst (tim-, dag-, vecko-\neller månadslön) du menar, genom att använda rullisten.\n5. Klicka på (spara) eller [Ctrl + S].\nDokument\nVersion\nDatum\nSida\nHandbok i OAS 3 - Pilotversion\n1.1\n2002-04-30\n1",
@@ -1374,11 +1374,11 @@
       58,
       59
     ],
-    "source": "507_Dokumentation_anv„ndarhandbok.pdf",
+    "source": "507_Dokumentation_anvandarhandbok.pdf",
     "source_type": "pdf"
   },
   {
-    "id": "507_Dokumentation_anv„ndarhandbok_NEDSÄTTNING - REGISTRERA",
+    "id": "507_Dokumentation_anvandarhandbok_NEDSÄTTNING - REGISTRERA",
     "title": "NEDSÄTTNING - REGISTRERA",
     "section": "NEDSÄTTNING - REGISTRERA",
     "text": "1. Klicka på fliken ersättningsperiod\n2. Klicka i rutan och tryck på ”insert-tangenten”.\n3. Välj den typ av nedsättning som ska göras genom att markera i listan och\nklicka på OK.\n4. Ange datum för händelsen och From-datum (måndagen efter\nhändelsedatum).\n5. Klicka på\n(spara) eller [Ctrl + S]\nDokument\nVersion\nDatum\nSida\nHandbok i OAS 3 - Pilotversion\n1.1\n2002-04-30\n1",
@@ -1386,11 +1386,11 @@
       59,
       60
     ],
-    "source": "507_Dokumentation_anv„ndarhandbok.pdf",
+    "source": "507_Dokumentation_anvandarhandbok.pdf",
     "source_type": "pdf"
   },
   {
-    "id": "507_Dokumentation_anv„ndarhandbok_SPÄRR - REGISTRERA",
+    "id": "507_Dokumentation_anvandarhandbok_SPÄRR - REGISTRERA",
     "title": "SPÄRR - REGISTRERA",
     "section": "SPÄRR - REGISTRERA",
     "text": "1. Klicka på fliken Ersättningsperiod.\n2. Klicka i rutan och tryck på ”insert-tangenten”.\n3. Välj Spärr och klicka på OK.\n4. Välj typ av spärr genom att klicka på pilen och markera i listan.\n5. Ange From-datum och eventuellt ett Tom-datum.\n6. Klicka på\n(spara) eller [Ctrl + S]\nI fältet Status kommer det att stå Manuell om när du sparat.\nDokument\nVersion\nDatum\nSida\nHandbok i OAS 3 - Pilotversion\n1.1\n2002-04-30\n1\nANSÖKAN BEVILJAD/EJ BEVILJAD 3-MÅNADERS RESA\nMedlemmen vill resa till annat EU/EES-land för att söka arbete. Ansökan om\nintyg E 303 inkommer till kassan från medlemmen.\nVid ansökan gör följande:\n1. Öppna fliken E 303.\n2. Registrera planerat avresedatum i fältet From.\n3. Välj i lista det aktuella sökandelandet.\n4. Spara genom att klicka på knappen Spara         eller genom\nkortkommandot Ctrl + S.\n5. I fältet Status lägger systemet därefter preliminär med automatik.\n6. Om medlemmen har ett avdrag, t ex till Kronofogden, registrerar du\ndetta i fältet Avdrag och sparar.\nNär du sparar lägger systemet ut preliminärt tilldelade dagar, tom dag för\nresan, typ av dagpenning (normal eller förhöjd), dagpenning och skatt per\ndag. Dessa uppgifter har du nu som underlag för att fylla i medlemmens\nansökan om E 303. Du ser uppgifterna i fälten vid Dagpenning.\nDokument\nVersion\nDatum\nSida\nHandbok i OAS 3 - Pilotversion\n1.1\n2002-04-30\n1\nBeviljad resa\nKassan får besked om medlemmens ansökan att resa till annat EU/EES-\nland från AMS genom en kopia av intyget E 303/0.\nVid beviljad resa gör följande:\n1. Öppna fliken E 303.\n2. Ändra i statusfältet från preliminär till beslutad och\nSpara.\n3. De preliminärt tilldelade dagarna reserveras i medlemmens\nersättningsperiod. Detta ser du i fliken Ersättningsperiod.\nMedlemmen återkommer till Sverige innan beviljad period är slut.\nOm medlemmen kommer hem innan beviljad sökande-resa gått till ända\noch har anmält sig som arbetssökande på arbetsförmedlingen gör\nföljande:\n1. Öppna fliken E 303.\n2. Ställ markören i fältet Slut (som visar den sista dagen i beviljad\ntremånadersperiod).\nDokument\nVersion\nDatum\nSida\nHandbok i OAS 3 - Pilotversion\n1.1\n2002-04-30\n1\n3. Ändra slutdatum till dagen innan medlemmen anmält sig på\narbetsförmedlingen och Spara. Då förändras antalet dagar i beviljad period\n(fältet Berersdgr) och visar maximalt antal dagar som kan ersättas under den\nförkortade sökande resan. Samtidigt ändras de reserverade dagarna i\nmedlemmens ersättningsperiod.\nEj beviljad resa\nKassan får beslut från AMS om att ansökan ej beviljats.\nVid ej beviljad resa gör följande:\n1. Öppna fliken E 303.\n2. Markera (dubbelklicka) raden i listboxen och tryck på delete-\ntangenten. Spara.\nAlla uppgifter om den preliminära tremånaders-perioden försvinner då\nfrån fliken E 303.\nFaktura kommer från AMS\nSökandelandet har begärt AMS på den ersättning som utbetalats till\nmedlemmen i sökandelandet. AMS skickar då en faktura till kassan.\nNär faktura kommer från AMS gör följande:\n1. Öppna fliken E 303.\n2. Registrera antal utbetalda dagar i fältet Utbetalning, Antal dagar och\nSpara. (Antal dagar framgår av fakturan).\nDokument\nVersion\nDatum\nSida\nHandbok i OAS 3 - Pilotversion\n1.1\n2002-04-30\n1\nStatusfältet ändras då automatiskt från Beslutad till Verkställd.\nVid kommande utbetalningskörning regleras den utbetalda ersättningen\nmellan kassan och AMS. Detta framgår av kassans statsbidragsansökan\noch en särskild rapport avseende den aktuella medlemmen. Denna rapport\nska sedan skickas till AMS EU-sektion.\nNy sökande-resa för samma medlem\nOm medlemmen ansökt och beviljats en ny sökande-resa gör följande:\n1. Öppna fliken E 303.\n2. Ställ markören i rutan och tryck på Insert-tangenten.\n3. Ett nytt fält öppnas upp och du kan registrera en ny sökande resa.\nDokument\nVersion\nDatum\nSida\nHandbok i OAS 3 - Pilotversion\n1.1\n2002-04-30\n1",
@@ -1402,11 +1402,11 @@
       67,
       68
     ],
-    "source": "507_Dokumentation_anv„ndarhandbok.pdf",
+    "source": "507_Dokumentation_anvandarhandbok.pdf",
     "source_type": "pdf"
   },
   {
-    "id": "507_Dokumentation_anv„ndarhandbok_UNDER HANDLÄGGNING",
+    "id": "507_Dokumentation_anvandarhandbok_UNDER HANDLÄGGNING",
     "title": "UNDER HANDLÄGGNING",
     "section": "UNDER HANDLÄGGNING",
     "text": "1. Klicka på fliken Ersättningsperiod.\n2. Sätt en bock/markera i ”Under handläggning”.\n3. Klicka på         (spara) eller Ctrl + S.\n4. När ärendet är klart tar du bort bocken genom att markera ”Under\nhandläggning”.\n5. Spara uppgiften enligt ovan.\nUnder handläggning innebär att medlem inte är med på utbetalningsfilen (SUS-\nfilen)\nDokument\nVersion\nDatum\nSida\nHandbok i OAS 3 - Pilotversion\n1.1\n2002-04-30\n1",
@@ -1414,11 +1414,11 @@
       69,
       70
     ],
-    "source": "507_Dokumentation_anv„ndarhandbok.pdf",
+    "source": "507_Dokumentation_anvandarhandbok.pdf",
     "source_type": "pdf"
   },
   {
-    "id": "507_Dokumentation_anv„ndarhandbok_ÖVERGÅNGSUPPGIFTER - REGISTRERA",
+    "id": "507_Dokumentation_anvandarhandbok_ÖVERGÅNGSUPPGIFTER - REGISTRERA",
     "title": "ÖVERGÅNGSUPPGIFTER - REGISTRERA",
     "section": "ÖVERGÅNGSUPPGIFTER - REGISTRERA",
     "text": "Här registrerar du in uppgifter från inkommande övergångsbevis när en medlem\nhar fått ersättning från den kassa han/hon tidigare tillhört och medlemmen har\nfortsatt rätt till ersättning i den ersättningsperioden.\nFör att registrera in uppgifter i Övergångsuppgifter går du först in i menyraden\nunder Medlem och klickar på Övergångsuppgifter. Du får då fram fönstret\nÖvergångsuppgifter.\nDärefter klickar du på Ny övergångsuppgift och får då upp en ruta där du ska\nskriva datum då övergångsbeviset är utfärdat samt därefter klicka på OK.\nNär du har gjort detta öppnas fälten i fönstret Övergångsuppgifter så att du kan\nregistrera uppgifterna från övergångsbeviset.\nDokument\nVersion\nDatum\nSida\nHandbok i OAS 3 - Pilotversion\n1.1\n2002-04-30\n1\nAlla fält i Övergångsuppgifter\n Akassa – i en rullist väljer du den a-kassa som utfärdat övergångsbeviset.\n Medlem from – du registrerar inträdesdatum i föregående a-kassa.\n Medlem tom – du registrerar utträdesdatum i föregående a-kassa.\n Sammanhängande from – du registrerar eventuellt tidigare inträde i a-\nkassa.\n Avgångsorsak – välj i en rullist mellan Bristande betalning, Egen begäran\neller Uteslutning.\n Senast erlagda avgift – du anger den månad för vilken avgift senast är\nbetald hos föregående a-kassa.\n Ersättningsnivåkod – du väljer i rullist mellan grunders eller\ninkomstrelaterad.\n Arbetsvillkor – du anger dagen då arbetsvillkoret är uppfyllt\n(år/månad/dag).\n Tilldelade dagar – du anger antalet dagar i beviljad ersättningsperiod.\n Förbrukade dagar – du anger antalet dagar som är förbrukade i\nersättningsperioden.\n Senast ersatta vecka – du anger den vecka för vilken ersättning senast har\nutbetalats. Anges i år/veckonummer. System omvandlar till sekel/år/vecka\nnär man sparar efter att ha fyllt i alla uppgifter.\n Arbetsvillkor typ – du väljer i rullist aktuell villkorstyp.\n Förlängd period – du anger första dag på förlängd period. Registreras med\når/månad/dag. (Stämmer detta??)\n Karens fullg, vecka – du anger veckan då karensen är avklarad. Registreras\nmed år/vecka.\n Karensdagar – du anger antal fullgjorda karensdagar.\n From – du anger första karensveckan. Registreras med år/vecka.\n Tom – du anger sista karensveckan. Registreras med år/vecka.\n Normalarbetstid – du anger normalarbetstid.\n Normalinkomst – du anger normalinkomst (belopp).\n Inkomsttyp – du väljer i rullist mellan daglön, månadslön, veckolön eller\ntimlön.\n Skattetabell – du anger skattetabell.\n Skattetyp – du väljer i rullist mellan A-skatt, F-skatt, F/A-skatt.\n Inkomstår – du anger det inkomstår som gäller för preliminär skatt.\n Utbetalda samordningsdagar – du anger antal utbetalda\nsamordningsdagar.\n Tom – du anger sista samordnade dag (år/månad/dag).\n Antal utbetalda veckor i kombination med deltidsarbete – du anger\nantalet veckor medlemmen fått ersättning i kombination med deltidsarbete.\n Ersättning stoppad from (enligt 6-8 §§ ALFFo) – du anger dagen då\nersättningen är stoppad (år/månad/dag).\n Avstängning/nedsättning – du anger eventuella avstängningsdagar\noch/eller nedsatta dagar. Detta gör du genom att ställa markören till vänster\nom Typ och trycker på Insert-tangenten på ditt tangentbord. Välj sedan i\nrullist aktuell avstängning/nedsättning.\n Frånkännande dgr – du anger antal frånkända dagar.\n From – du anger första dag för frånkännande (år/månad/dag).\n Avräkn - du anger frånkända dagar som är fullgjorda.\n Arbetskrav 80 fullgjorda dagar – du anger antal arbetade dagar av\narbetskravets 80 dagar.\nDokument\nVersion\nDatum\nSida\nHandbok i OAS 3 - Pilotversion\n1.1\n2002-04-30\n1\n Godkänd bisyssla tim/vecka – du anger antal timmar per vecka för den\ngodkända bisysslan.\n Inkomst/vecka – du anger inkomst per vecka för den godkända bisysslan.\n Godkänt deltidsföretag tim/vecka – du anger antal timmar per vecka i\ngodkänt deltidsföretag.\n Inkomst/vecka – du anger inkomst per vecka i godkänt deltidsföretag.\n Beslut om vilande företag – du sätter en bock i rutan om det finns beslut\nom vilande företag.\n Godkända deltidsstudier from – du anger datum för studiernas början då\nbeslut finns om godkända deltidsstudier.\n Underskriftsdatum – datum då övergångsbeviset är utfärdat. Detta\ndatum har du registrerat när du öppnade fönstret\nÖvergångsuppgifter.\n När alla uppgifter du hämtat från övergångsbeviset är registrerade i fönstret\nÖvergångsuppgifter sparar du uppgifterna.\nDokument\nVersion\nDatum\nSida\nHandbok i OAS 3 - Pilotversion\n1.1\n2002-04-30\n1\n<RESERVSIDA>\nDokument\nVersion\nDatum\nSida\nHandbok i OAS 3 - Pilotversion\n1.1\n2002-04-30\n1\n<RESERVSIDA>\nDokument\nVersion\nDatum\nSida\nHandbok i OAS 3 - Pilotversion\n1.1\n2002-04-30\n1\nMenyraden\nUnder menyerna finns följande alternativ. Om man har en flik öppen exempelvis\nkassakort så är alla sidofönster åtkomliga via menyn. Om du däremot har flik\nersättningsperiod öppen och öppnar menyn kassakort så är inte alla alternativ\nåtkomliga. De som inte är åtkomliga är gråtonade.\nArkiv;\nStäng\nUtskriftsformat\nSkriv ut medlemsuppgifter\nRedigera;\nÅngra\nÅngra ta bort\nSök medlem\nHämta åtgärdslista urval\nBeordra påminnelse. Anmodan i åtgärdslista\nSök i brevlista\nLokal utskrift från brevlista\nStoppa i brevlista\nSpara i brevlista\nVisa;\nVerktygsrad\nStatus rad\nNästa flik\nFöregående flik\nFasta del\nInfo\nLarm lista\nDokument\nVersion\nDatum\nSida\nHandbok i OAS 3 - Pilotversion\n1.1\n2002-04-30\n1\nBuntnummer\nErsperiod;\nLägg till anmälan af\nUtbetalning;\nVisa summering av perioden\nRegistrera manuell utbetalning\nVisa alla utbetalningar\nVisa beräkna knappar\nStarta beräknahejda\nAvdrag;\nAvsluta avdrag\nTa bort avdrag\nRegistrera inbetalning\nKassakort;\nBrev;\nDokument\nVersion\nDatum\nSida\nHandbok i OAS 3 - Pilotversion\n1.1\n2002-04-30\n1\nIntyg;\nVisa intyg\nUtbildning / Program;\nNy utbildning\nVisa enligt ID nummer\nVisa enligt garantnummer\nMedlem;\nÖvergångsuppgifter\nÄndra personnummer\nTa bort medlem\nÄndra talsvarkod\nÅterkrav;\nSpara återkravsförslag\nRegistrera manuell förslag\nVerktyg;\nHantera menyer och verktygsrad…\nByt lösenord\nFönster;\nÖverlappande\nSida vid sida\nArrangera ikoner\nStäng alla fönster\nHjälp;\nInnehåll\nDokument\nVersion\nDatum\nSida\nHandbok i OAS 3 - Pilotversion\n1.1\n2002-04-30\n1\nVerktygsraden i OAS\nVerktygsraden kan förändras via menyn Verktyg.\nVissa av symbolerna är aktiva alternativt inaktiva beroende på i vilken flik\ndu arbetar.\nNär du öppnar OAS är följande knappar aktiva. Dessa är alltid aktiva\noavsett i vilken flik du arbetar i.\n= Skapa Ny\n= Åtgärdslista\n= Visa Brevlista\n= Om, visa program information, version nummer och\ncopyright\n= Sök medlem\n= Öppna medlem\n= Hämta brevurval\n= Lokal utskrift\n= Stoppa utskrift\nNär du har fliken ersättningsperiod öppen är följande knappar aktiva\n= Visa fasta del\n= Gör förstagångsprövning\n= Visa historik\n= Visa obstext, anteckningar\n= Visa systemlogg\nDokument\nVersion\nDatum\nSida\nHandbok i OAS 3 - Pilotversion\n1.1\n2002-04-30\n1\n= Återkrav fönster\n= Visa kassakortsbild\n= Visa alla kassakort\nNär du har fliken E 303 öppen är följande knappar aktiva\nSkillnaden mellan Ersättningsperiodens knappar och E 303 är att här är\ninte historik- och logg-knapp aktiva\nNär du har fliken Utbetalning öppen är följande knappar aktiva\nHär är samma knappar aktiva som vid fliken E 303\nNär du har fliken Avdrag öppen är följande knappar aktiva\nHär är samma knappar aktiva som vid fliken E 303 och Utbetalning\nNär du har fliken Kassakort öppen är följande knappar aktiva\n= Godkänna åtgärd\n= Visa kassakortsbild (inscannade)\n= Visa alla kassakort\n= Återskick av kassakort (inscannade)\n= Manuell beställning av kassakort\n= Godkänna dubblett kassakort\nI övrigt är det samma som i flik E303, Utbetalning, Avdrag\nNär du har fliken Brev öppen är följande knappar aktiva\nDokument\nVersion\nDatum\nSida\nHandbok i OAS 3 - Pilotversion\n1.1\n2002-04-30\n1\n= Sök brev\n= Lokal utskrift\n= Stoppa utskrift\n= Registrera nytt brev\n= Spara nytt brev\n= Förhandsgranska\n= Redigera\nNär du har fliken Intyg öppen är följande knappar aktiva\nHär är samma knappar aktiva som vid flik E 303, Utbetalning, Avdrag\nNär du har fliken Utbildning/Program öppen är följande knappar aktiva\nHär är samma knappar aktiva som vid flik E 303, Utbetalning, Avdrag och\nIntyg\nNär du har fliken Övrigt öppen är följande knappar aktiva\nHär är samma knappar aktiva som vid flik E 303, Utbetalning, Avdrag,\nIntyg och Utbildning/Program\nDokument\nVersion\nDatum\nSida\nHandbok i OAS 3 - Pilotversion\n1.1\n2002-04-30\n1\nNär du har fliken Medlem öppen är följande knappar aktiva\n= Skriv ut\nI övrigt är det samma som i flik E 303, Utbetalning, Avdrag, Intyg och\nUtbildning/Program\nDokument\nVersion\nDatum\nSida\nHandbok i OAS 3 - Pilotversion\n1.1\n2002-04-30\n1\nKortkommandon\nTill OAS 3 ska nu finnas kortkommandon för praktiskt taget all hantering.\nNär du kommer in i OAS så ser du följande menyrad:\nArkiv\nALT + A\nVisa\nALT + V\nSök medlem\nALT + S\nÅtgärdslista\nALT + Å\nBrevlista\nALT + B\nVerktyg\nALT + e\nHjälp\nALT + H\nUnder verktyg kan du hantera menyer och verktygsrader\nNär du har sökt fram den första medlemmen så visas ett fönster samt en ny\nmenyrad.\nMenyraden börjar alltid med Arkiv längst till vänster och avslutas med Hjälp\nlängst till höger.\nOvanför menyraden så visas medlemmens personer och namn.\nArkiv\nALT + A\nRedigera\nALT + R\nVisa\nALT + V\nErsperiod\nALT + E\nUtbetalning\nALT + U\nAvdrag\nALT + d\nKassakort\nALT + K\nBrev\nALT + B\nIntyg\nALT + I\nUtbildning/program\nALT + l\nMedlem\nALT + M\nÅterkrav\nALT + t\nVerktyg\nALT + e\nFönster\nALT + F\nHjälp\nALT + H\n\nTab-tangenten tar dig ett steg till höger\n\n    +  shift\nTab-tangenten plus shift - tar dig ett steg till vänster\n\nDokument\nVersion\nDatum\nSida\nHandbok i OAS 3 - Pilotversion\n1.1\n2002-04-30\n1\nCtrl + Page Up,\nBläddra mellan flikarna åt höger\nCtrl + Page Down,\nBläddra mellan flikarna åt vänster\nCtrl + F1\nBläddra till Ersättningsperiod\nCtrl + F2\nBläddra till E 303\nCtrl + F3\nBläddra till Utbetalning\nCtrl + F4\nBläddra till Avdrag\nCtrl + F5\nBläddra till Kassakort\nCtrl + F6\nBläddra till Brev\nCtrl + F7\nBläddra till Intyg\nCtrl + F8\nBläddra till Utbildning/program\nCtrl + F9\nBläddra till Övrigt\nCtrl + F10\nBläddra till Medlem\nCtrl + F11\nÖppna Återkravsfönster\nALT + F4\nStänger alla fönster och avslutar OAS\nInsert\nInfoga rader i listbox\nDelete\nTa bort rader i listbox\nDokument\nVersion\nDatum\nSida\nHandbok i OAS 3 - Pilotversion\n1.1\n2002-04-30\n1\nOrdlista\nHär förklaras helt kort ett antal av de viktigaste orden, uttrycken och termerna i\nOAS 3.\nVissa av dessa är nya med OAS 3 medan vissa andra har fått en något förändrad\nbetydelse jämfört med OAS 2.\nOrd\nFörklaring\nAnstånd\nEn tid då inte inte avdraget ska gälla\nAvdragsstatus (oreglerat/reglerat)\nStatusen på avdraget\nAvskrivning\nÅterkravet ligger kvar men behöver inte betalas\nAvslag\nBeslut på att medlemmen inte har rätt till ersättning\nAvslutad ersättningsperiod\nErsättningsperiod med tom-datum (gammal)\nBefrielse\nSlipper betala återkrav\nBeviljad ersättningsperiod\nErsättningsperiod utan tom-datum\nBeviljad from\nDet datum varifrån medlemmen är beviljad ersättning\nBF (Beslutsfattare)\nBeslutsfattare - den som tagit beslutet\nBrevspärr\nMed en bock i rutan går det INTE ut något brev till\nmedlemmen\nBrevvariabelvärde\nSpecifikt värde för detta brev\nBrevvariabler\nVisar de värden eller den text i olika brev som varierar\nmellan medlemmar\nBuntnummer\nAllt som du sparar får ett buntnummer som vissa kassor\nanvänder när man arkiverar\nDagpenning\nFramräknad dagpenning utifrån arbetsgivarintyg\nDagpenninghandläggning\nEn medlem som inte söker ersättning men vi ska räkna ut\noch skicka dagpenninguppgifter till CSN/RFV\nDeltidsföretag\n17/10-regeln\nDiarienummer, avdrag\nInkomna handlingar får ett diarienummer\nEditera brev\nÄndra brev\nEftergift\nSlipper betala återkrav\nErsättningsnivå\nOm det är grundbelopp eller inkomstrelaterad ersättning\nErsättningssort\nFörhöjt, Normal eller Nedsättning\nErsättningstyp\nTex OTA, ALF, TAE eller liknande\nFasta delen\nEtt knappvalsalternativ där man får fram aktuella uppgifter\nom medlemmens ersättningsperiod\nFlikar\nI OAS 3 finns det 10 olika flikar\nFrysdatum\nDatum från vilket förhöjd ersättning inte kan betalas ut från\nkassan\nFönster\nEn extra \"ruta\" där man kan utföra olika saker\nFörbehållsbelopp\nBelopp som medlemmen ska behålla efter avdraget\nFörhandsgranska brev\nTitta hur utskriften kommer se ut\nFörlängning\n300 dagars påslag på en period\nDokument\nVersion\nDatum\nSida\nHandbok i OAS 3 - Pilotversion\n1.1\n2002-04-30\n1\nOrd\nFörklaring\nFörväntad hindertid\nTid då medlemmen inte står till arbetsmarknadens\nförfogande\nHistorik\nVisar historik på medlemmens uppgifter som har med\nersättningsperioden, medlemskapet och anmälan att göra\nHL (Handläggare)\nHandläggare - den som står som handläggare i fliken\nMedlem\nJämkning\nHögre eller lägre skatteavdrag\nKassakortstyp\nVilken typ av kassakort medlemmen har\nLarmlista\nVisar avvikelser från kassans parametersättning när det\ngäller bl a DP, Skatt, veckor\nLogg\nVisar allt som beslutats och ändrats\nManuellt återkravsförslag\nEtt fönster där man manuellt registrerar ett förslag till\nåterkrav\nNettodagpenning\nDen dagersättning medlemmen får ut\nObs text\nDen text som man valt att spara och som syns i fältet med\nsamma namn i flikarna Medlem och Kassakort\nRegistrera manuell utbetalning\nGörs när systemet av någon anledning inte\nberäknat/betalat ut ersättning til en medlem\nSamordning\nDe hundra första dagarna i en ersättningsperiod\nsamordnas med Försäkringskassan och CSN\nSamordningsdagar\nDe hundra första dagarna i en ersättningsperiod\nSekretess\n\"Skyddade personuppgifter\". Endast vissa handläggare\nkan se dessa medlemmars uppgifter\nSkattepliktig ersättning\nDagpenning minus ev. avdrag (ej skatt)\nSpärr\nTid då ersättning inte betalas ut\nStatus\nSe under varje flik\nStimulansbidrag\nNär man har OTA får man 45 kr extra i ersättning\nUnder handläggning\nMed bock i rutan beräknas kassakorten men medlemmen\nfår ingen utbetalning\nUnderskriftsdatum\nDatum som medlemmen skrivit under anmälan\nUtbildning / Program\nUtbildningar eller Program från CSN eller RFV\nUtförsäkringsbevakning\nMed bock i rutan kommer medlemmen upp på\nåtgärdslistan vid utförsäkring\nVilande företag\nEtt vilande företag innebär att det inte får pågå någon\nverksamhet\nÅterutbetalning\nÅterbetalning av ett reglerat återkrav tex om en domstol\nbestämt att återkravet inte ska vara ett återkrav.\nDokument\nVersion\nDatum\nSida\nHandbok i OAS 3 - Pilotversion\n1.1\n2002-04-30\n1\nOm arbetet med handboken\nHandboken har utvecklats inom SO´s införandeprojekt, delprojektet\nDokumentation. Gruppen har bestått av personer från a-kassorna och en stor\nhandläggarerfarenhet finns inom gruppen.\nSynpunkter på handboken mottages tacksamt!\nSkicka dessa till delprojektledaren enligt nedan:\nAlexander Löfgren (KAAK)\nalexander.lofgren@kommunal.se\nTfn: 08-457 45 73",
@@ -1441,7 +1441,7 @@
       90,
       91
     ],
-    "source": "507_Dokumentation_anv„ndarhandbok.pdf",
+    "source": "507_Dokumentation_anvandarhandbok.pdf",
     "source_type": "pdf"
   },
   {
@@ -1654,7 +1654,7 @@
     "source_type": "pdf"
   },
   {
-    "id": "Checklista_Arbetsområden_4.16",
+    "id": "Checklista_Arbetsomraden_4.16",
     "title": "4.16 Förvaltningsöverlämnande ____________________________________________ 21",
     "section": "4.16",
     "text": "Webbkurs\nArbetsområden vid systeminförande\nKursdokumentation\nChecklista\nUtfärdare\nDatum\nHans Johansson\n2019-06-01\nSida\nUtskriftsdatum\n2(21)\n2019-06-12\n1\nSystembyte = Verksamhetsförändring\nAtt införa ett nytt eller förnyat system handlar om mycket mer än att installera\nprogram och databaser.\nDet handlar många gånger om att hantera en förändring i den egna verksamheten och\nmånga gånger även hos kunder, partners och leverantörer.\nWebbkurs\nArbetsområden vid systeminförande\nKursdokumentation\nChecklista\nUtfärdare\nDatum\nHans Johansson\n2019-06-01\nSida\nUtskriftsdatum\n3(21)\n2019-06-12\nDet finns många som berörs\nSysteminförandet är användartungt den mottagande organisationen bör i huvudsak\nbemanna projektet för att införa systemet.\nDet är viktigt att kunskap överförs från systemleverantören till projektet för att införa\nsystemet samt att förbereda för drift och förvaltning.\nWebbkurs\nArbetsområden vid systeminförande\nKursdokumentation\nChecklista\nUtfärdare\nDatum\nHans Johansson\n2019-06-01\nSida\nUtskriftsdatum\n4(21)\n2019-06-12\n2\nKompetenser\nEn förutsättning för ett lyckat införande är att personer med olika kompetenser är\nmed i arbetet. De kan delas in i system-, verksamhets- och teknik-/driftrelaterade\nområden.\nEn person kan ha flera kompetenser.\nFör system krävs kunskap om nya systemet, befintligt system, samband med andra\nsystem, behörighetssystem och säkerhetssystem.\nFör verksamheten krävs kunskap om målet med nya systemet, nuvarande arbetssätt\nsamt vad som måste förändras i verksamheten för att nå målet.\nFör teknik och drift krävs kunskap om tekniska krav och driftkrav på nytt system\nsamt befintlig teknisk plattform.\nWebbkurs\nArbetsområden vid systeminförande\nKursdokumentation\nChecklista\nUtfärdare\nDatum\nHans Johansson\n2019-06-01\nSida\nUtskriftsdatum\n5(21)\n2019-06-12\n3\nModeller\nArbetsområdena är generella och kan tillämpas både vid agilt och traditionellt\narbetssätt.\n4\nArbetsområden\nBilden visar arbetsområden från systemuppsättning till förvaltningsöverlämnande\nsamt kompetenser för respektive arbetsområde.\nBilden kan ses som en grov checklista över de arbetsområden som ingår vid\nsysteminförande.\nArbetsområdena situationsanpassas beroende på vilka förutsättningar som gäller.\nWebbkurs\nArbetsområden vid systeminförande\nKursdokumentation\nChecklista\nUtfärdare\nDatum\nHans Johansson\n2019-06-01\nSida\nUtskriftsdatum\n6(21)\n2019-06-12\n4.1\nSystemuppsättning\nTa reda på hur verksamheten vill använda och utnyttja funktionerna i systemet.\nGör systemet körbart (lägg in parametrar, stödinformation m m).\nBeskrivning av området\n• Ta reda på hur verksamheten vill använda och utnyttja funktionerna i systemet.\n• Hitta lösningar som på bästa sätt stödjer verksamheten.\n• Installera systemet, kringsystem, skrivare, kommunikation etc i IT-miljön.\n• Lägga in parametrar (t ex momssatser, utbetalningsdatum), stödinformation (t ex\npostnr och postadress), mallar, texter, kopplingar mallar och texter m m  i IT-\nmiljön, så att systemet är körbart.\n• Ta fram checklista för systemuppsättningen.\nFrågor\n• Säkerställer ni hur verksamheten vill utnyttja systemet?\n• Säkerställer ni att systemet fungerar med kringsystem, utrustning,\nkommunikation?\nWebbkurs\nArbetsområden vid systeminförande\nKursdokumentation\nChecklista\nUtfärdare\nDatum\nHans Johansson\n2019-06-01\nSida\nUtskriftsdatum\n7(21)\n2019-06-12\n4.2\nSäkerhet & behörigheter\nStäm av ambitionsnivån för säkerheten och behörigheter.\nVerifiera att säkerheten och behörigheter fungerar i IT-miljön.\nBeskrivning av området\nSäkerhet\n• Stäm av ambitionsnivån för säkerheten med avseende på tillgänglighet, sekretess\noch riktighet.\n• Verifiera att säkerheten fungerar i IT-miljön.\nBehörigheter\n• Stäm ambitionsnivå för behörighetsskyddet.\n• Fastställ vilka behörighetstyper och behörighetsprofiler som ska finnas .\n• Se till att det finns en rutin för att hantera behörigheter.\n• Koppla användare till behörighetsprofil.\nFrågor\nSäkerhet\n• Säkerställer ni att företagets krav på säkerhet beaktas?\n• Verifierar ni att säkerheten fungerar?\nBehörigheter\n• Säkerställer ni att företagets krav på behörighetsskydd beaktas?\n• Finns det en rutin/process för att hantera behörigheter?\n• Verifierar ni att behörighetsskyddet fungerar?\nWebbkurs\nArbetsområden vid systeminförande\nKursdokumentation\nChecklista\nUtfärdare\nDatum\nHans Johansson\n2019-06-01\nSida\nUtskriftsdatum\n8(21)\n2019-06-12\n4.3\nSystemsamband\nTesta och följ upp samtliga kopplingar.\nVerifiera att befintligt system kan avvecklas som planerat.\nBeskrivning av området\n• Systemsamband\n• Se till att det finns en översiktlig beskrivning som visar kopplingar med interna\noch externa intressenter i det nya systemet.\n• Testa och följ upp samtliga kopplingar.\n•  I samband med första körningen i skarp drift säkerställ att kopplingen fungerat\npå ett korrekt sätt.\n•\n• Systemavveckling\n• Beskriv översiktligt vilka konsekvenserna blir för omgivande system när\nbefintligt system avvecklas.\n• Verifiera att befintligt system kan avvecklas som planerat.\nFrågor\nSystemsamband\n• Ser ni till att det finns en beskrivning som visar samtliga kopplingar?\n• Säkerställer ni att samtliga kopplingar fungerar?\nSystemavveckling\n• Beskriver ni konsekvenserna för omgivande system när befintligt system\navvecklas?\n• Tar ni fram en plan för hur befintligt system ska avvecklas?\nWebbkurs\nArbetsområden vid systeminförande\nKursdokumentation\nChecklista\nUtfärdare\nDatum\nHans Johansson\n2019-06-01\nSida\nUtskriftsdatum\n9(21)\n2019-06-12\n4.4\nArbetsrutiner\nBeskriv förändringsbehoven samt utforma arbetsrutinerna.\nBeskrivning av området\n• Fastställ ambitionsnivå för översyn av arbetsrutinerna, lokalerna och\nutrustningen.\n• Beskriv förändringsbehoven.\n• Föreslå och anpassa organisationen för nytt arbetssätt.\n• Anpassa lokalerna och utrustningen.\n• Utforma arbetsrutinerna.\n• Säkerställ att arbetsrutinerna, organisationen, lokalerna och utrustningen fungerar\ni skarp drift.\nFrågor\n• Före systemleverans tar ni hänsyn till, nya processer, övergångsrutiner/processer,\nvad som behöver förändras när det gäller lokalerna och utrustning?\n• Anpassar ni organisation och roller till det nya arbetssättet innan systemet startar?\n• Säkerställer ni att det nya arbetssättet fungerar i verksamheten innan systemet\nstartar?\nWebbkurs\nArbetsområden vid systeminförande\nKursdokumentation\nChecklista\nUtfärdare\nDatum\nHans Johansson\n2019-06-01\nSida\nUtskriftsdatum\n10(21)\n2019-06-12\n4.5\nAcceptanstest\nSystemet testat att det fungerar i verksamheten och godkänt av beställaren.\nBeskrivning av området\n• Fastställ kriterier för godkännande av testen, arbeta fram en testplan.\n• Utforma testfall  och testspecifikationer samt etablera testmiljö för acceptanstest.\n• Säkerställ information i databaser register genom att gå igenom konverterad och\nrättad information.\n• Utbilda testarna i systemet och i testmetodik.\n• Kör samtliga testfall enligt testplan, ta fram en prioriterad åtgärdslista över\nbeslutade ändringar för rättning.\n• Verifiera att rutinbeskrivningarna, användardokumentationen och online-hjälpen\nfungerar i verksamheten.\n• Skriv acceptanstestrapport med rekommendation om godkännande eller inte\ngodkännande av systemet och dokumentationen.\nFrågor\n• Tar ni fram en acceptanstestplan?\n• Fastställer ni kriterier för att godkänna testen?\n• Testar ni att systemet fungerar i verksamheten och med det nya arbetssättet?\n• Testar ni att svars- och körningstiderna är acceptabla?\n• Testar ni kopplingar till omgivande system?\n• Testar ni övergångsrutiner?\n• Testar ni med en konverterad databas?\nWebbkurs\nArbetsområden vid systeminförande\nKursdokumentation\nChecklista\nUtfärdare\nDatum\nHans Johansson\n2019-06-01\nSida\nUtskriftsdatum\n11(21)\n2019-06-12\n4.6\nUtbildning & information\nUtbilda personal i nya arbetsrutiner/processer och i systemet.\nInformera kunder, leverantörer, partners.\nBeskrivning av området\n• Kartlägg utbildningskrav och utbildningsbehov för olika målgrupper samt\nfastställ ambitionsnivå och mål samt beskriv vad deltagarna ska uppnå med\nutbildningen.\n• Ta fram förslag på samt fastställ när, var och hur utbildningarna ska genomföras.\n• För interna och externa intressenter som indirekt berörs av systemet fastställ\nvilken typ av information samt vilket material som ska tas fram.\n• Sammanställ utbildningskrav, utbildningsbehov, ambitionsnivå, omfattning,\ninformationsspridning m m i en utbildningsstrategi.\n• Planera, förbered, genomför och följ upp utbildningen enligt fastställda mål.\nFrågor\n• Tar ni fram en utbildningsstrategi/plan?\n• Utbildar ni även i förändrade arbetsrutiner/processer?\n• Tar ni hänsyn till att det finns olika typer av användare med olika\nutbildningsbehov?\n• Utbildar ni så att användarna kommer att behärska det nya arbetssättet innan\nsystemet startar?\n• Följer ni upp utbildningen så att kompletterande stödinsatser kan sättas in vid\nbehov?\n• Säkerställer ni att det finns nödvändiga resurser till utbildningen?\nWebbkurs\nArbetsområden vid systeminförande\nKursdokumentation\nChecklista\nUtfärdare\nDatum\nHans Johansson\n2019-06-01\nSida\nUtskriftsdatum\n12(21)\n2019-06-12\n4.7\nAnvändarstöd\nHjälpa användarna att tillämpa systemet och arbetsrutinerna.\nBeskrivning av området\n• Ge stöd till de lokala projekten, för att på så sätt se till att införanden sker på ett\nsäkert och samordnat sätt.\n• Bedöm vilket stöd de lokala projekten behöver i samband med provdriften och i\nsamband med driftsättningen för övriga lokala projekt.\n• Ta fram tid- och resursplan och tillsätt resurser.\n• Hjälpa användarna att tillämpa systemet och arbetsrutinerna samt vid behov\nhjälpa till med felrättning.\nFrågor\n• Bedömer ni i förväg vilket stöd som krävs för att på ett smidigt sätt komma\nigång?\n• Tillsätter ni resurser för att hjälpa användarna?\nWebbkurs\nArbetsområden vid systeminförande\nKursdokumentation\nChecklista\nUtfärdare\nDatum\nHans Johansson\n2019-06-01\nSida\nUtskriftsdatum\n13(21)\n2019-06-12\n4.8\nDokumentation\nFastställ i vilka former dokumentationen ska produceras i och i vilka medier.\nBeskrivning av området\n• Fastställ dokumentationsstrukturen och ambitionsnivån.\n• Fastställ vilket material som ska samlas in från andra delprojekt.\n• Fastställ i vilka former dokumentationen ska produceras i och i vilka medier\ndokumentationen och materialet ska sammanställas och presenteras i.\n• Fastställ till vem/vilka färdigt material ska levereras och vid vilka tidpunkter.\n• Ta fram regler för språkbehandlingen.\n• Utforma dokumentationen inklusive lathund.\n• Granska språket i användarhandboken.\nFrågor\n• Fastställer ni vilka typer av dokumentation som ska produceras?\n• Fastställer ni innehållet i respektive typ av dokumentation?\n• Fastställer ni på vilka medier dokumentationen ska produceras?\nWebbkurs\nArbetsområden vid systeminförande\nKursdokumentation\nChecklista\nUtfärdare\nDatum\nHans Johansson\n2019-06-01\nSida\nUtskriftsdatum\n14(21)\n2019-06-12\n4.9\nRegisterinformation\nFastställ och beskriv informationsmålen samt hur dessa ska uppnås.\nBeskrivning av området\n• Fastställ och beskriv informationsmålen samt hur dessa ska uppnås rätta/\nkomplettera information i befintligt system\n• Konvertera information, skapa information vid konverteringen, rätta/komplettera\ninformation i nytt system.\n• Inför acceptanstesten rätta/komplettera information i befintligt system.\n• Inför provdrift och övriga rätta/komplettera information i befintligt system och i\nnytt system.\nFrågor\n• Beskriver ni vilken information som ska rättas/kompletteras i befintligt system?\n• Beskriver ni vilken information som ska konverteras?\n• Beskriver ni vilken information som ska rättas/kompletteras i nya systemet?\n• Säkerställer ni att informationen har acceptabel kvalitet?\nWebbkurs\nArbetsområden vid systeminförande\nKursdokumentation\nChecklista\nUtfärdare\nDatum\nHans Johansson\n2019-06-01\nSida\nUtskriftsdatum\n15(21)\n2019-06-12",
@@ -1675,11 +1675,11 @@
       14,
       15
     ],
-    "source": "Checklista_Arbetsområden.pdf",
+    "source": "Checklista_Arbetsomraden.pdf",
     "source_type": "pdf"
   },
   {
-    "id": "Checklista_Arbetsområden_4.10",
+    "id": "Checklista_Arbetsomraden_4.10",
     "title": "4.10 Teknisk plattform",
     "section": "4.10",
     "text": "Verifiera att den tekniska plattformen är tillräckligt kraftfull.\nBeskrivning av området\n• Ta reda på och fastställ vilka tekniska krav som systemet har på tekniska\nplattformen, säkerheten och på behörighetssystemet.\n• Vid behov uppgradera den tekniska plattformen, vidta säkerhetsåtgärder och\nanpassa behörighetssystemet\n• Verifiera den tekniska plattformen, säkerheten och behörighetssystemet.\nFrågor\n• Tar ni reda på om befintlig plattform måste uppgraderas?\n• Verifierar ni att svarstider och körningstider är acceptabla innan systemet startar?\nWebbkurs\nArbetsområden vid systeminförande\nKursdokumentation\nChecklista\nUtfärdare\nDatum\nHans Johansson\n2019-06-01\nSida\nUtskriftsdatum\n16(21)\n2019-06-12",
@@ -1687,11 +1687,11 @@
       15,
       16
     ],
-    "source": "Checklista_Arbetsområden.pdf",
+    "source": "Checklista_Arbetsomraden.pdf",
     "source_type": "pdf"
   },
   {
-    "id": "Checklista_Arbetsområden_4.11",
+    "id": "Checklista_Arbetsomraden_4.11",
     "title": "4.11 IT-miljöer",
     "section": "4.11",
     "text": "Se till att systemet parallellt kan köras i separata miljöer för t ex acceptanstest,\nutbildning, provdrift och skarp drift.\nBeskrivning av området\n• Förbered IT-miljön så att systemet parallellt kan köras i separata miljöer för t ex\nacceptanstest utbildning, provdrift och skarp drift.\n• Ta fram en checklista för att regelbundet följa upp prestanda och belastning för\nklient, server, kommunikation och utdata etc.\n• Eventuellt besluta om inköp av utrustning.\n• Iordningställ IT-miljöer acceptanstest, utbildning, provdrift, skarp drift etc.\n• Fastställ vilka regler/rutiner som ska finnas för att uppdatera IT-miljöer, system\noch komponenter samt anpassa regler/rutiner.\n• Genomför test av IT-miljö enligt testplan.\n• Utvärdera prestanda för klienter, mellanskikt och databas, IT-miljöns prestanda,\nkommunikation, trafikmätning etc.\n• Följ regelbundet upp prestanda och belastning för klient, server, kommunikation\noch utdata etc.\nFrågor\n• Förbereder ni IT-miljön så att systemet parallellt kan köras i flera miljöer?\n• Följer ni regelbundet upp att IT-miljön har tillräcklig kapacitet?\n• Finns det regler/rutiner för versionshantering?\nWebbkurs\nArbetsområden vid systeminförande\nKursdokumentation\nChecklista\nUtfärdare\nDatum\nHans Johansson\n2019-06-01\nSida\nUtskriftsdatum\n17(21)\n2019-06-12",
@@ -1699,11 +1699,11 @@
       16,
       17
     ],
-    "source": "Checklista_Arbetsområden.pdf",
+    "source": "Checklista_Arbetsomraden.pdf",
     "source_type": "pdf"
   },
   {
-    "id": "Checklista_Arbetsområden_4.12",
+    "id": "Checklista_Arbetsomraden_4.12",
     "title": "4.12 Konvertering & laddning",
     "section": "4.12",
     "text": "Fastställ hur många typer av konverteringar/laddningar (acceptanstest, utbildning,\nprovdrift, drift) som ska köras.\nBeskrivning av området\n• Identifiera vilken information som ska konverteras maskinellt eller skapas\nmaskinellt.\n• Identifiera vilken information som ska registreras in manuellt före och/eller efter\nkonverteringen.\n• Fastställ vilka IT-miljöer som krävs.\n• Fastställ hur många typer av konverteringar/laddningar (acceptanstest, utbildning,\nprovdrift, drift) som ska köras.\n• Sammanställ ovanstående resultat i en konverteringsstrategi.\n• Beskriv översiktligt kommande konverteringar/laddningar ska förberedas,\ngenomföras, stämmas av och följas upp.\n• Fastställ antal konverteringar/laddningar samt omfattning av respektive\nladdning/konvertering samt gör en grov tids- och resursuppskattning.\n• Fastställ och utforma konverteringsinstruktioner/regler, beskriv\nkonverteringsinformation som skapas, hur avstämningar ska göras samt hur\ninformation som måste läggas in manuellt ska registreras in.\n• Ta fram en detaljerad plan för konverteringen/laddningen, utför aktiviteterna och\nfölj upp.\nFrågor\n• Beskriver ni hur nya databasen ska födas med information?\n• Fastställer ni hur många typer av konverteringar som ska köras?\n• Beskriver ni hur konverteringarna ska förberedas, genomföras och stämmas av?\nWebbkurs\nArbetsområden vid systeminförande\nKursdokumentation\nChecklista\nUtfärdare\nDatum\nHans Johansson\n2019-06-01\nSida\nUtskriftsdatum\n18(21)\n2019-06-12",
@@ -1711,11 +1711,11 @@
       17,
       18
     ],
-    "source": "Checklista_Arbetsområden.pdf",
+    "source": "Checklista_Arbetsomraden.pdf",
     "source_type": "pdf"
   },
   {
-    "id": "Checklista_Arbetsområden_4.13",
+    "id": "Checklista_Arbetsomraden_4.13",
     "title": "4.13 Omläggning",
     "section": "4.13",
     "text": "Beskriv hur omläggningen ska ske, vad som måste göras före driftstart, vid driftstart\noch efter driftstart.\nBeskrivning av området\n• Beskriv översiktligt hur omläggningen ska ske (successivt, direkt etc).\n• Beskriv samtliga aktiviteter som ingår i före driftstart, vid driftstart och efter\ndriftstart.\n• För varje aktivitet ska framgå vad som ska göras, när det ska göras, planerad\ntidsåtgång, vem som är ansvarig samt vem som utför arbetet.\n• I detaljeringen ingår även att beskriva den temporära organisationen samt\nåterrapportering av aktiviteter vid driftsättningen.\n• Sammanställ aktiviteter, organisation och ansvar, tider m m i en\nomläggningsplan.\n• Utför och följ upp aktiviteterna i omläggningsplanen.\nFrågor\n• Beskiver ni i en plan vad som måste göras i samband med att systemet tas i skarp\ndrift?\n• Har ni en temporär organisation som följer upp och ansvarar för övergången?\nWebbkurs\nArbetsområden vid systeminförande\nKursdokumentation\nChecklista\nUtfärdare\nDatum\nHans Johansson\n2019-06-01\nSida\nUtskriftsdatum\n19(21)\n2019-06-12",
@@ -1723,11 +1723,11 @@
       18,
       19
     ],
-    "source": "Checklista_Arbetsområden.pdf",
+    "source": "Checklista_Arbetsomraden.pdf",
     "source_type": "pdf"
   },
   {
-    "id": "Checklista_Arbetsområden_4.14",
+    "id": "Checklista_Arbetsomraden_4.14",
     "title": "4.14 Provdrift",
     "section": "4.14",
     "text": "Genomför provdriften enligt körschema med verkligt material.\nGe rekommendation till beslut om godkännande av provdriften.\nBeskrivning av området\n• Informera aktuell enhet om riktlinjerna (tider, ansvar, omfattning m m) för\nprovdriften.\n• Fastställ omfattningen för provdriften.\n• Planera för verksamheten ansvar och roller både lokalt och centralt, vilka\narbetsrutiner som ska provas och med vilket material.\n• Fastställ hur fel- och förbättringsförslag ska hanteras.\n• Fastställ helpdesks ansvar och roll.\n• Ta fram körschema för provdriften och ta fram verkligt material.\n• Säkerställ att provdrift- och utbildningsmiljö fungerar samt att alla roller både\nlokalt och centralt är bemannade.\n• Se till att användare kopplas till behörighetsprofiler.\n• Genomför provdriften enligt körschema med verkligt material.\n• Följ upp provdriften och stäm av resultatet.\n• Ge rekommendation till beslut om godkännande av provdriften.\nFrågor\n• Provar ni hur arbetssätt och system fungerar i driftsliknande miljö innan systemet\nstartar?\n• Tar ni fram en rekommendation till beslut om godkännande av provdriften?\nWebbkurs\nArbetsområden vid systeminförande\nKursdokumentation\nChecklista\nUtfärdare\nDatum\nHans Johansson\n2019-06-01\nSida\nUtskriftsdatum\n20(21)\n2019-06-12",
@@ -1735,11 +1735,11 @@
       19,
       20
     ],
-    "source": "Checklista_Arbetsområden.pdf",
+    "source": "Checklista_Arbetsomraden.pdf",
     "source_type": "pdf"
   },
   {
-    "id": "Checklista_Arbetsområden_4.15",
+    "id": "Checklista_Arbetsomraden_4.15",
     "title": "4.15 Driftsättning",
     "section": "4.15",
     "text": "Beskriv hur och när driftsättning av det nya systemet ska göras.\nDriftorganisationen tar över ansvaret för driftförvaltningen.\nBeskrivning av området\n• Beskriv översiktligt hur och när driftsättning av det nya systemet ska göras\n(successivt införande eller engångsinstallation, parallelldrift eller ej).\n• Fastställ i vilken ordning driftsättningen ska genomföras och datum för driftstart.\n• Beskriv krav på vad som måste förberedas avseende hårdvara, mjukvara,\nkompetenshöjning, förändring av driftorganisation och bemanning.\n• Fastställ vilka typer av driftrutiner som ska utformas t ex för normaldrift, återstart\noch återskapande, reservrutiner, reorganisation av databaserna, versionshantering,\ndriftsättning av program.\n• Bemanna driftorganisation och arbeta fram driftrutiner samt ta fram\ndrifthandboken.\n• Skriv driftavtal.\n• Den etablerade driftorganisationen tar över ansvaret för driftförvaltningen.\nFrågor\n• Ser ni över driftrutinerna innan system startar?\n• Är driftrutinerna dokumenterade innan system startar?\n• Säkerställer ni att driftorganisationen fungerar innan system startar?\nWebbkurs\nArbetsområden vid systeminförande\nKursdokumentation\nChecklista\nUtfärdare\nDatum\nHans Johansson\n2019-06-01\nSida\nUtskriftsdatum\n21(21)\n2019-06-12",
@@ -1747,22 +1747,22 @@
       20,
       21
     ],
-    "source": "Checklista_Arbetsområden.pdf",
+    "source": "Checklista_Arbetsomraden.pdf",
     "source_type": "pdf"
   },
   {
-    "id": "Checklista_Arbetsområden_4.16",
+    "id": "Checklista_Arbetsomraden_4.16",
     "title": "4.16 Förvaltningsöverlämnande",
     "section": "4.16",
     "text": "Fastställ vilka förvaltningsobjekt som ska förvaltas.\nGodkänna och avsluta överlämnandet.\nBeskrivning av området\n• Fastställ vilka förvaltningsobjekt (resultat t ex utbildning av handläggare,\nprogramkod, systemdokumentation) som ska förvaltas.\n• Fastställ ansvariga för överlämnandet dels i projektet (leverantör) och dels i\nförvaltningsorganisationen (mottagare).\n• Beskriv förvaltningsobjekten.\n• Fastställ var förvaltningsobjekten ska lagras eller arkiveras (katalogstruktur).\n• Ta fram en tidplan för överlämnandet.\n• Ansvariga för överlämnandet dels i projektet (leverantör) och dels i\nförvaltningsorganisationen (mottagare) ser till att överlämnandet sker enligt plan\noch enligt katalogstukturen.\n• Godkänna och avsluta överlämnandet.\nFrågor\n• Fastställer och beskriver ni resultat som ska förvaltas (förvaltningsobjekt)?\n• Utser ni för varje förvaltningsobjekt ansvarig, leverantör och mottagare?",
     "pages": [
       21
     ],
-    "source": "Checklista_Arbetsområden.pdf",
+    "source": "Checklista_Arbetsomraden.pdf",
     "source_type": "pdf"
   },
   {
-    "id": "Checklista_Införandekrav_4.14",
+    "id": "Checklista_Inforandekrav_4.14",
     "title": "4.14 Förvaltningsöverlämnande ____________________________________________ 21",
     "section": "4.14",
     "text": "5 Underlag till budget & tidplan ________________________________ 22\nWebbkurs\nInförandekrav – grunden till att budget och tidplan håller\nKursdokumentation\nChecklista\nUtfärdare\nDatum\nHans Johansson\n2019-06-01\nSida\nUtskriftsdatum\n2(24)\n2019-06-15\n1\nKravtyper\nDet finns olika typer av krav det finns funktionella krav, icke funktionella krav och\ninförandekrav.\nI funktionella krav beskrivs vad systemet ska kunna göra som t ex vid adressändring\nskicka ett e-postmeddelande som bekräftelse.\nI Icke funktionella krav beskrivs hur systemet ska agera som t ex\nanvändargränssnittet ska ha blå knappar med vit text.\nDenna kurs kommer hjälpa er att ställa införandekrav som i dessa sammanhang\nhandlar om krav som indirekt är relaterade till systemet som t ex:\n•\natt se över och anpassa arbetsrutiner\n•\natt utbildningen anpassas till olika målgrupper\n•\natt ha parallella IT-miljöer för utbildning och skarp drift\n•\natt säkerhetsnivån i systemet stämmer med säkerhetspolicyn\n•\nbör driftstarten ske succesivt eller vid ett tillfälle\nInförandekraven är riktade mot verksamheten, teknik och drift samt systemstöd.\nWebbkurs\nInförandekrav – grunden till att budget och tidplan håller\nKursdokumentation\nChecklista\nUtfärdare\nDatum\nHans Johansson\n2019-06-01\nSida\nUtskriftsdatum\n3(24)\n2019-06-15\n2\nModeller\nOmrådena för införandekrav är generella och kan tillämpas både vid agilt och\ntraditionellt arbetssätt.\nWebbkurs\nInförandekrav – grunden till att budget och tidplan håller\nKursdokumentation\nChecklista\nUtfärdare\nDatum\nHans Johansson\n2019-06-01\nSida\nUtskriftsdatum\n4(24)\n2019-06-15\n3\nKompetenser\nEn förutsättning för att ställa rätta krav är att personer med olika kompetenser är med\ni kravarbetet.\nKraven kan delas in i system-, verksamhets- samt teknik- och driftrelaterade\nområden.\nEn person kan ha flera kompetenser.\nFör systemstöd krävs kunskap om nya systemet, befintligt system, samband med\nandra system, behörighetssystem och säkerhetssystem.\nFör verksamheten krävs kunskap om målet med nya systemet, nuvarande arbetssätt\nsamt vad som måste förändras i verksamheten för att nå målet.\nFör teknik och drift krävs kunskap om tekniska krav och driftkrav på nytt system\nsamt befintlig teknisk plattform.\nWebbkurs\nInförandekrav – grunden till att budget och tidplan håller\nKursdokumentation\nChecklista\nUtfärdare\nDatum\nHans Johansson\n2019-06-01\nSida\nUtskriftsdatum\n5(24)\n2019-06-15\n4\nKravområden\nBilden visar kravområden från övergripande krav till förvaltningsöverlämnande samt\nkompetenser för respektive kravområde.\nKravområdena situationsanpassas beroende på vilka förutsättningar som gäller.\nWebbkurs\nInförandekrav – grunden till att budget och tidplan håller\nKursdokumentation\nChecklista\nUtfärdare\nDatum\nHans Johansson\n2019-06-01\nSida\nUtskriftsdatum\n6(24)\n2019-06-15\n4.1\nÖvergripande krav\nStäll krav på de förutsättningar som är styrande för systeminförandet.\nKrav att ta hänsyn till\n Beskriv när driftsättning ska ske.\n Ange när leverans från systemleverantören ska ske.\n Beskriv vad leveransen innehåller.\n Ange hur många användare beräknas utnyttja systemet och var de geografiskt sett\när placerade.\nExempel\nTidskrav för skarp drift\nDriftsättningen ska vara klar under november.\nStart av systemet\nEfter acceptanstest och leveransgodkännande ska systemet driftsättas succesivt\nunder hösten.\nLeverans från systemleverantören\nEn förutsättning för att driftsättningen ska vara klar under november är att\nsystemleverantören levererar det som beställts enligt avtalet senast den sista augusti.\nWebbkurs\nInförandekrav – grunden till att budget och tidplan håller\nKursdokumentation\nChecklista\nUtfärdare\nDatum\nHans Johansson\n2019-06-01\nSida\nUtskriftsdatum\n7(24)\n2019-06-15\n4.2\nArbetsrutiner\nStäll krav på arbetsrutinerna och på förändringsbehoven.\nKrav att ta hänsyn till\n För att kunna utnyttja systemet maximalt, behöver processer/arbetsrutiner och\norganisation ses över?\nOm så är fallet, vad behöver åtgärdas?\n Behöver lokaler och utrustning ses över?\nOm så är fallet, vad behöver åtgärdas?\nExempel\nArbetsrutin för handläggare\nFör handläggare på huvudkontoret utforma ny arbetsrutin för felhantering.\nFunktion för helpdesk\nEtablera en ny funktion för helpdesk  med två personer på huvudkontoret.\nSkrivare på filialerna\nDet ska finnas två skrivare på samtliga filialer\nWebbkurs\nInförandekrav – grunden till att budget och tidplan håller\nKursdokumentation\nChecklista\nUtfärdare\nDatum\nHans Johansson\n2019-06-01\nSida\nUtskriftsdatum\n8(24)\n2019-06-15\n4.3\nSystemsamband\nStäll krav på att samtliga kopplingar och tillfälliga lösningar samt att de ska finnas\nbeskrivna.\nKrav att ta hänsyn till\n Finns det en beskrivning som visar samband med omgivande system?\nOm inte, vad behöver åtgärdas?\n Finns tillfälliga lösningar (för att hantera filer, urbackning av transaktioner etc) i\nsamband med övergången från befintligt system till nytt system?\nOm ja, finns dessa beskrivna?\nOm inte, vad behöver åtgärdas?\n Om befintligt system ska avvecklas finns konsekvenserna beskrivna?\nOm inte, vad behöver åtgärdas?\nExempel\nSamband med omgivande system\nSe till att det finns en beskrivning som visar samtliga kopplingar med det nya\nsystemet. För varje koppling ska frekvens, periodicitet, tidskrav och tekniska krav\nvara beskrivna.\nTillfällig lösning\nBetaltransaktioner från tidigare system som kommer in efter det att systemet\navvecklats ska registreras in manuellt i nya systemet.\nKundinformation från avvecklat system\nSkapa möjlighet att ta fram kundinformation som inte konverteras från avvecklat\nsystem.\nWebbkurs\nInförandekrav – grunden till att budget och tidplan håller\nKursdokumentation\nChecklista\nUtfärdare\nDatum\nHans Johansson\n2019-06-01\nSida\nUtskriftsdatum\n9(24)\n2019-06-15\n4.4\nSystemuppsättning\nStäll krav på att stödinformation ska kunna läggas in på ett smidigt sätt.\nKrav att ta hänsyn till\n För att få systemet körbart, kan all stödinformation (parametrar, texter, mallar\netc) på ett smidigt sätt läggas in via funktioner i systemet?\nOm inte, vad saknas?\nExempel\nChecklista för systemuppsättningen\nDet ska finnas en checklista för systemuppsättningen som visar vilka parameterar,\nmallar, texter som måste läggas in i systemet för att det ska vara körbart.\nTexter på svenska och engelska\nTexterna i Office-mallarna ska finnas både på svenska och engelska.\nLägga in mallar\nOffice-mallarna i befintligt system ska på ett smidigt sätt kunna läggas in i nya\nsystemet.\nWebbkurs\nInförandekrav – grunden till att budget och tidplan håller\nKursdokumentation\nChecklista\nUtfärdare\nDatum\nHans Johansson\n2019-06-01\nSida\nUtskriftsdatum\n10(24)\n2019-06-15\n4.5\nSäkerhet & behörigheter\nStäll krav på ambitionsnivån för säkerheter och behörigheter.\nKrav att ta hänsyn till\n Stämmer säkerhetsnivån i systemet med säkerhetspolicyn?\nOm inte, vad skiljer?\n Stämmer behörighetsskyddet i systemet med säkerhetspolicyn?\nOm inte, vad skiljer?\n Behöver en ny behörighetsrutin utformas eller behöver befintlig behörighetsrutin\nanpassas?\nOm så är fallet, vad behöver åtgärdas?\nExempel\nKrav på säkerhet\nSäkerhetsfunktionerna för systemet ska följa beslutad säkerhetspolicy.\nRutin för behörigheter\nSe till att det finns en rutin för att hantera behörigheter.\nBehörighetsnivå\nBehörighetsnivån för systemet ska vara  samma både i utbildningsmiljön och i\nmiljön för skarp drift.\nWebbkurs\nInförandekrav – grunden till att budget och tidplan håller\nKursdokumentation\nChecklista\nUtfärdare\nDatum\nHans Johansson\n2019-06-01\nSida\nUtskriftsdatum\n11(24)\n2019-06-15\n4.6\nAcceptanstest\nStäll krav på att systemet är testat och att det fungerar i verksamheten samt att det är\ngodkänt av beställaren.\nKrav att ta hänsyn till\n Vilka är kriterierna för leveransgodkännande?\n Vem/vilken/vilka beslutar om leveransgodkännande och när ska det ske?\n Behöver leverantörerna (av systemet, drift och teknik) ha jour/beredskap vid\nacceptanstesten?\nOm så är fallet, ange ambitionsnivå.\n Har systemleverantören en fungerande process för fel- och versionshantering?\nOm inte, vad behöver åtgärdas?\nExempel\nKriterier för leveransgodkännande\nFör ett leveransgodkännande för systemet krävs att följande testats med godkänt\nresultat funktioner, program, databaser, gränssnitt, svarstider och körningstider.\nVidare ska systemet fungera med arbetsrutinerna.\nUtbilda testare\nTestarna ska utbildas i systemet och i testmetodik.\nFörutsättningar för start av test\nSystemtesten är klar och godkänd, acceptanstestmiljön är klar och tillgänglig samt\natt testfall är klara och testare är tillgängliga.\nWebbkurs\nInförandekrav – grunden till att budget och tidplan håller\nKursdokumentation\nChecklista\nUtfärdare\nDatum\nHans Johansson\n2019-06-01\nSida\nUtskriftsdatum\n12(24)\n2019-06-15\n4.7\nUtbildning\nStäll krav på att utbilda personal i systemet och i nya arbetsrutiner.\nKrav att ta hänsyn till\n Vilka målgrupper (normalanvändare, specialister etc) behöver utbildas?\n Ange ambitionsnivå på utbildningen när det gäller: innehåll, upplägg,\ngenomförande, lokaler, utrustning, lärare etc?\n Att använda utbildningsdata så att deltagarna känner igen sig ökar förståelsen.\nAnge ambitionsnivå på utbildningsdata.\nExempel\nInnehåll i utbildningen\nAtt ge tillräcklig kunskap så att alla i organisationen kan klara sina arbetsuppgifter\ndär systemet används samt för övrig personal såsom ”helpdesk”-, driftpersonal och\nliknande.\nGenomförande av utbildningen\nUtbildningen ska ges i så nära anslutning som möjligt före påbörjande av\narbetsuppgifter som innebär användande av systemet.\nUtbildning av olika målgrupper\nFör varje målgrupp ska det finnas en grov plan när utbildningen genomföras och\nvilka personalkategorier som ska gå utbildningen.\nWebbkurs\nInförandekrav – grunden till att budget och tidplan håller\nKursdokumentation\nChecklista\nUtfärdare\nDatum\nHans Johansson\n2019-06-01\nSida\nUtskriftsdatum\n13(24)\n2019-06-15\n4.8\nAnvändarstöd\nStäll krav på vilket stöd användarna bör ha för att tillämpa systemet och\narbetsrutinerna.\nKrav att ta hänsyn till\n För att systemet ska införas på ett smidigt sätt i verksamheten finns många gånger\nbehov av användarstöd (vid acceptanstest, vid provdrift, vid driftsättning etc).\nAnge ambitionsnivå.\nExempel\nPlanera användarstödet\nMed driftsättningsplanen som underlag ta fram tidplan och resursplan för\nanvändarstödet vid acceptanstest och driftsättningen.\nStöd vid acceptanstest\nVid testen ska personer som varit med och utbildat vid behov vara med och hjälpa\nanvändarna att testa systemet och arbetsrutinerna.\nStöd vid driftsättning\nVid driftsättningen av systemet kommer ett utökat behov av hjälp att finnas på\naktuella enheter. Personer som varit med vid acceptanstesten är lämpliga resurser.\nWebbkurs\nInförandekrav – grunden till att budget och tidplan håller\nKursdokumentation\nChecklista\nUtfärdare\nDatum\nHans Johansson\n2019-06-01\nSida\nUtskriftsdatum\n14(24)\n2019-06-15\n4.9\nDokumentation\nStäll krav på i vilka former dokumentationen ska produceras i och i vilka medier.\nKrav att ta hänsyn till\n Gå igenom vilken typ av dokumentation (systemdokumentation etc), som är med\ni leveransen från systemleverantören.\nVilka ytterligare typer (onlinehjälp, användarhandbok, lathund,\ndriftdokumentation etc) behöver skapas?\n Vilka språk ska dokumentationen skrivas på?\n Hur ska dokumentation presenteras samt hur och var ska den lagras?\nExempel\nFastställ dokumentationsstruktur\nTa fram en gemensam grundstruktur för dokumentation så att insamlad\ndokumentation kan omarbetas så att den får samma grundutseende som tas fram.\nTexter på svenska och engelska\nAll text i Office-mallar, systemet, användarhandboken ska finnas både på svenska\noch engelska.\nTa fram en utbildningsmaterial\nI uppgiften ingår att ta fram utbildningsmaterial. Utbildare kommer att delta i arbetet\nmed önskemål och synpunkter på materialet.\nWebbkurs\nInförandekrav – grunden till att budget och tidplan håller\nKursdokumentation\nChecklista\nUtfärdare\nDatum\nHans Johansson\n2019-06-01\nSida\nUtskriftsdatum\n15(24)\n2019-06-15",
@@ -1783,11 +1783,11 @@
       14,
       15
     ],
-    "source": "Checklista_Införandekrav.pdf",
+    "source": "Checklista_Inforandekrav.pdf",
     "source_type": "pdf"
   },
   {
-    "id": "Checklista_Införandekrav_4.10",
+    "id": "Checklista_Inforandekrav_4.10",
     "title": "4.10 Registerinformation",
     "section": "4.10",
     "text": "Ställ krav på registerinformationen.\nKrav att ta hänsyn till\n Behöver registerinformationen i befintligt system rättas/kompletteras före\nkonvertering från befintligt system till nytt system?\nOm så är fallet, vad behöver åtgärdas?\nExempel\nRensningsinstruktioner\nTa fram rensningsinstruktioner för manuell rättning av kundinformation.\nManuell rättning\nManuellt gå igenom och rätta kundinformation (namn, adress, telefon nr och e-\nmailadress) i befintlig databas innan konvertering.\nMaskinell rensning före konvertering\nPersoner födda före 1910 ska ej vara med nya databasen.\nWebbkurs\nInförandekrav – grunden till att budget och tidplan håller\nKursdokumentation\nChecklista\nUtfärdare\nDatum\nHans Johansson\n2019-06-01\nSida\nUtskriftsdatum\n16(24)\n2019-06-15",
@@ -1795,11 +1795,11 @@
       15,
       16
     ],
-    "source": "Checklista_Införandekrav.pdf",
+    "source": "Checklista_Inforandekrav.pdf",
     "source_type": "pdf"
   },
   {
-    "id": "Checklista_Införandekrav_4.11",
+    "id": "Checklista_Inforandekrav_4.11",
     "title": "4.11 IT-miljöer",
     "section": "4.11",
     "text": "Ställ krav på att systemet parallellt kan köras i flera miljöer.\nKrav att ta hänsyn till\n Förutom driftmiljö vilka ytterligare IT-miljöer behöver finnas (acceptanstest-,\nutbildningsmiljö etc)?\n För att systemet ska kunna köras på ett tillfredställande sätt, måste då den\ntekniska plattformen uppgraderas?\nOm så är fallet, vad behöver åtgärdas?\nExempel\nUtbildningsmiljö\nParallellt med skarp drift kommer även utbildningar att genomföras. För att de som\ngår utbildningarna ska få praktisk övning behövs även en separat utbildningsmiljö.\nStruktur för teknisk plattform\nMed systemstrukturen som underlag fastställ struktur för den tekniska plattformen,\nvilket behörighetsskydd sam vilka säkerhetsfunktioner som gäller.\nBelastnings- och prestandaprov\nFastställ kriterier för proven samt ta fram en checklista för att regelbundet följa upp\nprestanda och belastning för klient, server, kommunikation och utdata.\nWebbkurs\nInförandekrav – grunden till att budget och tidplan håller\nKursdokumentation\nChecklista\nUtfärdare\nDatum\nHans Johansson\n2019-06-01\nSida\nUtskriftsdatum\n17(24)\n2019-06-15",
@@ -1807,11 +1807,11 @@
       16,
       17
     ],
-    "source": "Checklista_Införandekrav.pdf",
+    "source": "Checklista_Inforandekrav.pdf",
     "source_type": "pdf"
   },
   {
-    "id": "Checklista_Införandekrav_4.12",
+    "id": "Checklista_Inforandekrav_4.12",
     "title": "4.12 Konvertering",
     "section": "4.12",
     "text": "Ställ krav på hur många typer av konverteringar (för acceptanstest, utbildning,\nprovdrift, drift) som ska köras.\nWebbkurs\nInförandekrav – grunden till att budget och tidplan håller\nKursdokumentation\nChecklista\nUtfärdare\nDatum\nHans Johansson\n2019-06-01\nSida\nUtskriftsdatum\n18(24)\n2019-06-15\nKrav att ta hänsyn till\n Är samtliga konverteringsregler fastställda och dokumenterade?\nOm inte, vad behöver åtgärdas?\n Är det fastställt och dokumenterat vilken information som ska överföras\nmaskinellt?\nOm inte, vad behöver åtgärdas?\n Är det fastställt och dokumenterat vilken information som ska registreras in\nmanuellt?\nOm inte, vad behöver åtgärdas?\n Är det fastställt och dokumenterat vilken information som finns i det befintliga\nsystemet, men som inte ska finnas i det nya systemet?\nOm inte, vad behöver åtgärdas?\n Är kraven på avstämningar och kontroller fastställda och dokumenterade?\nOm inte, vad behöver åtgärdas?\n Har revisionens krav och ambitionsnivå beaktats när det gäller om konverteringen\nbehöver dokumenteras?\nOm så är fallet, ange ambitionsnivå.\nOm inte, vad behöver åtgärdas?\n Förutom konvertering inför skarp drift, hur många ytterligare typer av\nkonverteringar behöver köras (inför acceptanstest, utbildning etc)?\nExempel\nKonverteringsregler\nTa fram regler som beskriver hur information skapas, hur avstämningar ska göras\nsamt hur information som måste läggas in manuellt ska registreras in.\nKontroll\nFör att säkerställa att konvertering av data blir korrekt, kör en provkonvertering och\nverifiera och kontrollera enligt fastställda konverteringsregler.\nKonvertering inför acceptanstest\nAcceptanstesten ska genomföras med en konverterad databas.\nWebbkurs\nInförandekrav – grunden till att budget och tidplan håller\nKursdokumentation\nChecklista\nUtfärdare\nDatum\nHans Johansson\n2019-06-01\nSida\nUtskriftsdatum\n19(24)\n2019-06-15",
@@ -1820,11 +1820,11 @@
       18,
       19
     ],
-    "source": "Checklista_Införandekrav.pdf",
+    "source": "Checklista_Inforandekrav.pdf",
     "source_type": "pdf"
   },
   {
-    "id": "Checklista_Införandekrav_4.13",
+    "id": "Checklista_Inforandekrav_4.13",
     "title": "4.13 Driftsättning",
     "section": "4.13",
     "text": "Ställ krav på riktlinjer för driftsättning av det nya systemet\nWebbkurs\nInförandekrav – grunden till att budget och tidplan håller\nKursdokumentation\nChecklista\nUtfärdare\nDatum\nHans Johansson\n2019-06-01\nSida\nUtskriftsdatum\n20(24)\n2019-06-15\nKrav att ta hänsyn till\n Är det klart var systemet ska tas i drift?\nOm så är fallet, var är det?\nOm inte, när fastställs driftställe?\n Bör driftstarten ske successivt eller vid ett tillfälle etc?\nMotivera.\n Finns det idag en etablerad driftorganisation?\nOm inte, vad behöver åtgärdas?\n Finns det en fungerande driftprocess?\nOm inte, vad behöver åtgärdas?\n För att säkerställa att driftstarten sker så smidigt som möjligt, bör en kontrollerad\nprovdrift genomföras, som komplement till acceptanstesten?\nOm så är fallet, ange ambitionsnivå.\n Behöver leverantörerna (av systemet, drift och teknik) ha jour/beredskap vid\nprovdrift och driftstart?\nOm så är fallet, ange ambitionsnivå.\nExempel\nDriftstart\nEtablera en temporär organisation som ansvarar för att planera, förbereda och följa\nupp driftstarten.\nDriftrutiner\nFastställ vilka driftrutiner som ska finnas för normaldrift, återstart, reorganisation av\ndatabaser, versionshantering samt driftsättning av program.\nProvdrift\nGenomför en provdrift av systemet under verkliga förhållanden och säkerställ att\nsamband med kringsystem fungerar.\nWebbkurs\nInförandekrav – grunden till att budget och tidplan håller\nKursdokumentation\nChecklista\nUtfärdare\nDatum\nHans Johansson\n2019-06-01\nSida\nUtskriftsdatum\n21(24)\n2019-06-15",
@@ -1833,11 +1833,11 @@
       20,
       21
     ],
-    "source": "Checklista_Införandekrav.pdf",
+    "source": "Checklista_Inforandekrav.pdf",
     "source_type": "pdf"
   },
   {
-    "id": "Checklista_Införandekrav_4.14",
+    "id": "Checklista_Inforandekrav_4.14",
     "title": "4.14 Förvaltningsöverlämnande",
     "section": "4.14",
     "text": "Ställ krav på att det ska finnas en förvaltningsorganisation och ett arbetssätt.\nKrav att ta hänsyn till\n Finns det idag en etablerad förvaltningsorganisation?\nOm inte, vad behöver åtgärdas?\n Finns det en fungerande förvaltningsprocess?\nOm inte, vad behöver åtgärdas?\nExempel\nAnsvar vid överlämnande\nFör varje förvaltningsobjekt utse ansvariga dels i projektet (leverantör) och dels i\nförvaltningsorganisationen (mottagare).\nFörvaltningsobjekt\nUnder acceptanstesten fastställ vilka objekt som ska förvaltas. Objekten ska\nförvaltas både ur användarens perspektiv och ur tekniskt perspektiv.\nTidplan överlämnande\nNär acceptanstesten och före provdrift avslutats ta fram en tidplan för\növerlämnandet.\nWebbkurs\nInförandekrav – grunden till att budget och tidplan håller\nKursdokumentation\nChecklista\nUtfärdare\nDatum\nHans Johansson\n2019-06-01\nSida\nUtskriftsdatum\n22(24)\n2019-06-15\n5\nUnderlag till budget & tidplan\nVi har valt att ha införandekravet för utbildningsmiljö som exempel för att ta fram\nunderlag till budget och tidplan för systeminförandet.\nBilden visar:\n•\naktiviteter och timmar för personresurser.\n•\nkostnader för hårdvara, mjukvara samt drift och underhåll, personresurser\nsamt total kostnad för utbildningsmiljö.\nWebbkurs\nInförandekrav – grunden till att budget och tidplan håller\nKursdokumentation\nChecklista\nUtfärdare\nDatum\nHans Johansson\n2019-06-01\nSida\nUtskriftsdatum\n23(24)\n2019-06-15\nTa fram underlag för samtliga krav per kravområde.\nBilden visar en sammanställning för samtliga kravområden.\nWebbkurs\nInförandekrav – grunden till att budget och tidplan håller\nKursdokumentation\nChecklista\nUtfärdare\nDatum\nHans Johansson\n2019-06-01\nSida\nUtskriftsdatum\n24(24)\n2019-06-15\nGenom att ta fram underlag för kostnader och aktiviteter och personresurser skapas\nförutsättningar för att ta fram budget och tidplan som håller.\nFör att sedan ta fram en plan för systeminförande måste även kompletterande\nunderlag för styrning, administration och anpassningar tas fram.",
@@ -1847,7 +1847,7 @@
       23,
       24
     ],
-    "source": "Checklista_Införandekrav.pdf",
+    "source": "Checklista_Inforandekrav.pdf",
     "source_type": "pdf"
   }
 ]

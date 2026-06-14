@@ -5,8 +5,6 @@ import re
 import json
 import time
 import fitz  # PyMuPDF
-import requests
-from bs4 import BeautifulSoup
 from urllib.parse import urlparse
 
 
@@ -71,6 +69,9 @@ def extract_pdf_pages(pdf_path):
 # =========================
 
 def extract_web_page(url: str):
+    import requests
+    from bs4 import BeautifulSoup
+
     r = requests.get(url, timeout=20)
     r.raise_for_status()
 
@@ -182,7 +183,15 @@ def ingest_pdfs_and_web():
         for url in urls:
             domain = urlparse(url).netloc.replace(".", "_")
 
-            pages = extract_web_page(url)
+            try:
+                pages = extract_web_page(url)
+            except ImportError:
+                print(f"⚠️ Hoppar över web-källa utan parserstöd: {url}")
+                continue
+            except Exception as exc:
+                print(f"⚠️ Hoppar över web-källa efter fel: {url} ({exc})")
+                continue
+
             chunks = chunk_by_headings(
                 pages,
                 source_name=domain,
