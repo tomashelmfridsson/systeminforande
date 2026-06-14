@@ -21,7 +21,19 @@ WEB_SOURCE_FILE = "rag/web/source.txt"
 # =========================
 
 SECTION_RE = re.compile(r"^(\d+(\.\d+)+)\s+(.+)$")
+SECTION_NUMBER_ONLY_RE = re.compile(r"^(\d+(\.\d+)*)$")
 ALL_CAPS_RE = re.compile(r"^[A-ZÅÄÖ][A-ZÅÄÖ\s\-]{5,}$")
+TOC_RE = re.compile(r"^\d+(\.\d+)*\s+.+_{3,}\s*\d+\s*$")
+
+HEADER_FOOTER_LINES = {
+    "webbkurs",
+    "kursdokumentation",
+    "checklista",
+    "utfärdare",
+    "datum",
+    "sida",
+    "utskriftsdatum",
+}
 
 def ingest_all():
     """
@@ -49,6 +61,41 @@ def is_useful_chunk(text: str) -> bool:
     if not re.search(r"\b(är|ska|syfte|beskriv|genomför|använd)\b", text.lower()):
         return False
 
+    return True
+
+
+def is_noise_line(line: str) -> bool:
+    lowered = line.strip().lower()
+    if not lowered:
+        return True
+
+    if lowered in HEADER_FOOTER_LINES:
+        return True
+
+    if re.fullmatch(r"\d+\(\d+\)", lowered):
+        return True
+
+    if re.fullmatch(r"\d{4}-\d{2}-\d{2}", lowered):
+        return True
+
+    if TOC_RE.match(line):
+        return True
+
+    return False
+
+
+def is_heading_title_candidate(line: str) -> bool:
+    line = line.strip()
+    if not line:
+        return False
+    if is_noise_line(line):
+        return False
+    if len(line) > 120:
+        return False
+    if re.search(r"_{3,}", line):
+        return False
+    if re.fullmatch(r"[0-9\s\-/.:()]+", line):
+        return False
     return True
 
 
@@ -117,10 +164,56 @@ def chunk_by_headings(pages, source_name, source_type, source_ref):
             })
 
     for page_no, text in pages:
-        for line in text.splitlines():
-            line = line.strip()
+        lines = [line.strip() for line in text.splitlines()]
+        in_toc = False
+
+        i = 0
+        while i < len(lines):
+            line = lines[i].strip()
             if not line:
+                i += 1
                 continue
+
+            if line.lower() == "innehåll":
+                in_toc = True
+                i += 1
+                continue
+
+            if in_toc:
+                if TOC_RE.match(line):
+                    i += 1
+                    continue
+                if SECTION_RE.match(line):
+                    i += 1
+                    continue
+                if is_noise_line(line):
+                    i += 1
+                    continue
+                in_toc = False
+
+            if is_noise_line(line):
+                i += 1
+                continue
+
+            number_only = SECTION_NUMBER_ONLY_RE.match(line)
+            if number_only:
+                j = i + 1
+                while j < len(lines) and not lines[j].strip():
+                    j += 1
+
+                if j < len(lines):
+                    title_line = lines[j].strip()
+                    if is_heading_title_candidate(title_line):
+                        flush()
+                        section = number_only.group(1)
+                        current = {
+                            "title": f"{section} {title_line}",
+                            "section": section,
+                            "content": [],
+                            "pages": [page_no]
+                        }
+                        i = j + 1
+                        continue
 
             m = SECTION_RE.match(line)
             is_caps = ALL_CAPS_RE.match(line)
@@ -130,7 +223,8 @@ def chunk_by_headings(pages, source_name, source_type, source_ref):
 
                 if m:
                     section = m.group(1)
-                    title = f"{section} {m.group(3)}"
+                    title_text = re.sub(r"\s*_{3,}\s*\d+\s*$", "", m.group(3)).strip()
+                    title = f"{section} {title_text}"
                 else:
                     section = line
                     title = line
@@ -141,10 +235,12 @@ def chunk_by_headings(pages, source_name, source_type, source_ref):
                     "content": [],
                     "pages": [page_no]
                 }
+                i += 1
                 continue
 
             current["content"].append(line)
             current["pages"].append(page_no)
+            i += 1
 
     flush()
     return chunks
