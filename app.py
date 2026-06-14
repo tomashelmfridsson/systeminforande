@@ -67,6 +67,7 @@ def submit(message, doc_id, debug_mode):
         for q in doc["subquestions"]:
             if q["question"] == message:
                 fact_answer = format_answer(q["answer"])
+                source_results = search(f"{doc['title']} {message}", top_k=5)
                 reasoning = safe_generate_reasoning(
                     title=doc["title"],
                     main_question=doc["main_question"],
@@ -85,6 +86,8 @@ def submit(message, doc_id, debug_mode):
                         + "### Resonemang\n\n"
                         + reasoning
                     )
+
+                combined += build_sources_md(source_results)
                 
                 return combined, "<h3>Svar</h3>"
     
@@ -132,6 +135,21 @@ def safe_generate_reasoning_from_prompt(prompt: str) -> str:
             "Det gick inte att generera ett sammanhängande resonemang just nu.\n\n"
             + format_llm_error(exc)
         )
+
+
+def build_sources_md(results) -> str:
+    used_sources = {}
+    for _, chunk in results:
+        used_sources[chunk["source"]] = chunk
+
+    if not used_sources:
+        return ""
+
+    sources_lines = ["\n\n---\n\n### Källor"]
+    for chunk in used_sources.values():
+        sources_lines.append(f"- {format_source_link(chunk)}")
+
+    return "\n".join(sources_lines)
 
 
 def clear_all():
@@ -196,21 +214,7 @@ def handle_rag_query(query: str, debug: bool):
     prompt = rag_prompt(query=query, chunks=chunks)
     answer = safe_generate_reasoning_from_prompt(prompt)
 
-    # -----------------------------
-    # Bygg använda källor (VIKTIGT: DEFINIERAS HÄR)
-    # -----------------------------
-    used_sources = {}
-    for _, c in results:
-        used_sources[c["source"]] = c
-
-    # -----------------------------
-    # Källor (visas alltid)
-    # -----------------------------
-    sources_lines = ["\n\n---\n\n### Källor"]
-    for c in used_sources.values():
-        sources_lines.append(f"- {format_source_link(c)}")
-
-    sources_md = "\n".join(sources_lines)
+    sources_md = build_sources_md(results)
 
     # -----------------------------
     # Debug (valfritt)
