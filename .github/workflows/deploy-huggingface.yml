@@ -50,6 +50,8 @@ jobs:
           cd /tmp/hf-deploy
           git init
           git checkout -b main
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add .
           git commit -m "Deploy from GitHub Actions"
           git remote add hf "https://oauth2:${HF_TOKEN}@huggingface.co/spaces/helmfridsson/systeminforande"
