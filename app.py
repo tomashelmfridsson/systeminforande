@@ -3,6 +3,7 @@ import os
 import time
 from urllib.parse import quote
 import gradio as gr
+import requests
 
 from rag.extractive import build_extractive_reasoning
 from rag.prompts import rag_prompt
@@ -34,11 +35,133 @@ with open("content.json", encoding="utf-8") as f:
     DOCUMENTS = json.load(f)["documents"]
 
 DOC_INDEX = {d["id"]: d for d in DOCUMENTS}
-LLM_MODEL_OPTIONS = [
-    ("Qwen 2.5 1.5B Instruct", "Qwen/Qwen2.5-1.5B-Instruct"),
-    ("DeepSeek R1 cheapest", "deepseek-ai/DeepSeek-R1:cheapest"),
-    ("OpenAI gpt-oss 120B cheapest", "openai/gpt-oss-120b:cheapest"),
+
+HF_MODELS_ENDPOINT = "https://router.huggingface.co/v1/models"
+FALLBACK_LLM_MODELS = [
+    {
+        "id": "google/gemma-2-2b-it",
+        "label": "Gemma 2 2B IT",
+        "description": "Liten instruktionsmodell, sannolikt snabbare.",
+    },
+    {
+        "id": "deepseek-ai/DeepSeek-R1",
+        "label": "DeepSeek R1",
+        "description": "Resonemangsmodell, ofta långsammare.",
+    },
+    {
+        "id": "openai/gpt-oss-120b",
+        "label": "OpenAI gpt-oss 120B",
+        "description": "Stor modell med högre latens.",
+    },
+    {
+        "id": "zai-org/GLM-4.5",
+        "label": "GLM 4.5",
+        "description": "Stark generell textmodell.",
+    },
+    {
+        "id": "Qwen/Qwen3-4B-Thinking-2507",
+        "label": "Qwen3 4B Thinking",
+        "description": "Liten resonemangsmodell.",
+    },
 ]
+FALLBACK_MODEL_DESCRIPTIONS = {
+    model["id"]: model["description"] for model in FALLBACK_LLM_MODELS
+}
+
+
+def _format_model_label(model_id: str, description: str = "") -> str:
+    if not description:
+        return model_id
+    return f"{model_id} - {description}"
+
+
+def _choice_from_model(model_id: str, description: str = "") -> tuple[str, str]:
+    return (_format_model_label(model_id, description), model_id)
+
+
+def load_llm_model_options() -> list[tuple[str, str]]:
+    headers = {}
+    token = os.getenv("HF_TOKEN")
+    if token:
+        headers["Authorization"] = f"Bearer {token}"
+
+    try:
+        response = requests.get(HF_MODELS_ENDPOINT, headers=headers, timeout=15)
+        response.raise_for_status()
+        payload = response.json()
+    except Exception as exc:
+        print(f"Kunde inte hämta modellista från HF API: {exc}")
+        return [
+            _choice_from_model(model["id"], model["description"])
+            for model in FALLBACK_LLM_MODELS
+        ]
+
+    if not isinstance(payload, list):
+        print("HF API returnerade oväntat format för modellistan.")
+        return [
+            _choice_from_model(model["id"], model["description"])
+            for model in FALLBACK_LLM_MODELS
+        ]
+
+    available = {}
+    for item in payload:
+        if not isinstance(item, dict):
+            continue
+
+        model_id = (
+            item.get("id")
+            or item.get("model")
+            or item.get("name")
+        )
+        if not isinstance(model_id, str) or not model_id.strip():
+            continue
+
+        description = (
+            item.get("description")
+            or item.get("summary")
+            or FALLBACK_MODEL_DESCRIPTIONS.get(model_id, "")
+        )
+        available[model_id] = _choice_from_model(model_id, str(description).strip())
+
+    if not available:
+        print("HF API gav ingen användbar modellista.")
+        return [
+            _choice_from_model(model["id"], model["description"])
+            for model in FALLBACK_LLM_MODELS
+        ]
+
+    curated = []
+    seen = set()
+
+    for model in FALLBACK_LLM_MODELS:
+        model_id = model["id"]
+        if model_id in available:
+            curated.append(available[model_id])
+            seen.add(model_id)
+
+    extra_candidates = []
+    for model_id, choice in available.items():
+        lowered = model_id.lower()
+        if model_id in seen:
+            continue
+        if any(keyword in lowered for keyword in ["instruct", "chat", "it", "thinking", "r1", "gemma", "glm", "gpt-oss"]):
+            extra_candidates.append(choice)
+
+    extra_candidates.sort(key=lambda choice: choice[1].lower())
+    curated.extend(extra_candidates[:10])
+
+    return curated or [
+        _choice_from_model(model["id"], model["description"])
+        for model in FALLBACK_LLM_MODELS
+    ]
+
+
+LLM_MODEL_OPTIONS = load_llm_model_options()
+DEFAULT_LLM_MODEL = (
+    LLM_MODEL_OPTIONS[0][1]
+    if LLM_MODEL_OPTIONS
+    else FALLBACK_LLM_MODELS[0]["id"]
+)
 
 # =====================================================
 # FUNKTIONER
@@ -586,7 +709,7 @@ with gr.Blocks() as demo:
             llm_model = gr.Dropdown(
                 label="LLM-modell (experimentell)",
                 choices=LLM_MODEL_OPTIONS,
-                value="Qwen/Qwen2.5-1.5B-Instruct",
+                value=DEFAULT_LLM_MODEL,
                 interactive=True,
             )
 
