@@ -1,0 +1,78 @@
+name: Nightly LLM Health Check
+
+on:
+  schedule:
+    - cron: "17 2 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  healthcheck:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Check deployed chatbot LLM path
+        env:
+          APP_URL: https://helmfridsson-systeminforande.hf.space
+          TEST_MODEL: openai/gpt-oss-120b
+          TEST_QUESTION: Vad är ett arbetsområde?
+        run: |
+          python - <<'PY'
+          import json
+          import os
+          import sys
+          import requests
+
+          app_url = os.environ["APP_URL"].rstrip("/")
+          model = os.environ["TEST_MODEL"]
+          question = os.environ["TEST_QUESTION"]
+
+          submit_response = requests.post(
+              f"{app_url}/gradio_api/call/submit",
+              json={"data": [question, None, False, model]},
+              timeout=30,
+          )
+          submit_response.raise_for_status()
+          event_id = submit_response.json()["event_id"]
+
+          response_stream = requests.get(
+              f"{app_url}/gradio_api/call/submit/{event_id}",
+              stream=True,
+              timeout=180,
+          )
+          response_stream.raise_for_status()
+
+          final_payload = None
+          for raw_line in response_stream.iter_lines(decode_unicode=True):
+              if not raw_line or not raw_line.startswith("data: "):
+                  continue
+              try:
+                  payload = json.loads(raw_line[6:])
+              except json.JSONDecodeError:
+                  continue
+              if isinstance(payload, list) and len(payload) == 1:
+                  final_payload = payload[0]
+
+          if not isinstance(final_payload, str) or not final_payload.strip():
+              print("No final LLM answer returned from the deployed app.")
+              sys.exit(1)
+
+          normalized = final_payload.lower()
+          failure_markers = [
+              "llm-modellen är tillfälligt överbelastad",
+              "språkmodellen inte är tillgänglig",
+              "resonemang kunde inte genereras just nu",
+              "tekniskt fel:",
+          ]
+
+          if any(marker in normalized for marker in failure_markers):
+              print("LLM health check failed. Application returned an LLM error.")
+              print(final_payload)
+              sys.exit(1)
+
+          print("LLM health check passed.")
+          print(final_payload[:1200])
+          PY
