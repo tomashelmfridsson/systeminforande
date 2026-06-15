@@ -656,7 +656,7 @@ with gr.Blocks() as demo:
         
         # VÄNSTER: Underfrågor
         with gr.Column(scale=2):
-            gr.Markdown("<h3>Underfrågor</h3>")
+            gr.Markdown("<h3>FAQ</h3>")
             questions = gr.Dataframe(
                 headers=[""],
                 interactive=False,
