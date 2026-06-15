@@ -632,7 +632,7 @@ with gr.Blocks() as demo:
         main_buttons = []
     
         for doc in DOCUMENTS:
-            with gr.Column(elem_classes="card"):
+            with gr.Column(min_width=260, elem_classes="card"):
                 gr.HTML(
                     f"""
                     <div class="card-content">

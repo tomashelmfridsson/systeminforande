@@ -322,6 +322,20 @@ button.gr-button.card {
     color: #000000 !important;
     padding: 10px;
     cursor: pointer;
+    white-space: normal !important;
+    word-break: break-word !important;
+    overflow-wrap: anywhere !important;
+}
+
+.question-list table {
+    width: 100% !important;
+    table-layout: fixed !important;
+}
+
+.question-list tr,
+.question-list td,
+.question-list th {
+    max-width: 100% !important;
 }
 
 /* Hover */
