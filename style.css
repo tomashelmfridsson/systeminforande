@@ -224,14 +224,16 @@ button.gr-button.card {
 /* Titel – fet */
 .card-title {
     font-weight: 700;
-    font-size: 14px;
+    font-size: 13px;
+    line-height: 1.2;
     color: #000000;
 }
 
 /* Huvudfråga – normal text */
 .card-question {
     font-weight: 400;
-    font-size: 13px;
+    font-size: 12px;
+    line-height: 1.25;
     color: #000000;
 }
 
@@ -283,7 +285,7 @@ button.gr-button.card {
 .question-list {
     background: #ffffff !important;
     border: none !important;
-    min-height: 320px;
+    min-height: 360px;
     border: 2px solid #1e5bd7 !important;
     border-radius: 16px !important;
     padding: 8px;
@@ -420,6 +422,20 @@ button.gr-button.card {
     box-shadow: none !important;
 }
 
+.gradio-container .message-box,
+.gradio-container .message-box > div,
+.gradio-container .message-box > label,
+.gradio-container .message-box > .wrap,
+.gradio-container .message-box .wrap,
+.gradio-container .message-box .block,
+.gradio-container .message-box .block-label,
+.gradio-container .message-box .form {
+    border-color: #1e5bd7 !important;
+    border-radius: 16px !important;
+    box-shadow: none !important;
+    background: #ffffff !important;
+}
+
 /* Ta bort Gradio-inre effekter */
 .message-box .wrap,
 .message-box.gr-box {
@@ -481,7 +497,7 @@ button.gr-button.card {
 /* Label-containern runt textbox */
 label.show_textbox_border,
 label.container.show_textbox_border {
-    border: none !important;
+    border: 2px solid #1e5bd7 !important;
     background: #ffffff !important;
     box-shadow: none !important;
     padding: 10px !important;
@@ -490,7 +506,7 @@ label.container.show_textbox_border {
 
 /* Säkerhetsnät – om Gradio ändrar klassnamn */
 .block:has(.message-box) > label {
-    border: none !important;
+    border: 2px solid #1e5bd7 !important;
     background: #ffffff !important;
     box-shadow: none !important;
     border-radius: 16px !important;
@@ -567,7 +583,9 @@ label.container.show_textbox_border {
 
 .gradio-container button.gr-button.send-btn,
 .gradio-container button.gr-button.send-btn.primary,
-.gradio-container button.gr-button.send-btn.secondary {
+.gradio-container button.gr-button.send-btn.secondary,
+.gradio-container .send-btn,
+.gradio-container .send-btn button {
     background-color: #1e5bd7 !important;
     color: #ffffff !important;
     border: 2px solid #1e5bd7 !important;
@@ -584,6 +602,11 @@ label.container.show_textbox_border {
 .gradio-container button.gr-button.send-btn:hover {
     background-color: #1748aa !important;
     border-color: #1748aa !important;
+}
+
+.gradio-container .send-btn *,
+.gradio-container button.send-btn * {
+    color: #ffffff !important;
 }
 
 /* ===============================
