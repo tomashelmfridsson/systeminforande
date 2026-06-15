@@ -4,7 +4,7 @@ from urllib.parse import quote
 import gradio as gr
 
 from rag.extractive import build_extractive_reasoning
-from rag.search import search
+from rag.search import explain_search, search
 DATA_DIR = "rag/data"
 CHUNKS_FILE = os.path.join(DATA_DIR, "chunks.json")
 GITHUB_PAGES_BASE_URL = "https://tomashelmfridsson.github.io/systeminforande"
@@ -46,6 +46,12 @@ def fill_message(evt: gr.SelectData):
     if isinstance(value, list):
         return value[0]
     return value
+
+
+def select_and_submit(evt: gr.SelectData, doc_id, debug_mode):
+    message = fill_message(evt)
+    answer, answer_title = submit(message, doc_id, debug_mode)
+    return message, answer, answer_title
 
 def submit(message, doc_id, debug_mode):
     """
@@ -274,19 +280,31 @@ def handle_rag_query(query: str, debug: bool):
     # -----------------------------
     debug_md = ""
     if debug:
+        search_debug = explain_search(query, top_k=5)
         debug_lines = [
             "\n\n---\n\n### Debug",
             f"**Confidence:** {confidence}",
+            f"**Frågetyp:** {translate_intent(search_debug['intent'])}",
+            f"**Query-termer:** `{', '.join(search_debug['query_terms'])}`",
+            f"**Diagnos:** {diagnose_retrieval(answer, search_debug)}",
             ""
         ]
 
-        for score, c in results:
+        for item in search_debug["top_results"]:
+            score = item["score"]
+            c = item["chunk"]
+            parts = item["parts"]
             debug_lines.append(
                 f"""**📄 Källa:** {c['source']}
 - **Typ:** {c.get('source_type')}
 - **Rubrik:** {c.get('title')}
 - **Sidor:** {c.get('pages')}
 - **Score:** `{round(score, 4)}`
+- **BM25:** `{parts['bm25']}`
+- **Titelboost:** `{parts['title_overlap']}`
+- **Definitionsboost:** `{parts['definition_boost']}`
+- **Domänboost:** `{parts['domain_boost']}`
+- **Intentboost:** `{parts['intent_boost']}`
 
 {c['text'][:500]}{'…' if len(c['text']) > 500 else ''}
 ---
@@ -300,6 +318,46 @@ def handle_rag_query(query: str, debug: bool):
     # -----------------------------
     final_answer = answer + sources_md + debug_md
     return final_answer, "<h3>Svar</h3>"
+
+
+def translate_intent(intent: str) -> str:
+    labels = {
+        "definition": "Definition",
+        "purpose": "Syfte",
+        "overview_list": "Översiktslista",
+        "list": "Lista",
+        "process": "Process",
+        "timing_or_decision": "Tidpunkt eller beslut",
+        "general": "Allmän fråga",
+    }
+    return labels.get(intent, intent)
+
+
+def diagnose_retrieval(answer: str, search_debug: dict) -> str:
+    top_results = search_debug.get("top_results", [])
+    if not top_results:
+        return "Inga träffar hittades."
+
+    top_score = top_results[0]["score"]
+    intent = search_debug.get("intent")
+    fallback = "Det finns inte tillräckligt tydligt underlag" in answer
+
+    if fallback and top_score >= 8:
+        return (
+            "Retrievalen verkar relativt stark, men syntesen lyckades inte bygga ett "
+            "pålitligt resonemang från chunkarna."
+        )
+
+    if top_score < 3:
+        return "Retrievalen verkar svag. De högsta träffarna är sannolikt inte tillräckligt relevanta."
+
+    if intent in {"overview_list", "list"} and fallback:
+        return (
+            "Frågan ser ut som en lista eller översiktsfråga. Retrievalen hittade material, "
+            "men chunkarna verkar inte vara tillräckligt välstrukturerade för nuvarande syntes."
+        )
+
+    return "Retrievalen verkar rimlig för frågetypen."
     
 # =====================================================
 # UI
@@ -356,11 +414,11 @@ with gr.Blocks() as demo:
                 elem_classes="question-list"
             )
     
-        # HÖGER: Meddelande
+        # HÖGER: Fritextfråga
         with gr.Column(scale=3):
-            gr.Markdown("<h3>Meddelande</h3>")
+            gr.Markdown("<h3>Egen fråga</h3>")
             message = gr.Textbox(
-                placeholder="Välj ett område, klicka på en underfråga och tryck på Skicka.",
+                placeholder="Skriv en fritextfråga här om du vill söka i källmaterialet.",
                 lines=1,
                 label=None,  
                 show_label=False,
@@ -399,8 +457,9 @@ with gr.Blocks() as demo:
         )
 
     questions.select(
-        fn=fill_message,
-        outputs=message
+        fn=select_and_submit,
+        inputs=[current_doc, debug_mode],
+        outputs=[message, answer, answer_title]
     )
 
     send_btn.click(

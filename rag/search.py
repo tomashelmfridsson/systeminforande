@@ -98,6 +98,25 @@ def _normalize_token(token: str) -> str:
     return token
 
 
+def classify_query_intent(query: str) -> str:
+    query_terms = set(_tokenize(query))
+    query_lower = query.lower().strip()
+
+    if query_lower.startswith("vad är") or query_lower.startswith("vad innebär"):
+        return "definition"
+    if "syfte" in query_terms:
+        return "purpose"
+    if query_lower.startswith("vilka") or "vilka" in query_lower:
+        if query_terms & {"kravområd", "arbetsområd", "fas", "etapp", "aktivitet"}:
+            return "overview_list"
+        return "list"
+    if query_lower.startswith("hur"):
+        return "process"
+    if query_terms & {"när", "beslut", "fastställd", "driftsättning"}:
+        return "timing_or_decision"
+    return "general"
+
+
 def _build_index():
     global _INDEX_CACHE
     if _INDEX_CACHE is not None:
@@ -240,6 +259,31 @@ def _query_intent_boost(query: str, query_terms: set[str], document: dict) -> fl
     return boost
 
 
+def _score_document(query: str, query_terms: list[str], document: dict, index: dict) -> dict:
+    bm25 = _bm25_score(query_terms, document, index)
+    title_overlap = len(set(query_terms) & document["title_tokens"]) * TITLE_BOOST
+
+    definition_boost = 0.0
+    if query.lower().startswith("vad är") and any(
+        token in document["title_tokens"]
+        for token in ["inledning", "syfte", "omfattning", "arbetsområde", "arbetsområd"]
+    ):
+        definition_boost = DEFINITION_TITLE_BOOST
+
+    domain_boost = _domain_boost(set(query_terms), document)
+    intent_boost = _query_intent_boost(query, set(query_terms), document)
+    total = bm25 + title_overlap + definition_boost + domain_boost + intent_boost
+
+    return {
+        "bm25": round(bm25, 4),
+        "title_overlap": round(title_overlap, 4),
+        "definition_boost": round(definition_boost, 4),
+        "domain_boost": round(domain_boost, 4),
+        "intent_boost": round(intent_boost, 4),
+        "total": round(total, 4),
+    }
+
+
 def search(query: str, top_k: int = 5):
     index = _build_index()
     print(f"🔍 Search: laddade {index['doc_count']} chunkar")
@@ -252,10 +296,38 @@ def search(query: str, top_k: int = 5):
 
     scored = []
     for document in index["documents"]:
-        score = _bm25_score(query_terms, document, index)
-        score += _heuristic_boost(query, query_terms, document)
+        score = _score_document(query, query_terms, document, index)["total"]
         if score > 0:
             scored.append((score, document["chunk"]))
 
     scored.sort(key=lambda item: item[0], reverse=True)
     return scored[:top_k]
+
+
+def explain_search(query: str, top_k: int = 5) -> dict:
+    index = _build_index()
+    query_terms = _tokenize(query)
+    intent = classify_query_intent(query)
+
+    scored = []
+    for document in index["documents"]:
+        parts = _score_document(query, query_terms, document, index)
+        if parts["total"] <= 0:
+            continue
+        scored.append(
+            {
+                "score": parts["total"],
+                "parts": parts,
+                "chunk": document["chunk"],
+            }
+        )
+
+    scored.sort(key=lambda item: item["score"], reverse=True)
+    top = scored[:top_k]
+
+    return {
+        "query": query,
+        "query_terms": query_terms,
+        "intent": intent,
+        "top_results": top,
+    }
