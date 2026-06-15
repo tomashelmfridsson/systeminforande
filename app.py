@@ -81,18 +81,14 @@ def submit(message, doc_id, debug_mode, llm_model):
             if q["question"] == message:
                 fact_answer = format_answer(q["answer"])
                 source_results = search(f"{doc['title']} {message}", top_k=5)
-                structured_start = time.perf_counter()
                 model_reasoning = build_structured_reasoning(
                     question=message,
                     answer=q["answer"],
                 )
-                structured_elapsed = time.perf_counter() - structured_start
                 structured_combined = "### Svar\n\n" + fact_answer
 
                 if model_reasoning:
                     structured_combined += "\n\n### Resonemang\n\n" + model_reasoning
-
-                structured_combined += f"\n\n_Svarstid: {structured_elapsed:.2f} s_"
 
                 sources_md = build_sources_md(source_results)
                 structured_combined += sources_md
@@ -330,9 +326,7 @@ def handle_rag_query(query: str, debug: bool, llm_model: str):
 
     chunks = [chunk for _, chunk in results]
 
-    structured_start = time.perf_counter()
     structured_answer = build_extractive_reasoning(query, chunks)
-    structured_elapsed = time.perf_counter() - structured_start
     llm_prompt = rag_prompt(query, chunks)
 
     sources_md = build_sources_md(results)
@@ -381,7 +375,6 @@ def handle_rag_query(query: str, debug: bool, llm_model: str):
     # -----------------------------
     final_structured_answer = (
         structured_answer
-        + f"\n\n_Svarstid: {structured_elapsed:.2f} s_"
         + sources_md
         + model_debug_md
     )
