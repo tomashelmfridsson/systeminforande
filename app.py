@@ -345,6 +345,14 @@ def safe_generate_reasoning_from_prompt_with_model(prompt: str, model: str | Non
 
 def format_llm_error(exc: Exception) -> str:
     message = str(exc).strip()
+    lowered = message.lower()
+
+    if "429" in message or "too many requests" in lowered:
+        return (
+            "LLM-modellen är tillfälligt överbelastad. "
+            "Försök igen lite senare."
+        )
+
     if "model_not_supported" in message or "not supported by any provider" in message:
         return (
             "Resonemang kunde inte genereras just nu eftersom den konfigurerade "

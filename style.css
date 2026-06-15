@@ -417,6 +417,7 @@ button.gr-button.card {
     border-radius: 16px !important;
     padding: 12px !important;
     min-height: 180px;
+    box-shadow: none !important;
 }
 
 /* Ta bort Gradio-inre effekter */
@@ -432,6 +433,7 @@ button.gr-button.card {
     background: #ffffff !important;
     border: none !important;
     box-shadow: none !important;
+    border-radius: 16px !important;
 }
 
 /* Label-container som Gradio använder för extra ram */
@@ -439,6 +441,7 @@ button.gr-button.card {
     border: none !important;
     box-shadow: none !important;
     background: #ffffff !important;
+    border-radius: 16px !important;
 }
 
 /* Själva textarea – ALL text ritas här */
@@ -482,6 +485,7 @@ label.container.show_textbox_border {
     background: #ffffff !important;
     box-shadow: none !important;
     padding: 10px !important;
+    border-radius: 16px !important;
 }
 
 /* Säkerhetsnät – om Gradio ändrar klassnamn */
@@ -489,6 +493,7 @@ label.container.show_textbox_border {
     border: none !important;
     background: #ffffff !important;
     box-shadow: none !important;
+    border-radius: 16px !important;
 }
 
 /* ===============================
@@ -563,21 +568,22 @@ label.container.show_textbox_border {
 .gradio-container button.gr-button.send-btn,
 .gradio-container button.gr-button.send-btn.primary,
 .gradio-container button.gr-button.send-btn.secondary {
-    background-color: #ffffff !important;
-    color: #000000 !important;
-    border: 2px solid #000000 !important;
+    background-color: #1e5bd7 !important;
+    color: #ffffff !important;
+    border: 2px solid #1e5bd7 !important;
     border-radius: 10px !important;
 
     box-shadow: none !important;
     font-weight: 600;
 
-    --button-primary-background-fill: #ffffff !important;
-    --button-primary-background-fill-hover: #f2f2f2 !important;
-    --button-primary-text-color: #000000 !important;
+    --button-primary-background-fill: #1e5bd7 !important;
+    --button-primary-background-fill-hover: #1748aa !important;
+    --button-primary-text-color: #ffffff !important;
 }
 
 .gradio-container button.gr-button.send-btn:hover {
-    background-color: #f2f2f2 !important;
+    background-color: #1748aa !important;
+    border-color: #1748aa !important;
 }
 
 /* ===============================
@@ -626,17 +632,38 @@ label.show_textbox_border {
 
 .gradio-container button.gr-button.secondary,
 .gradio-container button.gr-button.primary {
-    background-color: #ffffff !important;
-    color: #000000 !important;
-    border: 2px solid #000000 !important;
+    background-color: #1e5bd7 !important;
+    color: #ffffff !important;
+    border: 2px solid #1e5bd7 !important;
     border-radius: 10px !important;
     box-shadow: none !important;
 }
 
 .gradio-container button.gr-button.secondary:hover,
 .gradio-container button.gr-button.primary:hover {
-    background-color: #f2f2f2 !important;
+    background-color: #1748aa !important;
+    border-color: #1748aa !important;
 }  
+
+/* ===============================
+   DÖLJ GRADIO-FOOTER I EMBED
+   =============================== */
+
+footer,
+.gradio-container footer,
+.gradio-container .footer,
+.gradio-container a[href*="gradio.app"],
+.gradio-container a[href*="api"],
+.gradio-container button[aria-label*="Settings"],
+.gradio-container button[title*="Settings"] {
+    display: none !important;
+}
+
+.gradio-container .built-with,
+.gradio-container .prose footer,
+.gradio-container [class*="footer-links"] {
+    display: none !important;
+}
 
   /* ===============================
    TA BORT SVART PLATTA BAKOM CHECKBOX
