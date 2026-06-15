@@ -1,28 +1,24 @@
+from llm.prompts import base_llm_instructions
+
+
 def rag_prompt(query: str, chunks: list) -> str:
     context = "\n\n".join(
         f"UTDRAG:\n{c['text']}" for c in chunks
     )
 
     return f"""
+{base_llm_instructions()}
 
-Instruktion:
-Svara på svenska.
-Du är en sakkunnig assistent.
-Använd ENDAST informationen i utdragen nedan.
-Tillför ingen ny fakta.
-Gör inga antaganden.
-
-Uppgift:
-Besvara frågan med en sammanhängande och förklarande text.
-Undvik listor, metadata och rubriker.
-Förklara vad begreppet innebär utifrån materialet.
-
-Om materialet inte tydligt besvarar frågan:
-Säg att det inte finns en entydig definition i materialet.
+Typ av fråga:
+Fri fråga baserad på källutdrag
 
 Fråga:
 {query}
 
 Utdrag ur dokumentation:
 {context}
+
+Uppgift:
+Besvara frågan så långt underlaget räcker och formulera ett försiktigt resonemang.
+Om underlaget beskriver flera etapper, faser, steg eller aktiviteter ska du försöka täcka samtliga relevanta delar innan du går in på detaljer.
 """

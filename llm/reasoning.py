@@ -1,5 +1,5 @@
 from llm.client import get_llm_client
-from llm.prompts import reasoning_prompt
+from llm.prompts import base_llm_instructions, reasoning_prompt
 
 def _call_llm(prompt: str, model: str | None = None) -> str:
     client = get_llm_client(model=model)
@@ -7,20 +7,15 @@ def _call_llm(prompt: str, model: str | None = None) -> str:
         messages=[
             {
                 "role": "system",
-                "content": (
-                    "Du är en expertassistent.\n"
-                    "Du ska ALLTID svara på svenska.\n"
-                    "Du får endast använda information från det givna underlaget.\n"
-                    "Du får inte tillföra ny fakta."
-                )
+                "content": base_llm_instructions()
             },
             {
                 "role": "user",
                 "content": prompt
             }
         ],
-        max_tokens=700,
-        temperature=0.3
+        max_tokens=1200,
+        temperature=0.2
     )
 
     return response.choices[0].message["content"]
