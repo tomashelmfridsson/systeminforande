@@ -1,5 +1,6 @@
 import json
 import os
+import time
 from urllib.parse import quote
 import gradio as gr
 
@@ -57,10 +58,8 @@ def fill_message(evt: gr.SelectData):
 
 def select_and_submit(evt: gr.SelectData, doc_id, debug_mode, llm_model):
     message = fill_message(evt)
-    base_answer, structured_answer, llm_answer, answer_title = submit(
-        message, doc_id, debug_mode, llm_model
-    )
-    return "", base_answer, structured_answer, llm_answer, answer_title
+    for structured_answer, llm_answer in submit(message, doc_id, debug_mode, llm_model):
+        yield "", structured_answer, llm_answer
 
 def submit(message, doc_id, debug_mode, llm_model):
     """
@@ -71,7 +70,8 @@ def submit(message, doc_id, debug_mode, llm_model):
 
     message = message.strip()
     if not message:
-        return "", "", "", "<h3>Svar</h3>"
+        yield "", ""
+        return
 
     # 1️⃣ Försök matcha mot valt dokument (klassisk väg)
     if doc_id and doc_id in DOC_INDEX:
@@ -81,31 +81,21 @@ def submit(message, doc_id, debug_mode, llm_model):
             if q["question"] == message:
                 fact_answer = format_answer(q["answer"])
                 source_results = search(f"{doc['title']} {message}", top_k=5)
+                structured_start = time.perf_counter()
                 model_reasoning = build_structured_reasoning(
                     question=message,
                     answer=q["answer"],
                 )
-                llm_reasoning = safe_generate_reasoning(
-                    title=doc["title"],
-                    main_question=doc["main_question"],
-                    question=message,
-                    answer=q["answer"],
-                    model=llm_model,
-                )
-
-                shared_answer = "### Svar\n\n" + fact_answer
-                structured_combined = ""
+                structured_elapsed = time.perf_counter() - structured_start
+                structured_combined = "### Svar\n\n" + fact_answer
 
                 if model_reasoning:
-                    structured_combined += "### Resonemang\n\n" + model_reasoning
+                    structured_combined += "\n\n### Resonemang\n\n" + model_reasoning
 
-                llm_combined = ""
-                if llm_reasoning:
-                    llm_combined += "### Resonemang\n\n" + llm_reasoning
+                structured_combined += f"\n\n_Svarstid: {structured_elapsed:.2f} s_"
 
                 sources_md = build_sources_md(source_results)
                 structured_combined += sources_md
-                llm_combined += sources_md
 
                 if debug_mode:
                     structured_combined += build_predefined_debug_md(
@@ -114,17 +104,37 @@ def submit(message, doc_id, debug_mode, llm_model):
                         source_results=source_results,
                         llm_answer=None,
                     )
+                yield structured_combined, "_Bearbetar LLM-svar..._"
+
+                llm_start = time.perf_counter()
+                llm_reasoning = safe_generate_reasoning(
+                    title=doc["title"],
+                    main_question=doc["main_question"],
+                    question=message,
+                    answer=q["answer"],
+                    model=llm_model,
+                )
+                llm_elapsed = time.perf_counter() - llm_start
+
+                llm_combined = ""
+                if llm_reasoning:
+                    llm_combined += "### Resonemang\n\n" + llm_reasoning
+                llm_combined += f"\n\n_Svarstid: {llm_elapsed:.2f} s_"
+                llm_combined += sources_md
+
+                if debug_mode:
                     llm_combined += build_predefined_debug_md(
                         question=message,
                         reasoning=llm_reasoning,
                         source_results=source_results,
                         llm_answer=llm_reasoning,
                     )
-                
-                return shared_answer, structured_combined, llm_combined, "<h3>Svar</h3>"
+
+                yield structured_combined, llm_combined
+                return
     
     # 2️⃣ Ingen match → RAG-fritext
-    return handle_rag_query(message, debug_mode, llm_model)
+    yield from handle_rag_query(message, debug_mode, llm_model)
 
 def format_answer(answer):
     out = []
@@ -266,7 +276,7 @@ def build_sources_md(results) -> str:
 
 
 def clear_all():
-    return [], "", "", "", "", None
+    return [], "", "", "", None
 
 def format_pages(pages):
     if not pages:
@@ -308,12 +318,9 @@ def handle_rag_query(query: str, debug: bool, llm_model: str):
     results = search(query, top_k=5)
 
     if not results:
-        return (
-            "Det finns inget tillräckligt underlag i materialet för att besvara frågan.",
-            "Det finns inget tillräckligt underlag i materialet för att besvara frågan.",
-            "Det finns inget tillräckligt underlag i materialet för att besvara frågan.",
-            "<h3>Svar</h3>"
-        )
+        no_data = "Det finns inget tillräckligt underlag i materialet för att besvara frågan."
+        yield no_data, no_data
+        return
 
     # -----------------------------
     # Confidence score
@@ -323,9 +330,10 @@ def handle_rag_query(query: str, debug: bool, llm_model: str):
 
     chunks = [chunk for _, chunk in results]
 
+    structured_start = time.perf_counter()
     structured_answer = build_extractive_reasoning(query, chunks)
+    structured_elapsed = time.perf_counter() - structured_start
     llm_prompt = rag_prompt(query, chunks)
-    llm_answer = safe_generate_reasoning_from_prompt_with_model(llm_prompt, llm_model)
 
     sources_md = build_sources_md(results)
     search_debug = explain_search(query, top_k=5)
@@ -334,7 +342,6 @@ def handle_rag_query(query: str, debug: bool, llm_model: str):
     # Debug (valfritt)
     # -----------------------------
     model_debug_md = ""
-    llm_debug_md = ""
     if debug:
         model_debug_lines = [
             "\n\n---\n\n### Debug",
@@ -345,6 +352,46 @@ def handle_rag_query(query: str, debug: bool, llm_model: str):
             ""
         ]
 
+        for item in search_debug["top_results"]:
+            score = item["score"]
+            c = item["chunk"]
+            parts = item["parts"]
+            block = (
+                f"""**📄 Källa:** {c['source']}
+- **Typ:** {c.get('source_type')}
+- **Rubrik:** {c.get('title')}
+- **Sidor:** {c.get('pages')}
+- **Score:** `{round(score, 4)}`
+- **BM25:** `{parts['bm25']}`
+- **Titelboost:** `{parts['title_overlap']}`
+- **Definitionsboost:** `{parts['definition_boost']}`
+- **Domänboost:** `{parts['domain_boost']}`
+- **Intentboost:** `{parts['intent_boost']}`
+
+{c['text'][:500]}{'…' if len(c['text']) > 500 else ''}
+---
+"""
+            )
+            model_debug_lines.append(block)
+
+        model_debug_md = "\n".join(model_debug_lines)
+
+    # -----------------------------
+    # Slutligt svar
+    # -----------------------------
+    final_structured_answer = (
+        structured_answer
+        + f"\n\n_Svarstid: {structured_elapsed:.2f} s_"
+        + sources_md
+        + model_debug_md
+    )
+    yield final_structured_answer, "_Bearbetar LLM-svar..._"
+
+    llm_start = time.perf_counter()
+    llm_answer = safe_generate_reasoning_from_prompt_with_model(llm_prompt, llm_model)
+    llm_elapsed = time.perf_counter() - llm_start
+    llm_debug_md = ""
+    if debug:
         llm_debug_lines = [
             "\n\n---\n\n### Debug",
             f"**Confidence:** {confidence}",
@@ -375,18 +422,17 @@ def handle_rag_query(query: str, debug: bool, llm_model: str):
 ---
 """
             )
-            model_debug_lines.append(block)
             llm_debug_lines.append(block)
 
-        model_debug_md = "\n".join(model_debug_lines)
         llm_debug_md = "\n".join(llm_debug_lines)
 
-    # -----------------------------
-    # Slutligt svar
-    # -----------------------------
-    final_structured_answer = structured_answer + sources_md + model_debug_md
-    final_llm_answer = llm_answer + sources_md + llm_debug_md
-    return "", final_structured_answer, final_llm_answer, "<h3>Svar</h3>"
+    final_llm_answer = (
+        llm_answer
+        + f"\n\n_Svarstid: {llm_elapsed:.2f} s_"
+        + sources_md
+        + llm_debug_md
+    )
+    yield final_structured_answer, final_llm_answer
 
 
 def translate_intent(intent: str) -> str:
@@ -553,18 +599,6 @@ with gr.Blocks() as demo:
 
     # RAD 2 – Svar över hela bredden
     with gr.Row():
-        answer_title = gr.Markdown(
-            "<h3>Svar</h3>",
-            elem_classes="answer-title"
-        )
-
-    with gr.Row():
-        shared_answer = gr.Markdown(
-            "",
-            elem_classes="answer-box"
-        )
-
-    with gr.Row():
         with gr.Column():
             gr.Markdown("<h3>Strukturerad</h3>")
             answer_structured = gr.Markdown(
@@ -592,24 +626,24 @@ with gr.Blocks() as demo:
     questions.select(
         fn=select_and_submit,
         inputs=[current_doc, debug_mode, llm_model],
-        outputs=[message, shared_answer, answer_structured, answer_llm, answer_title]
+        outputs=[message, answer_structured, answer_llm]
     )
 
     send_btn.click(
         fn=submit,
         inputs=[message, current_doc, debug_mode, llm_model],
-        outputs=[shared_answer, answer_structured, answer_llm, answer_title]
+        outputs=[answer_structured, answer_llm]
     )
     
     message.submit(
         fn=submit,
         inputs=[message, current_doc, debug_mode, llm_model],
-        outputs=[shared_answer, answer_structured, answer_llm, answer_title]
+        outputs=[answer_structured, answer_llm]
     )
 
     clear_btn.click(
         fn=clear_all,
-        outputs=[questions, message, shared_answer, answer_structured, answer_llm, current_doc]
+        outputs=[questions, message, answer_structured, answer_llm, current_doc]
     )
 
 # =====================================================
