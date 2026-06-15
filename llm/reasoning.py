@@ -1,14 +1,9 @@
 from llm.client import get_llm_client
 from llm.prompts import reasoning_prompt
 
-# =========================
-# LLM-KLIENT (EN ENDA)
-# =========================
-
-_client = get_llm_client()
-
-def _call_llm(prompt: str) -> str:
-    response = _client.chat_completion(
+def _call_llm(prompt: str, model: str | None = None) -> str:
+    client = get_llm_client(model=model)
+    response = client.chat_completion(
         messages=[
             {
                 "role": "system",
@@ -39,7 +34,8 @@ def generate_reasoning(
     title: str,
     main_question: str,
     question: str,
-    answer: dict
+    answer: dict,
+    model: str | None = None,
 ) -> str:
     """
     Genererar resonemang för fördefinierade frågor.
@@ -51,18 +47,18 @@ def generate_reasoning(
         answer=_format_answer(answer)
     )
 
-    return _call_llm(prompt)
+    return _call_llm(prompt, model=model)
 
 
 # =========================
 # RAG (FRITEXT)
 # =========================
 
-def generate_reasoning_from_prompt(prompt: str) -> str:
+def generate_reasoning_from_prompt(prompt: str, model: str | None = None) -> str:
     """
     Genererar resonemang från färdig prompt (RAG).
     """
-    return _call_llm(prompt)
+    return _call_llm(prompt, model=model)
 
 
 # =========================

@@ -1,13 +1,15 @@
 import os
 from huggingface_hub import InferenceClient
 
-_client = None
+_clients = {}
+DEFAULT_MODEL = "Qwen/Qwen2.5-1.5B-Instruct"
 
-def get_llm_client():
-    global _client
-    if _client is None:
-        _client = InferenceClient(
-            model="Qwen/Qwen2.5-1.5B-Instruct",
+
+def get_llm_client(model: str | None = None):
+    selected_model = model or DEFAULT_MODEL
+    if selected_model not in _clients:
+        _clients[selected_model] = InferenceClient(
+            model=selected_model,
             token=os.environ.get("HF_TOKEN")
         )
-    return _client
+    return _clients[selected_model]
