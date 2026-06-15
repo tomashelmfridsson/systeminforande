@@ -157,10 +157,11 @@ def load_llm_model_options() -> list[tuple[str, str]]:
 
 
 LLM_MODEL_OPTIONS = load_llm_model_options()
+PREFERRED_LLM_MODEL = "openai/gpt-oss-120b"
 DEFAULT_LLM_MODEL = (
-    LLM_MODEL_OPTIONS[0][1]
-    if LLM_MODEL_OPTIONS
-    else FALLBACK_LLM_MODELS[0]["id"]
+    PREFERRED_LLM_MODEL
+    if any(choice[1] == PREFERRED_LLM_MODEL for choice in LLM_MODEL_OPTIONS)
+    else (LLM_MODEL_OPTIONS[0][1] if LLM_MODEL_OPTIONS else FALLBACK_LLM_MODELS[0]["id"])
 )
 
 # =====================================================
@@ -181,8 +182,8 @@ def fill_message(evt: gr.SelectData):
 
 def select_and_submit(evt: gr.SelectData, doc_id, debug_mode, llm_model):
     message = fill_message(evt)
-    for structured_answer, llm_answer in submit(message, doc_id, debug_mode, llm_model):
-        yield "", structured_answer, llm_answer
+    for answer in submit(message, doc_id, debug_mode, llm_model):
+        yield "", answer
 
 def submit(message, doc_id, debug_mode, llm_model):
     """
@@ -193,7 +194,7 @@ def submit(message, doc_id, debug_mode, llm_model):
 
     message = message.strip()
     if not message:
-        yield "", ""
+        yield ""
         return
 
     # 1️⃣ Försök matcha mot valt dokument (klassisk väg)
@@ -208,10 +209,10 @@ def submit(message, doc_id, debug_mode, llm_model):
                     question=message,
                     answer=q["answer"],
                 )
-                structured_combined = "### Svar\n\n" + fact_answer
+                structured_combined = fact_answer
 
                 if model_reasoning:
-                    structured_combined += "\n\n### Resonemang\n\n" + model_reasoning
+                    structured_combined += "\n\n" + model_reasoning
 
                 sources_md = build_sources_md(source_results)
                 structured_combined += sources_md
@@ -223,33 +224,7 @@ def submit(message, doc_id, debug_mode, llm_model):
                         source_results=source_results,
                         llm_answer=None,
                     )
-                yield structured_combined, "_Bearbetar LLM-svar..._"
-
-                llm_start = time.perf_counter()
-                llm_reasoning = safe_generate_reasoning(
-                    title=doc["title"],
-                    main_question=doc["main_question"],
-                    question=message,
-                    answer=q["answer"],
-                    model=llm_model,
-                )
-                llm_elapsed = time.perf_counter() - llm_start
-
-                llm_combined = ""
-                if llm_reasoning:
-                    llm_combined += "### Resonemang\n\n" + llm_reasoning
-                llm_combined += f"\n\n_Svarstid: {llm_elapsed:.2f} s_"
-                llm_combined += sources_md
-
-                if debug_mode:
-                    llm_combined += build_predefined_debug_md(
-                        question=message,
-                        reasoning=llm_reasoning,
-                        source_results=source_results,
-                        llm_answer=llm_reasoning,
-                    )
-
-                yield structured_combined, llm_combined
+                yield structured_combined
                 return
     
     # 2️⃣ Ingen match → RAG-fritext
@@ -395,7 +370,7 @@ def build_sources_md(results) -> str:
 
 
 def clear_all():
-    return [], "", "", "", None
+    return [], "", "", None
 
 def format_pages(pages):
     if not pages:
@@ -438,7 +413,7 @@ def handle_rag_query(query: str, debug: bool, llm_model: str):
 
     if not results:
         no_data = "Det finns inget tillräckligt underlag i materialet för att besvara frågan."
-        yield no_data, no_data
+        yield no_data
         return
 
     # -----------------------------
@@ -496,13 +471,6 @@ def handle_rag_query(query: str, debug: bool, llm_model: str):
     # -----------------------------
     # Slutligt svar
     # -----------------------------
-    final_structured_answer = (
-        structured_answer
-        + sources_md
-        + model_debug_md
-    )
-    yield final_structured_answer, "_Bearbetar LLM-svar..._"
-
     llm_start = time.perf_counter()
     llm_answer = safe_generate_reasoning_from_prompt_with_model(llm_prompt, llm_model)
     llm_elapsed = time.perf_counter() - llm_start
@@ -548,7 +516,7 @@ def handle_rag_query(query: str, debug: bool, llm_model: str):
         + sources_md
         + llm_debug_md
     )
-    yield final_structured_answer, final_llm_answer
+    yield final_llm_answer
 
 
 def translate_intent(intent: str) -> str:
@@ -692,7 +660,7 @@ with gr.Blocks() as demo:
             gr.Markdown("<h3>Egen fråga</h3>")
             message = gr.Textbox(
                 placeholder="Skriv en fritextfråga här om du vill söka i källmaterialet.",
-                lines=1,
+                lines=6,
                 label=None,  
                 show_label=False,
                 elem_classes="message-box"
@@ -703,7 +671,8 @@ with gr.Blocks() as demo:
                 clear_btn = gr.Button("Rensa", elem_classes="send-btn")
                 debug_mode = gr.Checkbox(
                     label="Debug",
-                    value=False
+                    value=False,
+                    visible=False
                 )
 
             llm_model = gr.Dropdown(
@@ -711,20 +680,14 @@ with gr.Blocks() as demo:
                 choices=LLM_MODEL_OPTIONS,
                 value=DEFAULT_LLM_MODEL,
                 interactive=True,
+                visible=False,
             )
 
     # RAD 2 – Svar över hela bredden
     with gr.Row():
         with gr.Column():
-            gr.Markdown("<h3>Strukturerad</h3>")
-            answer_structured = gr.Markdown(
-                "",
-                elem_classes="answer-box"
-            )
-
-        with gr.Column():
-            gr.Markdown("<h3>LLM-baserad</h3>")
-            answer_llm = gr.Markdown(
+            gr.Markdown("<h3>Svar</h3>")
+            answer = gr.Markdown(
                 "",
                 elem_classes="answer-box"
             )
@@ -742,24 +705,24 @@ with gr.Blocks() as demo:
     questions.select(
         fn=select_and_submit,
         inputs=[current_doc, debug_mode, llm_model],
-        outputs=[message, answer_structured, answer_llm]
+        outputs=[message, answer]
     )
 
     send_btn.click(
         fn=submit,
         inputs=[message, current_doc, debug_mode, llm_model],
-        outputs=[answer_structured, answer_llm]
+        outputs=[answer]
     )
     
     message.submit(
         fn=submit,
         inputs=[message, current_doc, debug_mode, llm_model],
-        outputs=[answer_structured, answer_llm]
+        outputs=[answer]
     )
 
     clear_btn.click(
         fn=clear_all,
-        outputs=[questions, message, answer_structured, answer_llm, current_doc]
+        outputs=[questions, message, answer, current_doc]
     )
 
 # =====================================================

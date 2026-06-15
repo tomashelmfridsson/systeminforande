@@ -283,10 +283,10 @@ button.gr-button.card {
 .question-list {
     background: #ffffff !important;
     border: none !important;
-    min-height: 220px; 
+    min-height: 320px;
     border: 2px solid #1e5bd7 !important;
     border-radius: 16px !important;
-    padding: 10px;
+    padding: 8px;
 }
 
 /*
@@ -371,6 +371,10 @@ button.gr-button.card {
 .question-list .ag-cell,
 .question-list .ag-row {
     border: none !important;
+    min-height: 52px !important;
+    line-height: 1.35 !important;
+    white-space: normal !important;
+    word-break: break-word !important;
 }
 
 /* Ta bort markeringsrutor / fokusramar helt */
@@ -388,6 +392,20 @@ button.gr-button.card {
     display: none !important;
 }
 
+.question-list .ag-root-wrapper,
+.question-list .ag-root-wrapper-body,
+.question-list .ag-center-cols-viewport,
+.question-list .ag-center-cols-container {
+    border: none !important;
+    background: #ffffff !important;
+}
+
+.question-list .ag-cell-value {
+    white-space: normal !important;
+    overflow: visible !important;
+    text-overflow: initial !important;
+}
+
 /* =====================================================
    MEDDELANDE (Textbox) – STABIL LÖSNING
    ===================================================== */
@@ -397,8 +415,8 @@ button.gr-button.card {
     background: #ffffff !important;
     border: 2px solid #1e5bd7 !important;
     border-radius: 16px !important;
-    padding: 10px !important;
-    min-height: 220px;
+    padding: 12px !important;
+    min-height: 180px;
 }
 
 /* Ta bort Gradio-inre effekter */
@@ -426,7 +444,8 @@ button.gr-button.card {
 /* Själva textarea – ALL text ritas här */
 .message-box textarea {
     width: 100% !important;
-    /*padding: 14px !important;*/
+    min-height: 130px !important;
+    overflow-y: auto !important;
 
     background-color: #ffffff !important;
     color: #000000 !important;
@@ -439,6 +458,11 @@ button.gr-button.card {
     line-height: 1.4;
 
     -webkit-text-fill-color: #000000 !important;
+}
+
+.message-box .scroll-hide,
+.message-box .hide-container {
+    overflow: visible !important;
 }
 
 /* Placeholder */
@@ -512,8 +536,8 @@ label.container.show_textbox_border {
 .answer-box {
     border: 2px solid #1e5bd7 !important;
     border-radius: 10px !important;
-    min-height: 220px; 
-    padding: 10px;
+    min-height: 260px;
+    padding: 14px;
 }
 
 
@@ -523,6 +547,13 @@ label.container.show_textbox_border {
     border: none !important;
     /*border: 2px solid #000000 !important;
     border-radius: 10px !important;*/
+}
+
+.answer-box h1,
+.answer-box h2,
+.answer-box h3,
+.answer-box h4 {
+    margin-top: 0 !important;
 }
 
 /* ===============================
