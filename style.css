@@ -184,8 +184,8 @@ h2, h3, h4, p, span, label, li {
     background-color: #ffffff !important;
     color: #000000 !important;
   
-    width: 260px;
-    height: 150px;
+    width: 240px;
+    height: 130px;
 
     background: #ffffff !important;
     color: #000000 !important;
@@ -397,10 +397,14 @@ button.gr-button.card {
 
 .question-list .ag-root-wrapper,
 .question-list .ag-root-wrapper-body,
+.question-list .ag-center-cols-clipper,
 .question-list .ag-center-cols-viewport,
 .question-list .ag-center-cols-container {
     border: none !important;
     background: #ffffff !important;
+    width: 100% !important;
+    min-width: 0 !important;
+    max-width: 100% !important;
 }
 
 .question-list .ag-cell-value {
@@ -411,6 +415,22 @@ button.gr-button.card {
     font-size: 14px !important;
     line-height: 1.35 !important;
     word-break: break-word !important;
+    overflow-wrap: anywhere !important;
+    display: block !important;
+}
+
+.question-list .ag-cell-wrapper,
+.question-list .ag-cell,
+.question-list .ag-row {
+    white-space: normal !important;
+    overflow: hidden !important;
+    text-overflow: clip !important;
+}
+
+.question-list .ag-body-horizontal-scroll,
+.question-list .ag-horizontal-left-spacer,
+.question-list .ag-horizontal-right-spacer {
+    display: none !important;
 }
 
 /* =====================================================
