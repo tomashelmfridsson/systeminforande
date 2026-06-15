@@ -1,4 +1,5 @@
 import re
+from rag.search import classify_query_intent, load_chunks
 
 STOPWORDS = {
     "vad", "är", "hur", "ska", "kan", "det", "de", "den", "och", "att", "som",
@@ -30,6 +31,13 @@ def build_extractive_reasoning(query: str, chunks: list, max_points: int = 3) ->
     Bygger ett kort resonemang i egna ord utifrån toppchunkar.
     Om underlaget är för brusigt returneras ett försiktigt fallback-svar.
     """
+    intent = classify_query_intent(query)
+
+    if intent in {"overview_list", "list"}:
+        list_reasoning = _build_list_reasoning(query, chunks)
+        if list_reasoning:
+            return list_reasoning
+
     evidence = _collect_evidence(query, chunks, limit=max_points)
     if not evidence:
         return (
@@ -41,6 +49,64 @@ def build_extractive_reasoning(query: str, chunks: list, max_points: int = 3) ->
     points = " ".join(_rewrite_point(text) for text in evidence)
     closing = _build_closing(chunks)
     return " ".join(part for part in [intro, points, closing] if part).strip()
+
+
+def _build_list_reasoning(query: str, chunks: list) -> str:
+    query_lower = query.lower()
+
+    if "etapp" in query_lower:
+        stages = _extract_stage_names(chunks)
+        if stages:
+            return (
+                "Materialet visar att införandet delas in i flera etapper. "
+                + "De etapper som tydligast framgår är "
+                + _join_list(stages)
+                + ". "
+                + _build_closing(chunks)
+            ).strip()
+
+    if "kompetens" in query_lower:
+        competencies = _extract_competency_groups(chunks)
+        if competencies:
+            return (
+                "Materialet visar att ett lyckat systeminförande kräver flera olika kompetenser. "
+                + "De kompetensområden som tydligast lyfts fram är "
+                + _join_list(competencies)
+                + ". "
+                + _build_closing(chunks)
+            ).strip()
+
+    if "kravområd" in query_lower:
+        areas = _extract_requirement_areas(_expand_same_source_sections(chunks, "checklista_inforandekrav.pdf"))
+        if areas:
+            return (
+                "Materialet visar att införandekrav delas in i flera kravområden som tillsammans "
+                "täcker hela införandet. Exempel på sådana områden är "
+                + _join_list(areas[:8])
+                + ". "
+                + _build_closing(chunks)
+            ).strip()
+
+    titles = _extract_section_titles(chunks)
+    if titles:
+        return (
+            "Materialet visar att frågan besvaras genom flera återkommande områden eller delar. "
+            + "De som framträder tydligast är "
+            + _join_list(titles[:6])
+            + ". "
+            + _build_closing(chunks)
+        ).strip()
+
+    return ""
+
+
+def _expand_same_source_sections(chunks: list, source_name: str) -> list:
+    if not any((chunk.get("source") or "").lower() == source_name for chunk in chunks):
+        return chunks
+
+    all_chunks = load_chunks()
+    expanded = [chunk for chunk in all_chunks if (chunk.get("source") or "").lower() == source_name]
+    return expanded or chunks
 
 
 def _collect_evidence(query: str, chunks: list, limit: int) -> list[str]:
@@ -91,6 +157,83 @@ def _build_closing(chunks: list) -> str:
     if len(pages) == 1:
         return f"Bedömningen bygger på underlag från sida {pages[0]}."
     return f"Bedömningen bygger på underlag från sidorna {pages[0]}-{pages[-1]}."
+
+
+def _extract_stage_names(chunks: list) -> list[str]:
+    stages = []
+    seen = set()
+
+    for chunk in chunks:
+        text = chunk.get("text", "")
+        for match in re.finditer(r"Etapp\s+\d+\s*[–-]\s*([^\n.]+)", text, flags=re.I):
+            stage = match.group(1).strip(" .")
+            stage = re.sub(r"\s+", " ", stage)
+            if len(stage) < 3:
+                continue
+            key = stage.lower()
+            if key not in seen:
+                stages.append(stage.lower())
+                seen.add(key)
+
+    return stages[:6]
+
+
+def _extract_competency_groups(chunks: list) -> list[str]:
+    groups = []
+    seen = set()
+
+    for chunk in chunks:
+        text = " ".join(chunk.get("text", "").split())
+        lowered = text.lower()
+
+        if "system-, verksamhets-" in lowered or "system-, verksamhets- samt teknik-" in lowered:
+            for item in ["systemkompetens", "verksamhetskompetens", "teknik- och driftkompetens"]:
+                if item not in seen:
+                    groups.append(item)
+                    seen.add(item)
+
+        if "för system krävs" in lowered and "systemkompetens" not in seen:
+            groups.append("systemkompetens")
+            seen.add("systemkompetens")
+        if "för verksamheten krävs" in lowered and "verksamhetskompetens" not in seen:
+            groups.append("verksamhetskompetens")
+            seen.add("verksamhetskompetens")
+        if "för teknik och drift krävs" in lowered and "teknik- och driftkompetens" not in seen:
+            groups.append("teknik- och driftkompetens")
+            seen.add("teknik- och driftkompetens")
+
+    return groups[:6]
+
+
+def _extract_requirement_areas(chunks: list) -> list[str]:
+    areas = []
+    seen = set()
+
+    for chunk in chunks:
+        title = (chunk.get("title") or "").strip()
+        section = chunk.get("section", "")
+        if section.startswith("4."):
+            title = re.sub(r"^\d+(\.\d+)*\s+", "", title).strip()
+            key = title.lower()
+            if title and key not in seen:
+                areas.append(title.lower())
+                seen.add(key)
+
+    return areas
+
+
+def _extract_section_titles(chunks: list) -> list[str]:
+    titles = []
+    seen = set()
+    for chunk in chunks:
+        title = re.sub(r"^\d+(\.\d+)*\s+", "", (chunk.get("title") or "")).strip()
+        if not title:
+            continue
+        key = title.lower()
+        if key not in seen and not _has_ocr_noise(title):
+            titles.append(title.lower())
+            seen.add(key)
+    return titles
 
 
 def _rewrite_point(text: str) -> str:
@@ -194,6 +337,15 @@ def _looks_human_readable(text: str) -> bool:
     if text.count('"') > 2:
         return False
     return True
+
+
+def _join_list(items: list[str]) -> str:
+    cleaned = [item.strip() for item in items if item.strip()]
+    if not cleaned:
+        return ""
+    if len(cleaned) == 1:
+        return cleaned[0]
+    return ", ".join(cleaned[:-1]) + f" och {cleaned[-1]}"
 
 
 def _is_metadata_line(text: str) -> bool:
