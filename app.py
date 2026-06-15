@@ -66,9 +66,9 @@ def submit(message, doc_id, debug_mode):
             if q["question"] == message:
                 fact_answer = format_answer(q["answer"])
                 source_results = search(f"{doc['title']} {message}", top_k=5)
-                reasoning = build_extractive_reasoning(
-                    message,
-                    [chunk for _, chunk in source_results],
+                reasoning = build_structured_reasoning(
+                    question=message,
+                    answer=q["answer"],
                 )
                 
                 combined = (
@@ -101,6 +101,86 @@ def format_answer(answer):
             out.append(value)
         out.append("")
     return "\n".join(out)
+
+
+def build_structured_reasoning(question: str, answer: dict) -> str:
+    """
+    Bygg resonemang för fördefinierade frågor från det kuraterade faktasvaret.
+    Detta ska ge ett stabilt stycke även när retrievalen inte räcker för fritext-RAG.
+    """
+    parts = []
+    description = _as_text(answer.get("Beskrivning"))
+    purpose = _as_text(answer.get("Syfte"))
+    result = _as_text(answer.get("Resultat"))
+    examples = _as_list(answer.get("Exempel"))
+    items = _as_list(answer.get("Lista"))
+
+    if purpose:
+        parts.append(purpose)
+
+    if description:
+        parts.append(description)
+
+    if items:
+        if len(items) == 1:
+            parts.append(f"Detta omfattar särskilt {items[0].lower()}.")
+        else:
+            listed = ", ".join(items[:-1]) + f" och {items[-1]}" if len(items) > 1 else items[0]
+            parts.append(f"Detta omfattar bland annat {listed.lower()}.")
+
+    if examples:
+        if len(examples) == 1:
+            parts.append(f"Ett exempel är {examples[0].lower()}.")
+        else:
+            parts.append(
+                "Exempel på detta är "
+                + _join_list([example.lower() for example in examples[:3]])
+                + "."
+            )
+
+    if result:
+        parts.append(f"Det bidrar till {result.lower()}.")
+
+    if not parts:
+        return ""
+
+    reasoning = " ".join(_ensure_sentence(part) for part in parts)
+    return _normalize_reasoning_text(reasoning)
+
+
+def _as_text(value) -> str:
+    if isinstance(value, str):
+        return value.strip()
+    return ""
+
+
+def _as_list(value) -> list[str]:
+    if isinstance(value, list):
+        return [str(item).strip() for item in value if str(item).strip()]
+    return []
+
+
+def _ensure_sentence(text: str) -> str:
+    text = text.strip()
+    if not text:
+        return ""
+    if text[-1] not in ".!?":
+        text += "."
+    return text
+
+
+def _join_list(items: list[str]) -> str:
+    if not items:
+        return ""
+    if len(items) == 1:
+        return items[0]
+    return ", ".join(items[:-1]) + f" och {items[-1]}"
+
+
+def _normalize_reasoning_text(text: str) -> str:
+    text = " ".join(text.split())
+    text = text.replace("..", ".")
+    return text
 
 
 def format_llm_error(exc: Exception) -> str:
