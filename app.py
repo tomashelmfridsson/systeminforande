@@ -1,5 +1,6 @@
 import json
 import os
+import re
 import time
 from urllib.parse import quote
 import gradio as gr
@@ -168,22 +169,39 @@ DEFAULT_LLM_MODEL = (
 # FUNKTIONER
 # =====================================================
 
+def build_main_card_html(doc: dict, selected: bool = False) -> str:
+    selected_class = " selected" if selected else ""
+    return f"""
+    <div class="card-shell{selected_class}">
+        <div class="card-content">
+            <div class="card-title">{doc["title"]}</div>
+            <div class="card-question">{doc["main_question"]}</div>
+        </div>
+    </div>
+    """
+
+
+def build_main_card_updates(selected_doc_id: str | None):
+    updates = []
+    for doc in DOCUMENTS:
+        updates.append(
+            gr.update(value=build_main_card_html(doc, selected=doc["id"] == selected_doc_id))
+        )
+    return updates
+
+
 def load_document(doc_id):
-    rows = [[q["question"]] for q in DOC_INDEX[doc_id]["subquestions"]]
-    return rows, doc_id
+    questions = [q["question"] for q in DOC_INDEX[doc_id]["subquestions"]]
+    return (
+        gr.update(choices=questions, value=None),
+        doc_id,
+        *build_main_card_updates(doc_id),
+    )
 
 
-def fill_message(evt: gr.SelectData):
-    value = evt.value
-    if isinstance(value, list):
-        return value[0]
-    return value
-
-
-def select_and_submit(evt: gr.SelectData, doc_id, debug_mode, llm_model):
-    message = fill_message(evt)
+def select_and_submit(message: str, doc_id, debug_mode, llm_model):
     for answer in submit(message, doc_id, debug_mode, llm_model):
-        yield "", answer
+        yield answer
 
 def submit(message, doc_id, debug_mode, llm_model):
     """
@@ -378,7 +396,7 @@ def build_sources_md(results) -> str:
 
 
 def clear_all():
-    return [], "", "", None
+    return gr.update(choices=[], value=None), "", "", None, *build_main_card_updates(None)
 
 def format_pages(pages):
     if not pages:
@@ -415,6 +433,42 @@ def format_source_link(chunk: dict) -> str:
         return f"🌐 [{source}]({source})"
 
     return source
+
+
+def _simple_tokenize(text: str) -> set[str]:
+    return {
+        token
+        for token in re.findall(r"\w+", (text or "").lower())
+        if len(token) > 2
+    }
+
+
+def _has_relevant_rag_support(search_debug: dict) -> tuple[bool, str]:
+    top_results = search_debug.get("top_results", [])
+    query_terms = set(search_debug.get("query_terms", []))
+
+    if not top_results or not query_terms:
+        return False, "Inga tydliga träffar hittades i materialet."
+
+    top_score = top_results[0]["score"]
+    if top_score < 3:
+        return False, "De högsta träffarna är för svaga för att betraktas som relevanta."
+
+    combined_tokens = set()
+    for item in top_results[:3]:
+        chunk = item["chunk"]
+        combined_tokens |= _simple_tokenize(chunk.get("title", ""))
+        combined_tokens |= _simple_tokenize(chunk.get("text", ""))
+
+    matched_terms = query_terms & combined_tokens
+    if not matched_terms:
+        return False, "Frågans nyckelord återfinns inte i de högst rankade träffarna."
+
+    coverage = len(matched_terms) / len(query_terms)
+    if len(query_terms) >= 3 and coverage < 0.34:
+        return False, "För liten del av frågans nyckelord stöds av de högst rankade träffarna."
+
+    return True, ""
     
 def handle_rag_query(query: str, debug: bool, llm_model: str):
     results = search(query, top_k=5)
@@ -430,13 +484,25 @@ def handle_rag_query(query: str, debug: bool, llm_model: str):
     scores = [score for score, _ in results]
     confidence = round(sum(scores) / len(scores), 2)
 
-    chunks = [chunk for _, chunk in results]
+    search_debug = explain_search(query, top_k=5)
+    is_relevant, relevance_reason = _has_relevant_rag_support(search_debug)
+    if not is_relevant:
+        no_data = "Frågan verkar inte ha relevant stöd i det tillgängliga källmaterialet."
+        if debug:
+            no_data += (
+                "\n\n---\n\n### Debug\n"
+                f"**Confidence:** {confidence}\n"
+                f"**Frågetyp:** {translate_intent(search_debug['intent'])}\n"
+                f"**Query-termer:** `{', '.join(search_debug['query_terms'])}`\n"
+                f"**Diagnos:** {relevance_reason}"
+            )
+        yield no_data
+        return
 
+    chunks = [chunk for _, chunk in results]
     structured_answer = build_extractive_reasoning(query, chunks)
     llm_prompt = rag_prompt(query, chunks)
-
     sources_md = build_sources_md(results)
-    search_debug = explain_search(query, top_k=5)
 
     # -----------------------------
     # Debug (valfritt)
@@ -633,21 +699,14 @@ with gr.Blocks() as demo:
     
         for doc in DOCUMENTS:
             with gr.Column(min_width=260, elem_classes="card"):
-                gr.HTML(
-                    f"""
-                    <div class="card-content">
-                        <div class="card-title">{doc["title"]}</div>
-                        <div class="card-question">{doc["main_question"]}</div>
-                    </div>
-                    """
-                )
+                card_html = gr.HTML(build_main_card_html(doc))
     
                 btn = gr.Button(
                     "",
                     elem_classes="card-overlay"
                 )
     
-                main_buttons.append((btn, doc["id"]))
+                main_buttons.append((btn, doc["id"], card_html))
 
     # -------------------------
     # INNEHÅLL
@@ -657,9 +716,11 @@ with gr.Blocks() as demo:
         # VÄNSTER: Underfrågor
         with gr.Column(scale=2):
             gr.Markdown("<h3>FAQ</h3>")
-            questions = gr.Dataframe(
-                headers=[""],
-                interactive=False,
+            questions = gr.Radio(
+                choices=[],
+                value=None,
+                label=None,
+                interactive=True,
                 elem_classes="question-list"
             )
     
@@ -704,16 +765,18 @@ with gr.Blocks() as demo:
     # EVENTS
     # -------------------------
 
-    for btn, doc_id in main_buttons:
+    card_outputs = [card_html for _, _, card_html in main_buttons]
+
+    for btn, doc_id, _ in main_buttons:
         btn.click(
             fn=lambda d=doc_id: load_document(d),
-            outputs=[questions, current_doc]
+            outputs=[questions, current_doc, *card_outputs]
         )
 
-    questions.select(
+    questions.change(
         fn=select_and_submit,
-        inputs=[current_doc, debug_mode, llm_model],
-        outputs=[message, answer]
+        inputs=[questions, current_doc, debug_mode, llm_model],
+        outputs=[answer]
     )
 
     send_btn.click(
@@ -730,7 +793,7 @@ with gr.Blocks() as demo:
 
     clear_btn.click(
         fn=clear_all,
-        outputs=[questions, message, answer, current_doc]
+        outputs=[questions, message, answer, current_doc, *card_outputs]
     )
 
 # =====================================================
