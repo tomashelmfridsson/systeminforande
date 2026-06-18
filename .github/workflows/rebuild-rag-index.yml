@@ -1,0 +1,49 @@
+name: Rebuild RAG Index
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: rebuild-rag-index
+  cancel-in-progress: true
+
+jobs:
+  rebuild:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Rebuild chunks index
+        run: |
+          python - <<'PY'
+          from rag.ingest import ingest_pdfs_and_web, save_chunks
+
+          chunks = ingest_pdfs_and_web()
+          save_chunks(chunks, "rag/data")
+          PY
+
+      - name: Commit updated chunks
+        run: |
+          if git diff --quiet -- rag/data/chunks.json; then
+            echo "No chunk changes to commit."
+            exit 0
+          fi
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add rag/data/chunks.json
+          git commit -m "Rebuild RAG chunks index"
+          git push

@@ -1,4 +1,4 @@
-name: Nightly LLM Health Check
+name: Nightly Space And LLM Health Check
 
 on:
   schedule:
@@ -14,6 +14,34 @@ jobs:
     timeout-minutes: 10
 
     steps:
+      - name: Check deployed Space availability
+        env:
+          APP_URL: https://helmfridsson-systeminforande.hf.space
+        run: |
+          python - <<'PY'
+          import os
+          import sys
+          import requests
+
+          app_url = os.environ["APP_URL"].rstrip("/")
+
+          try:
+              root_response = requests.get(app_url, timeout=30)
+              root_response.raise_for_status()
+          except Exception as exc:
+              print(f"Space root check failed: {exc}")
+              sys.exit(1)
+
+          try:
+              config_response = requests.get(f"{app_url}/gradio_api/info", timeout=30)
+              config_response.raise_for_status()
+          except Exception as exc:
+              print(f"Gradio API check failed: {exc}")
+              sys.exit(1)
+
+          print("Space availability check passed.")
+          PY
+
       - name: Check deployed chatbot LLM path
         env:
           APP_URL: https://helmfridsson-systeminforande.hf.space
