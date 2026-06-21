@@ -70,7 +70,8 @@ jobs:
               "https://huggingface.co/api/spaces/helmfridsson/systeminforande/runtime")
             STAGE=$(jq --raw-output '.stage // "UNKNOWN"' <<< "$RUNTIME")
             CONFIG=$(curl --fail --silent --show-error \
-              "https://helmfridsson-systeminforande.hf.space/config")
+              --header "Cache-Control: no-cache" \
+              "https://helmfridsson-systeminforande.hf.space/config?revision=${EXPECTED_REVISION}")
 
             echo "Space stage: $STAGE"
 
