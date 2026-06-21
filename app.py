@@ -16,6 +16,18 @@ CHUNKS_FILE = os.path.join(DATA_DIR, "chunks.json")
 GITHUB_PAGES_BASE_URL = "https://tomashelmfridsson.github.io/systeminforande"
 GITHUB_PAGES_PDF_BASE_URL = f"{GITHUB_PAGES_BASE_URL}/pdfs"
 HEADER_IMAGE_PATH = "brain.png"
+DEPLOY_REVISION_FILE = "deploy_revision.txt"
+
+
+def load_deploy_revision() -> str:
+    try:
+        with open(DEPLOY_REVISION_FILE, encoding="utf-8") as revision_file:
+            return revision_file.read().strip() or "local"
+    except OSError:
+        return "local"
+
+
+DEPLOY_REVISION = load_deploy_revision()
 
 if not os.path.exists(CHUNKS_FILE):
     raise FileNotFoundError(
@@ -629,10 +641,11 @@ if supports_launch_css:
 # with gr.Blocks(css=".gradio-container {background-color: white}") as demo:
 with gr.Blocks(**blocks_kwargs) as demo:
     gr.HTML(
-        """
+        f"""
         <div class="app-header-row">
             <img src="/gradio_api/file=brain.png" alt="Citrus-chatbot logotyp" class="app-header-logo" />
             <h1 class="title">Citrus-chatbot</h1>
+            <span data-deploy-revision="{DEPLOY_REVISION}" style="display: none;"></span>
         </div>
         """
     )
