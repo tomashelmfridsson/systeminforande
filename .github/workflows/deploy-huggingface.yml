@@ -65,13 +65,15 @@ jobs:
           EXPECTED_REVISION: ${{ github.sha }}
         run: |
           for attempt in {1..60}; do
-            RUNTIME=$(curl --fail --silent --show-error \
+            RUNTIME=$(curl --fail --silent --show-error --max-time 10 \
               --header "Authorization: Bearer ${HF_TOKEN}" \
-              "https://huggingface.co/api/spaces/helmfridsson/systeminforande/runtime")
+              "https://huggingface.co/api/spaces/helmfridsson/systeminforande/runtime" \
+              || printf '{}')
             STAGE=$(jq --raw-output '.stage // "UNKNOWN"' <<< "$RUNTIME")
-            CONFIG=$(curl --fail --silent --show-error \
+            CONFIG=$(curl --fail --silent --show-error --max-time 10 \
               --header "Cache-Control: no-cache" \
-              "https://helmfridsson-systeminforande.hf.space/config?revision=${EXPECTED_REVISION}&attempt=${attempt}")
+              "https://helmfridsson-systeminforande.hf.space/config?revision=${EXPECTED_REVISION}&attempt=${attempt}" \
+              || printf '{}')
 
             echo "Space stage: $STAGE"
 
