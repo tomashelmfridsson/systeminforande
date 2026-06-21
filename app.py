@@ -764,4 +764,5 @@ with gr.Blocks(**blocks_kwargs) as demo:
 # LAUNCH
 # =====================================================
 
+print("Deploy revision:", DEPLOY_REVISION)
 demo.launch(**launch_kwargs)
