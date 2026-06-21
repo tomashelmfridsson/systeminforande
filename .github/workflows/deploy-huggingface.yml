@@ -31,6 +31,8 @@ jobs:
           rm -rf /tmp/hf-deploy
           mkdir -p /tmp/hf-deploy
           cp app.py /tmp/hf-deploy/
+          cp Dockerfile /tmp/hf-deploy/
+          cp .dockerignore /tmp/hf-deploy/
           cp content.json /tmp/hf-deploy/
           cp requirements.txt /tmp/hf-deploy/
           cp style.css /tmp/hf-deploy/

@@ -3,9 +3,8 @@ title: Systeminforande
 emoji: 🦀
 colorFrom: purple
 colorTo: yellow
-sdk: gradio
-sdk_version: 5.50.0
-python_version: 3.11
+sdk: docker
+app_port: 7860
 app_file: app.py
 pinned: false
 license: apache-2.0
