@@ -618,7 +618,11 @@ with open("style.css", encoding="utf-8") as f:
 launch_signature = inspect.signature(gr.Blocks.launch)
 supports_launch_css = "css" in launch_signature.parameters
 blocks_kwargs = {} if supports_launch_css else {"css": css}
-launch_kwargs = {"ssr_mode": False}
+launch_kwargs = {
+    "ssr_mode": False,
+    "server_name": "0.0.0.0",
+    "server_port": 7860,
+}
 if supports_launch_css:
     launch_kwargs["css"] = css
 
