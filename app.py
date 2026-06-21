@@ -1,4 +1,5 @@
 import json
+import inspect
 import os
 import re
 import time
@@ -682,8 +683,15 @@ def build_predefined_debug_md(question: str, reasoning: str, source_results, llm
 with open("style.css", encoding="utf-8") as f:
     css = f.read()
 
+launch_signature = inspect.signature(gr.Blocks.launch)
+supports_launch_css = "css" in launch_signature.parameters
+blocks_kwargs = {} if supports_launch_css else {"css": css}
+launch_kwargs = {"ssr_mode": False}
+if supports_launch_css:
+    launch_kwargs["css"] = css
+
 # with gr.Blocks(css=".gradio-container {background-color: white}") as demo:
-with gr.Blocks(css=css) as demo:
+with gr.Blocks(**blocks_kwargs) as demo:
     gr.HTML("<h1 class='title'>Citrus-chatbot</h1>")
 
     gr.Image(
@@ -804,4 +812,4 @@ with gr.Blocks(css=css) as demo:
 # LAUNCH
 # =====================================================
 
-demo.launch(ssr_mode=False)
+demo.launch(**launch_kwargs)
