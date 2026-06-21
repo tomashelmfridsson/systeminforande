@@ -35,6 +35,7 @@ jobs:
           cp requirements.txt /tmp/hf-deploy/
           cp style.css /tmp/hf-deploy/
           cp README.md /tmp/hf-deploy/
+          cp brain.png /tmp/hf-deploy/
           cp -R llm /tmp/hf-deploy/
           cp -R rag /tmp/hf-deploy/
           rm -rf /tmp/hf-deploy/rag/__pycache__
@@ -43,6 +44,7 @@ jobs:
           cp rag/web/source.txt /tmp/hf-deploy/rag/web/source.txt
 
       - name: Push to Hugging Face Space
+        id: push
         env:
           HF_TOKEN: ${{ secrets.HF_TOKEN }}
         run: |
@@ -54,5 +56,37 @@ jobs:
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add .
           git commit -m "Deploy from GitHub Actions"
-          git remote add hf "https://oauth2:${HF_TOKEN}@huggingface.co/spaces/helmfridsson/chatbot"
+          SPACE_SHA=$(git rev-parse HEAD)
+          echo "sha=$SPACE_SHA" >> "$GITHUB_OUTPUT"
+          git remote add hf "https://oauth2:${HF_TOKEN}@huggingface.co/spaces/helmfridsson/systeminforande"
           git push --force hf main:main
+
+      - name: Wait for Space to start
+        timeout-minutes: 20
+        env:
+          HF_TOKEN: ${{ secrets.HF_TOKEN }}
+          EXPECTED_SHA: ${{ steps.push.outputs.sha }}
+        run: |
+          for attempt in {1..60}; do
+            RUNTIME=$(curl --fail --silent --show-error \
+              --header "Authorization: Bearer ${HF_TOKEN}" \
+              "https://huggingface.co/api/spaces/helmfridsson/systeminforande/runtime")
+            STAGE=$(jq --raw-output '.stage // "UNKNOWN"' <<< "$RUNTIME")
+            RUNNING_SHA=$(jq --raw-output '.sha // ""' <<< "$RUNTIME")
+
+            echo "Space stage: $STAGE; running revision: ${RUNNING_SHA:-none}"
+
+            if [[ "$STAGE" == "RUNNING" && "$RUNNING_SHA" == "$EXPECTED_SHA" ]]; then
+              exit 0
+            fi
+
+            if [[ "$STAGE" == *"ERROR"* ]]; then
+              echo "Space failed to start revision $EXPECTED_SHA" >&2
+              exit 1
+            fi
+
+            sleep 15
+          done
+
+          echo "Space did not start revision $EXPECTED_SHA within 15 minutes" >&2
+          exit 1
