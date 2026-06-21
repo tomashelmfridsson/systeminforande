@@ -123,16 +123,28 @@ h2, h3, h4, p, span, label, li {
 }
 
 /* Själva bilden */
-.brain-header {
-    max-width: 120px;
-    height: auto;
-    display: block;
+.brain-header,
+.brain-icon,
+.brain-icon .wrap,
+.brain-header .wrap {
+    max-width: 120px !important;
+    width: 120px !important;
+    height: auto !important;
+    display: block !important;
+    margin: 0 auto !important;
+    background: transparent !important;
+    border: none !important;
+    box-shadow: none !important;
 }
 
+.brain-header img,
 .brain-icon img {
-    display: block;
-    margin: 0 auto;
-    width: 120px;
+    display: block !important;
+    margin: 0 auto !important;
+    width: 120px !important;
+    height: auto !important;
+    opacity: 1 !important;
+    visibility: visible !important;
 }
 
 .gradio-container hr {
@@ -173,6 +185,40 @@ h2, h3, h4, p, span, label, li {
 .brain-header {
     width: 120px;
     height: auto;
+}
+
+/* =====================================================
+   FLIKAR
+   ===================================================== */
+
+.tabs,
+.tabs .tab-nav,
+.tabs .tabitem {
+    background: #ffffff !important;
+}
+
+button[role="tab"] {
+    border: 2px solid #1e5bd7 !important;
+    border-radius: 12px !important;
+    color: #1e5bd7 !important;
+    background: #ffffff !important;
+    font-weight: 700 !important;
+    letter-spacing: 0.02em;
+}
+
+button[role="tab"][aria-selected="true"] {
+    background: #eef3ff !important;
+}
+
+.tabitem {
+    border: none !important;
+    box-shadow: none !important;
+}
+
+.tab-intro {
+    text-align: center;
+    margin: 8px 0 14px 0;
+    font-size: 15px;
 }
 
 /* =====================================================
@@ -303,12 +349,23 @@ button.gr-button.card {
     gap: 8px !important;
 }
 
+.question-list .wrap,
+.question-list .wrap-inner,
+.question-list .form,
+.question-list fieldset,
+.question-list .container {
+    border: none !important;
+    outline: none !important;
+    box-shadow: none !important;
+    background: #ffffff !important;
+}
+
 .question-list .gr-radio label,
 .question-list label[data-testid="radio-label"] {
     display: block !important;
     width: 100% !important;
     margin: 0 !important;
-    padding: 12px 14px !important;
+    padding: 10px 14px !important;
     border: none !important;
     border-radius: 12px !important;
     outline: none !important;
@@ -339,6 +396,16 @@ button.gr-button.card {
     border-radius: 12px !important;
 }
 
+.question-list .gr-radio {
+    display: flex !important;
+    flex-direction: column !important;
+}
+
+.question-list .gr-radio label,
+.question-list label[data-testid="radio-label"] {
+    margin-bottom: 6px !important;
+}
+
 .question-list .gr-radio label:hover,
 .question-list label[data-testid="radio-label"]:hover {
     background: #eef3ff !important;
@@ -346,6 +413,12 @@ button.gr-button.card {
 
 .question-list input[type="radio"] {
     display: none !important;
+}
+
+.question-list input[type="radio"] + *::before,
+.question-list input[type="radio"] + span::before {
+    display: none !important;
+    content: none !important;
 }
 
 .question-list input[type="radio"]:checked + span,
@@ -366,12 +439,13 @@ button.gr-button.card {
 }
 
 .question-list span {
+    display: block !important;
     white-space: normal !important;
     word-break: break-word !important;
     overflow-wrap: anywhere !important;
     font-family: Arial, Helvetica, sans-serif !important;
     font-size: 14px !important;
-    line-height: 1.35 !important;
+    line-height: 1.45 !important;
     color: #000000 !important;
 }
 

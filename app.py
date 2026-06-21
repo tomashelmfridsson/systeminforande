@@ -395,6 +395,10 @@ def build_sources_md(results) -> str:
 def clear_all():
     return gr.update(choices=[], value=None), "", "", None, *build_main_card_updates(None)
 
+
+def clear_chatbot():
+    return "", ""
+
 def format_pages(pages):
     if not pages:
         return ""
@@ -686,55 +690,25 @@ with gr.Blocks(css=css) as demo:
         value=HEADER_IMAGE_PATH,
         show_label=False,
         interactive=False,
-        elem_classes="brain-header"
+        elem_classes=["brain-icon", "brain-header"]
     )
 
     current_doc = gr.State(None)
-    
-    # -------------------------
-    # HUVUDFRÅGOR
-    # -------------------------
-    with gr.Row():
-        main_buttons = []
-    
-        for doc in DOCUMENTS:
-            with gr.Column(min_width=260, elem_classes="card"):
-                card_html = gr.HTML(build_main_card_html(doc))
-    
-                btn = gr.Button(
-                    "",
-                    elem_classes="card-overlay"
-                )
-    
-                main_buttons.append((btn, doc["id"], card_html))
 
-    # -------------------------
-    # INNEHÅLL
-    # -------------------------
-    with gr.Row():
-        
-        # VÄNSTER: Underfrågor
-        with gr.Column(scale=2):
-            gr.Markdown("<h3>FAQ</h3>")
-            questions = gr.Radio(
-                choices=[],
-                value=None,
-                label=None,
-                interactive=True,
-                elem_classes="question-list"
+    with gr.Tabs() as tabs:
+        with gr.Tab("CHATBOT"):
+            gr.Markdown(
+                "<p class='tab-intro'>Ställ en fråga på materialet?</p>"
             )
-    
-        # HÖGER: Fritextfråga
-        with gr.Column(scale=3):
-            gr.Markdown("<h3>Egen fråga</h3>")
+
             message = gr.Textbox(
-                placeholder="Skriv en fritextfråga här om du vill söka i källmaterialet.",
+                placeholder="Skriv din fråga här.",
                 lines=6,
-                label=None,  
+                label=None,
                 show_label=False,
                 elem_classes="message-box"
             )
-    
+
             with gr.Row():
                 send_btn = gr.Button("Skicka", elem_classes="send-btn")
                 clear_btn = gr.Button("Rensa", elem_classes="send-btn")
@@ -752,11 +726,41 @@ with gr.Blocks(css=css) as demo:
                 visible=False,
             )
 
-    # RAD 2 – Svar över hela bredden
-    with gr.Row():
-        with gr.Column():
             gr.Markdown("<h3>Svar</h3>")
-            answer = gr.Markdown(
+            chatbot_answer = gr.Markdown(
+                "",
+                elem_classes="answer-box"
+            )
+
+        with gr.Tab("FAQ"):
+            gr.Markdown("<h3>Välj ämnesområde</h3>")
+
+            with gr.Row():
+                main_buttons = []
+
+                for doc in DOCUMENTS:
+                    with gr.Column(min_width=260, elem_classes="card"):
+                        card_html = gr.HTML(build_main_card_html(doc))
+
+                        btn = gr.Button(
+                            "",
+                            elem_classes="card-overlay"
+                        )
+
+                        main_buttons.append((btn, doc["id"], card_html))
+
+            gr.Markdown("<h3>Underfrågor</h3>")
+            questions = gr.Radio(
+                choices=[],
+                value=None,
+                label=None,
+                show_label=False,
+                interactive=True,
+                elem_classes="question-list"
+            )
+
+            gr.Markdown("<h3>Svar</h3>")
+            faq_answer = gr.Markdown(
                 "",
                 elem_classes="answer-box"
             )
@@ -776,24 +780,24 @@ with gr.Blocks(css=css) as demo:
     questions.change(
         fn=select_and_submit,
         inputs=[questions, current_doc, debug_mode, llm_model],
-        outputs=[answer]
+        outputs=[faq_answer]
     )
 
     send_btn.click(
         fn=submit,
         inputs=[message, current_doc, debug_mode, llm_model],
-        outputs=[answer]
+        outputs=[chatbot_answer]
     )
     
     message.submit(
         fn=submit,
         inputs=[message, current_doc, debug_mode, llm_model],
-        outputs=[answer]
+        outputs=[chatbot_answer]
     )
 
     clear_btn.click(
-        fn=clear_all,
-        outputs=[questions, message, answer, current_doc, *card_outputs]
+        fn=clear_chatbot,
+        outputs=[message, chatbot_answer]
     )
 
 # =====================================================
