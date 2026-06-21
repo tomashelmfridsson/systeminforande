@@ -760,6 +760,14 @@ with gr.Blocks(**blocks_kwargs) as demo:
         outputs=[message, chatbot_answer]
     )
 
+@demo.app.get("/health")
+def health():
+    return {"status": "ok", "revision": DEPLOY_REVISION}
+
+@demo.app.get("/ready")
+def ready():
+    return {"status": "ok", "revision": DEPLOY_REVISION}
+
 # =====================================================
 # LAUNCH
 # =====================================================
