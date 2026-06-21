@@ -178,34 +178,6 @@ h2, h3, h4, p, span, label, li {
 /* =====================================================
    HUVUDFRÅGOR (Buttons / Cards)
    ===================================================== */
-.card,
-.card .wrap,
-.card.gr-button {
-    background-color: #ffffff !important;
-    color: #000000 !important;
-  
-    width: 240px;
-    height: 130px;
-
-    background: #ffffff !important;
-    color: #000000 !important;
-
-    border: 2px solid #1e5bd7 !important;
-    border-radius: 14px !important;
-
-    display: inline-flex !important;
-    align-items: center !important;
-    justify-content: center !important;
-
-    text-align: center;
-    line-height: 1.2;
-    white-space: normal;
-}
-
-.card.gr-button:hover {
-    background: #eef3ff !important;
-}
-
 .card-shell {
     width: 240px;
     height: 130px;
@@ -228,7 +200,7 @@ h2, h3, h4, p, span, label, li {
 button.gr-button.card {
     background-color: #ffffff !important;
     color: #000000 !important;
-    border: 2px solid #1e5bd7 !important;
+    border: none !important;
     border-radius: 14px !important;
 }
 
@@ -259,6 +231,9 @@ button.gr-button.card {
 .card {
     position: relative;
     padding: 12px;
+    background: transparent !important;
+    border: none !important;
+    box-shadow: none !important;
 }
 
 /* Osynlig klick-yta */
