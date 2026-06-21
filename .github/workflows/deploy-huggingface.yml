@@ -35,7 +35,6 @@ jobs:
           cp requirements.txt /tmp/hf-deploy/
           cp style.css /tmp/hf-deploy/
           cp README.md /tmp/hf-deploy/
-          cp brain.png /tmp/hf-deploy/
           cp -R llm /tmp/hf-deploy/
           cp -R rag /tmp/hf-deploy/
           rm -rf /tmp/hf-deploy/rag/__pycache__
