@@ -49,102 +49,32 @@ h1 {
   text-align: center;
 }
 
+.app-header-row {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 14px;
+    margin: 12px 0 18px 0;
+    background: #ffffff !important;
+}
+
+.app-header-logo {
+    width: 56px;
+    height: 56px;
+    object-fit: contain;
+    display: block;
+}
+
+.app-header-row .title {
+    margin: 0;
+    text-align: left;
+}
+
 h2, h3, h4, p, span, label, li {
     color: #000000 !important;
     background-color: #ffffff !important;
     background: #ffffff !important;
     border: none !important;
-}
-
-/* ===============================
-   BILD – brain.png (SLUTGILTIG)
-   =============================== */
-
-/* Dölj bildens toolbar (zoom / download / share) */
-.brain-icon .image-toolbar,
-.brain-icon button,
-.brain-icon [role="toolbar"] {
-    display: none !important;
-}
-
-/* Själva bilden */
-.brain-icon img {
-    width: 100px;
-    height: auto;
-    pointer-events: none; !important;
-    user-select: none; !important;
-    display: block;
-    margin: 0 auto;
-    border: none !important;
-}
-
-.icon-button-wrapper {
-    display: none;
-    border: none !important;
-}
-
-/* ===============================
-   TA BORT GRADIO IMAGE TOOLBAR
-   =============================== */
-
-/* Själva toolbaren */
-.brain-icon .image-toolbar {
-    display: none !important;
-}
-
-/* Alla toolbar-knappar (säkerhetsnät) */
-.brain-icon button,
-.brain-icon [role="toolbar"] {
-    display: none !important;
-}
-
-/* Se till att bilden inte är klickbar */
-.brain-icon img {
-    pointer-events: none;
-    user-select: none;
-}
-.icon-button-wrapper,
-.image-container,
-.brain-header {
-    border: none !important; 
-}
-
-
-/* ===============================
-   TOP HEADER – BRAIN IMAGE
-   =============================== */
-
-.header {
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    padding: 16px 0 8px 0;
-    background: #ffffff;
-}
-
-/* Själva bilden */
-.brain-header,
-.brain-icon,
-.brain-icon .wrap,
-.brain-header .wrap {
-    max-width: 120px !important;
-    width: 120px !important;
-    height: auto !important;
-    display: block !important;
-    margin: 0 auto !important;
-    background: transparent !important;
-    border: none !important;
-    box-shadow: none !important;
-}
-
-.brain-header img,
-.brain-icon img {
-    display: block !important;
-    margin: 0 auto !important;
-    width: 120px !important;
-    height: auto !important;
-    opacity: 1 !important;
-    visibility: visible !important;
 }
 
 .gradio-container hr {
@@ -173,18 +103,6 @@ h2, h3, h4, p, span, label, li {
 /* Ta bort Gradio-h1-linjen */
 .prose h1 {
     border-bottom: none !important;
-}
-
-/* Header */
-.header {
-    display: flex;
-    justify-content: center;
-    margin: 20px 0;
-}
-
-.brain-header {
-    width: 120px;
-    height: auto;
 }
 
 /* =====================================================
@@ -307,57 +225,36 @@ button.gr-button.card {
    FAQ
    ===================================================== */
 
-/* Ytterram */
+.question-list,
 .question-list *,
-.question-list .wrap,
-.question-list .table,
-.question-list .cell-menu-button,
-.question-list .thead,
-.question-list .header-button,
-.question-list .text,
-.question-list .cell-wrap,
-.question-list .header-content,
-.question-list.gr-box {
-    background: #ffffff !important;
-    border: none !important;
-}
-
-.question-list {
-    background: #ffffff !important;
-    min-height: 340px;
-    border: 2px solid #1e5bd7 !important;
-    border-radius: 16px !important;
-    padding: 8px;
-    box-sizing: border-box !important;
-}
-
-.question-list .wrap,
-.question-list .form,
-.question-list .block,
-.question-list fieldset {
-    border: none !important;
-    box-shadow: none !important;
-    background: #ffffff !important;
-}
-
-.question-list label {
-    background: #ffffff !important;
-    border: none !important;
-}
-
-.question-list .gr-radio {
-    gap: 8px !important;
-}
-
 .question-list .wrap,
 .question-list .wrap-inner,
 .question-list .form,
+.question-list .block,
+.question-list .container,
 .question-list fieldset,
-.question-list .container {
+.question-list label,
+.question-list .gr-radio {
+    background: #ffffff !important;
     border: none !important;
     outline: none !important;
     box-shadow: none !important;
-    background: #ffffff !important;
+}
+
+.question-list {
+    border: 2px solid #1e5bd7 !important;
+    border-radius: 16px !important;
+    padding: 8px !important;
+    min-height: 0 !important;
+    height: auto !important;
+    overflow: visible !important;
+    box-sizing: border-box !important;
+}
+
+.question-list .gr-radio {
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 6px !important;
 }
 
 .question-list .gr-radio label,
@@ -366,22 +263,25 @@ button.gr-button.card {
     width: 100% !important;
     margin: 0 !important;
     padding: 10px 14px !important;
-    border: none !important;
     border-radius: 12px !important;
-    outline: none !important;
-    box-shadow: none !important;
-    background: #ffffff !important;
     color: #000000 !important;
     cursor: pointer !important;
     box-sizing: border-box !important;
+    background: #ffffff !important;
 }
 
 .question-list .gr-radio label::before,
 .question-list .gr-radio label::after,
 .question-list label[data-testid="radio-label"]::before,
-.question-list label[data-testid="radio-label"]::after {
+.question-list label[data-testid="radio-label"]::after,
+.question-list input[type="radio"] + *::before,
+.question-list input[type="radio"] + span::before {
     display: none !important;
     content: none !important;
+}
+
+.question-list input[type="radio"] {
+    display: none !important;
 }
 
 .question-list .gr-radio label span,
@@ -390,56 +290,7 @@ button.gr-button.card {
     margin: 0 !important;
     padding: 0 !important;
     border: none !important;
-    outline: none !important;
-    box-shadow: none !important;
     background: transparent !important;
-    border-radius: 12px !important;
-}
-
-.question-list .gr-radio {
-    display: flex !important;
-    flex-direction: column !important;
-}
-
-.question-list .gr-radio label,
-.question-list label[data-testid="radio-label"] {
-    margin-bottom: 6px !important;
-}
-
-.question-list .gr-radio label:hover,
-.question-list label[data-testid="radio-label"]:hover {
-    background: #eef3ff !important;
-}
-
-.question-list input[type="radio"] {
-    display: none !important;
-}
-
-.question-list input[type="radio"] + *::before,
-.question-list input[type="radio"] + span::before {
-    display: none !important;
-    content: none !important;
-}
-
-.question-list input[type="radio"]:checked + span,
-.question-list label[data-testid="radio-label"]:has(input[type="radio"]:checked) {
-    background: #eef3ff !important;
-    border-radius: 12px !important;
-}
-
-.question-list .gr-radio label:focus,
-.question-list .gr-radio label:focus-visible,
-.question-list label[data-testid="radio-label"]:focus,
-.question-list label[data-testid="radio-label"]:focus-visible,
-.question-list .gr-radio label:focus-within,
-.question-list label[data-testid="radio-label"]:focus-within {
-    border: none !important;
-    outline: none !important;
-    box-shadow: none !important;
-}
-
-.question-list span {
-    display: block !important;
     white-space: normal !important;
     word-break: break-word !important;
     overflow-wrap: anywhere !important;
@@ -449,159 +300,12 @@ button.gr-button.card {
     color: #000000 !important;
 }
 
-/*
-.question-list cell-wrap{
-    background: #ffffff !important;
-}*/
-
-/* Ta bort ALLA inre ramar */
-.question-list *,
-.question-list .ag-root,
-.question-list .ag-body,
-.question-list .ag-body-viewport,
-.question-list .ag-center-cols-container,
-.question-list .ag-row,
-.question-list .ag-cell {
-    border: none !important;
-    box-shadow: none !important;
-    background: #ffffff !important;
-    color: #000000 !important;
-}
-
-/* Ta bort svart header-rad */
-.question-list .ag-header {
-    display: none !important;
-}
-
-/* Celler */
-.question-list td {
-    background: #ffffff !important;
-    color: #000000 !important;
-    padding: 10px;
-    cursor: pointer;
-    white-space: normal !important;
-    word-break: break-word !important;
-    overflow-wrap: anywhere !important;
-}
-
-.question-list table {
-    width: 100% !important;
-    table-layout: fixed !important;
-}
-
-.question-list tr,
-.question-list td,
-.question-list th {
-    max-width: 100% !important;
-}
-
-/* Hover */
-.question-list tr:hover td {
+.question-list .gr-radio label:hover,
+.question-list label[data-testid="radio-label"]:hover,
+.question-list input[type="radio"]:checked + span,
+.question-list label[data-testid="radio-label"]:has(input[type="radio"]:checked) {
     background: #eef3ff !important;
-}
-
-/* Ingen orange selection */
-.question-list .ag-row-selected {
-    background: #eef3ff !important;
-}
-
-/* Ingen fokusram */
-.question-list *:focus {
-    outline: none !important;
-    box-shadow: none !important;
-}
-
-/* Ingen scrollbar */
-.question-list,
-.question-list .ag-root,
-.question-list .ag-body-viewport {
-    overflow: hidden !important;
-}
-
-/* Yttre ram – behåll */
-.question-list {
-    border: 2px solid #1e5bd7 !important;
-    border-radius: 16px !important;
-    background: #ffffff !important;
-}
-
-/* Tillåt intern scroll (annars buggar ag-grid) */
-.question-list .ag-body-viewport {
-    overflow-y: auto !important;
-}
-
-/* Markering av vald rad */
-.question-list .ag-row-selected,
-.question-list .ag-row-selected .ag-cell {
-    background-color: #eef3ff !important;
-}
-
-/* Hover */
-.question-list .ag-row:hover .ag-cell {
-    background-color: #eef3ff !important;
-}
-
-/* Ta bort onödiga ramar */
-.question-list .ag-cell,
-.question-list .ag-row {
-    border: none !important;
-    min-height: 52px !important;
-    line-height: 1.35 !important;
-    white-space: normal !important;
-    word-break: break-word !important;
-}
-
-/* Ta bort markeringsrutor / fokusramar helt */
-.question-list .ag-cell-focus,
-.question-list .ag-cell-focus:focus,
-.question-list .ag-cell-focus:focus-visible,
-.question-list .ag-row-focus,
-.question-list .ag-row-focus * {
-    outline: none !important;
-    box-shadow: none !important;
-}
-
-/* Ta bort selection-outline */
-.question-list .ag-cell::after {
-    display: none !important;
-}
-
-.question-list .ag-root-wrapper,
-.question-list .ag-root-wrapper-body,
-.question-list .ag-center-cols-clipper,
-.question-list .ag-center-cols-viewport,
-.question-list .ag-center-cols-container {
-    border: none !important;
-    background: #ffffff !important;
-    width: 100% !important;
-    min-width: 0 !important;
-    max-width: 100% !important;
-}
-
-.question-list .ag-cell-value {
-    white-space: normal !important;
-    overflow: visible !important;
-    text-overflow: initial !important;
-    font-family: Arial, Helvetica, sans-serif !important;
-    font-size: 14px !important;
-    line-height: 1.35 !important;
-    word-break: break-word !important;
-    overflow-wrap: anywhere !important;
-    display: block !important;
-}
-
-.question-list .ag-cell-wrapper,
-.question-list .ag-cell,
-.question-list .ag-row {
-    white-space: normal !important;
-    overflow: hidden !important;
-    text-overflow: clip !important;
-}
-
-.question-list .ag-body-horizontal-scroll,
-.question-list .ag-horizontal-left-spacer,
-.question-list .ag-horizontal-right-spacer {
-    display: none !important;
+    border-radius: 12px !important;
 }
 
 /* =====================================================

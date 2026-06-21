@@ -118,11 +118,15 @@ def load_document(doc_id):
     return (
         gr.update(choices=questions, value=None),
         doc_id,
+        "",
         *build_main_card_updates(doc_id),
     )
 
 
 def select_and_submit(message: str, doc_id, debug_mode, llm_model):
+    if not isinstance(message, str) or not message.strip():
+        yield ""
+        return
     for answer in submit(message, doc_id, debug_mode, llm_model):
         yield answer
 
@@ -132,6 +136,9 @@ def submit(message, doc_id, debug_mode, llm_model):
     - Om message matchar en underfråga → vanlig Q&A
     - Annars → RAG över PDF-material
     """
+    if not isinstance(message, str):
+        yield ""
+        return
 
     message = message.strip()
     if not message:
@@ -617,13 +624,13 @@ if supports_launch_css:
 
 # with gr.Blocks(css=".gradio-container {background-color: white}") as demo:
 with gr.Blocks(**blocks_kwargs) as demo:
-    gr.HTML("<h1 class='title'>Citrus-chatbot</h1>")
-
-    gr.Image(
-        value=HEADER_IMAGE_PATH,
-        show_label=False,
-        interactive=False,
-        elem_classes=["brain-icon", "brain-header"]
+    gr.HTML(
+        """
+        <div class="app-header-row">
+            <img src="/gradio_api/file=brain.png" alt="Citrus-chatbot logotyp" class="app-header-logo" />
+            <h1 class="title">Citrus-chatbot</h1>
+        </div>
+        """
     )
 
     current_doc = gr.State(None)
@@ -707,7 +714,7 @@ with gr.Blocks(**blocks_kwargs) as demo:
     for btn, doc_id, _ in main_buttons:
         btn.click(
             fn=lambda d=doc_id: load_document(d),
-            outputs=[questions, current_doc, *card_outputs]
+            outputs=[questions, current_doc, faq_answer, *card_outputs]
         )
 
     questions.change(
