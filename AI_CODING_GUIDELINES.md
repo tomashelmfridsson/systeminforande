@@ -9,4 +9,5 @@ Working rules for this repository:
 - Keep final answers short: what changed, why, verification, blockers.
 - Run only targeted checks unless broader testing is requested.
 - Ask before doing broad codebase exploration.
+- Limit autonomous debugging attempts to 3 per issue. After 3 failed attempts, stop and ask for approval before taking the next step.
 - Stop early and report if permissions or environment block writing or testing.
