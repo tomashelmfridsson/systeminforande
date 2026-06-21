@@ -14,10 +14,7 @@ DATA_DIR = "rag/data"
 CHUNKS_FILE = os.path.join(DATA_DIR, "chunks.json")
 GITHUB_PAGES_BASE_URL = "https://tomashelmfridsson.github.io/systeminforande"
 GITHUB_PAGES_PDF_BASE_URL = f"{GITHUB_PAGES_BASE_URL}/pdfs"
-HEADER_IMAGE_URL = (
-    "https://raw.githubusercontent.com/"
-    "tomashelmfridsson/systeminforande/main/brain.jpg"
-)
+HEADER_IMAGE_PATH = "brain.png"
 
 if not os.path.exists(CHUNKS_FILE):
     raise FileNotFoundError(
@@ -678,12 +675,15 @@ def build_predefined_debug_md(question: str, reasoning: str, source_results, llm
 # UI
 # =====================================================
 
+with open("style.css", encoding="utf-8") as f:
+    css = f.read()
+
 # with gr.Blocks(css=".gradio-container {background-color: white}") as demo:
-with gr.Blocks() as demo:
+with gr.Blocks(css=css) as demo:
     gr.HTML("<h1 class='title'>Citrus-chatbot</h1>")
 
     gr.Image(
-        value=HEADER_IMAGE_URL,
+        value=HEADER_IMAGE_PATH,
         show_label=False,
         interactive=False,
         elem_classes="brain-header"
@@ -800,7 +800,4 @@ with gr.Blocks() as demo:
 # LAUNCH
 # =====================================================
 
-with open("style.css", encoding="utf-8") as f:
-    css = f.read()
-
-demo.launch(theme=None,css=css, ssr_mode=False)
+demo.launch(ssr_mode=False)
