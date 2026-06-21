@@ -71,7 +71,7 @@ jobs:
             STAGE=$(jq --raw-output '.stage // "UNKNOWN"' <<< "$RUNTIME")
             CONFIG=$(curl --fail --silent --show-error \
               --header "Cache-Control: no-cache" \
-              "https://helmfridsson-systeminforande.hf.space/config?revision=${EXPECTED_REVISION}")
+              "https://helmfridsson-systeminforande.hf.space/config?revision=${EXPECTED_REVISION}&attempt=${attempt}")
 
             echo "Space stage: $STAGE"
 
