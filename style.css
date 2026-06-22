@@ -655,12 +655,13 @@ label.container.show_textbox_border {
 .answer-note {
     margin-top: 8px !important;
     font-size: 13px !important;
-    color: #444444 !important;
+    color: #000000 !important;
 }
 
 .answer-note,
 .answer-note * {
     background: #ffffff !important;
+    color: #000000 !important;
 }
 
 /* ===============================
