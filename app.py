@@ -769,6 +769,10 @@ with gr.Blocks() as demo:
                 "",
                 elem_classes="answer-box"
             )
+            gr.Markdown(
+                "_Obs: Detta svar är AI-genererat och bör vid behov verifieras mot källmaterialet._",
+                elem_classes="answer-note"
+            )
 
         with gr.Tab("FAQ"):
             gr.Markdown("<p class='tab-intro'>Välj ämnesområde och underfråga.</p>")

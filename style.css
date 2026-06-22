@@ -652,6 +652,17 @@ label.container.show_textbox_border {
     margin-top: 0 !important;
 }
 
+.answer-note {
+    margin-top: 8px !important;
+    font-size: 13px !important;
+    color: #444444 !important;
+}
+
+.answer-note,
+.answer-note * {
+    background: #ffffff !important;
+}
+
 /* ===============================
    SKICKA & RENSA – ABSOLUT LJUST
    =============================== */
