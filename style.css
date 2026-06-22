@@ -53,21 +53,24 @@ h1 {
     display: flex;
     align-items: center;
     justify-content: center;
-    gap: 14px;
+    gap: 12px;
     margin: 12px 0 18px 0;
+    padding: 0;
     background: #ffffff !important;
 }
 
 .app-header-logo {
-    width: 56px;
-    height: 56px;
+    width: 72px;
+    height: 72px;
     object-fit: contain;
     display: block;
+    background: transparent !important;
 }
 
 .app-header-row .title {
     margin: 0;
     text-align: left;
+    background: transparent !important;
 }
 
 h2, h3, h4, p, span, label, li {

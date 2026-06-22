@@ -14,7 +14,10 @@ DATA_DIR = "rag/data"
 CHUNKS_FILE = os.path.join(DATA_DIR, "chunks.json")
 GITHUB_PAGES_BASE_URL = "https://tomashelmfridsson.github.io/systeminforande"
 GITHUB_PAGES_PDF_BASE_URL = f"{GITHUB_PAGES_BASE_URL}/pdfs"
-HEADER_IMAGE_PATH = "brain.png"
+HEADER_IMAGE_URL = (
+    "https://raw.githubusercontent.com/"
+    "tomashelmfridsson/systeminforande/main/brain.png"
+)
 DEPLOY_REVISION_FILE = "deploy_revision.txt"
 
 
@@ -693,13 +696,17 @@ def build_predefined_debug_md(question: str, reasoning: str, source_results, llm
 
 # with gr.Blocks(css=".gradio-container {background-color: white}") as demo:
 with gr.Blocks() as demo:
-    gr.HTML("<h1 class='title'>Digitalt Bollplank 24/7</h1>")
-
-    gr.Image(
-        value=HEADER_IMAGE_PATH,
-        show_label=False,
-        interactive=False,
-        elem_classes=["brain-icon", "brain-header"]
+    gr.HTML(
+        f"""
+        <div class="app-header-row">
+            <h1 class="title">Digitalt Bollplank 24/7</h1>
+            <img
+                src="{HEADER_IMAGE_URL}"
+                alt="Digitalt Bollplank"
+                class="app-header-logo"
+            />
+        </div>
+        """
     )
 
     current_doc = gr.State(None)
