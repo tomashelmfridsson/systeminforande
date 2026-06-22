@@ -14,6 +14,13 @@ html, body {
     outline: none !important;
 }
 
+.gradio-container > .wrap {
+    background: #ffffff !important;
+    border: none !important;
+    box-shadow: none !important;
+    outline: none !important;
+}
+
 }
 
 /* HF wrapper runt appen */
@@ -41,6 +48,9 @@ main {
 .gradio-container:focus,
 .gradio-container:focus-visible,
 .gradio-container:focus-within,
+.gradio-container > .wrap:focus,
+.gradio-container > .wrap:focus-visible,
+.gradio-container > .wrap:focus-within,
 .gradio-container > .main:focus,
 .gradio-container > .main:focus-visible,
 .gradio-container > .main:focus-within,
