@@ -30,20 +30,12 @@ jobs:
         run: |
           rm -rf /tmp/hf-deploy
           mkdir -p /tmp/hf-deploy
-          cp app.py /tmp/hf-deploy/
+          cp minimal_app.py /tmp/hf-deploy/app.py
           cp Dockerfile /tmp/hf-deploy/
           cp .dockerignore /tmp/hf-deploy/
-          cp content.json /tmp/hf-deploy/
-          cp requirements.txt /tmp/hf-deploy/
-          cp style.css /tmp/hf-deploy/
+          cp requirements-minimal.txt /tmp/hf-deploy/requirements.txt
           cp README.md /tmp/hf-deploy/
           printf '%s\n' "$GITHUB_SHA" > /tmp/hf-deploy/deploy_revision.txt
-          cp -R llm /tmp/hf-deploy/
-          cp -R rag /tmp/hf-deploy/
-          rm -rf /tmp/hf-deploy/rag/__pycache__
-          rm -rf /tmp/hf-deploy/rag/web
-          mkdir -p /tmp/hf-deploy/rag/web
-          cp rag/web/source.txt /tmp/hf-deploy/rag/web/source.txt
 
       - name: Push to Hugging Face Space
         id: push
