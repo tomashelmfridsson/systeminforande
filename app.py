@@ -16,7 +16,7 @@ GITHUB_PAGES_BASE_URL = "https://tomashelmfridsson.github.io/systeminforande"
 GITHUB_PAGES_PDF_BASE_URL = f"{GITHUB_PAGES_BASE_URL}/pdfs"
 HEADER_IMAGE_URL = (
     "https://raw.githubusercontent.com/"
-    "tomashelmfridsson/systeminforande/main/brain.png"
+    "tomashelmfridsson/systeminforande/main/brain.jpg"
 )
 DEPLOY_REVISION_FILE = "deploy_revision.txt"
 

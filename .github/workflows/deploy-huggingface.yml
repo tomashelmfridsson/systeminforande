@@ -1,9 +1,6 @@
 name: Deploy Hugging Face Space
 
 on:
-  push:
-    branches:
-      - main
   workflow_dispatch:
 
 concurrency:
