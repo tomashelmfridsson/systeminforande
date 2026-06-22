@@ -1,285 +1,459 @@
 {
   "documents": [
     {
-      "id": "införandekrav",
-      "title": "Områden för införandekrav",
+      "id": "inforandekrav",
+      "title": "Införandekrav",
       "main_question": "Hur definieras och struktureras införandekrav?",
       "subquestions": [
         {
           "id": "syfte",
           "question": "Vad är syftet med införandekrav?",
           "answer": {
-            "Syfte": "Att säkerställa att alla förutsättningar för införandet är identifierade, hanterade och beslutade innan genomförande.",
-            "Beskrivning": "Införandekrav tydliggör krav på verksamhet, teknik och organisation vid införandet av ett IT-system.",
-            "Exempel": [
-              "Utbildning ska vara genomförd innan driftsättning",
-              "IT-miljöer ska vara etablerade för test och provdrift"
-            ],
-            "Resultat": "Minskad risk för sena åtgärder och omtag."
+            "Syfte": "Att säkerställa att samtliga införandekrav beaktas så att inget faller mellan stolarna.",
+            "Beskrivning": "Införandekrav beskriver vilka krav som ställs på verksamhet, teknik, drift och organisation vid införandet av ett nytt eller förnyat IT-system. De kompletterar funktionella och icke-funktionella krav genom att även fånga indirekta krav som är relaterade till systeminförandet.",
+            "Resultat": "Tydliga och välformulerade införandekrav minskar risken för krångel, förseningar och onödiga merkostnader.",
+            "Källa": "https://www.systeminforande.se/infrandekrav-1"
           }
         },
         {
           "id": "kravomraden",
           "question": "Vilka kravområden ingår i införandekrav?",
           "answer": {
-            "Beskrivning": "Införandekrav delas in i kravområden som tillsammans täcker hela införandet.",
-            "Lista": [
-              "Övergripande krav",
-              "Arbetsrutiner",
-              "Systemsamband",
-              "Systemuppsättning",
-              "Säkerhet och behörigheter",
-              "Acceptanstest",
-              "Utbildning och information",
-              "Användarstöd",
-              "Dokumentation",
-              "Registerinformation",
-              "Teknisk plattform",
-              "IT-miljöer",
-              "Konvertering och laddning",
-              "Omläggning",
-              "Provdrift",
-              "Driftsättning",
-              "Förvaltningsöverlämnande"
+            "Beskrivning": "Införandekrav kan struktureras i kravområden som tillsammans täcker verksamhetens, systemets, teknikens och organisationens behov vid införandet.",
+            "Tabell": [
+              {
+                "Kravområde": "Övergripande krav",
+                "Ställ krav på": "De förutsättningar som är styrande för systeminförandet."
+              },
+              {
+                "Kravområde": "Arbetsrutiner",
+                "Ställ krav på": "Processerna, arbetsrutinerna och förändringsbehoven."
+              },
+              {
+                "Kravområde": "Systemsamband",
+                "Ställ krav på": "Samtliga kopplingar och tillfälliga lösningar samt att de ska finnas beskrivna."
+              },
+              {
+                "Kravområde": "Systemuppsättning",
+                "Ställ krav på": "Att stödinformation ska kunna läggas in på ett smidigt sätt."
+              },
+              {
+                "Kravområde": "Säkerhet & behörigheter",
+                "Ställ krav på": "Ambitionsnivån för säkerhet och behörigheter."
+              },
+              {
+                "Kravområde": "Acceptanstest",
+                "Ställ krav på": "Att systemet är testat, fungerar i verksamheten och är godkänt av beställaren."
+              },
+              {
+                "Kravområde": "Utbildning",
+                "Ställ krav på": "Att personal utbildas i systemet och i nya arbetsrutiner."
+              },
+              {
+                "Kravområde": "Användarstöd",
+                "Ställ krav på": "Vilket stöd användarna bör ha för att tillämpa systemet och arbetsrutinerna."
+              },
+              {
+                "Kravområde": "Dokumentation",
+                "Ställ krav på": "I vilka former dokumentationen ska produceras och i vilka medier."
+              },
+              {
+                "Kravområde": "Registerinformation",
+                "Ställ krav på": "Registerinformationen, till exempel maskinell rensning före konvertering."
+              },
+              {
+                "Kravområde": "IT-miljöer",
+                "Ställ krav på": "Att systemet parallellt kan köras i flera miljöer."
+              },
+              {
+                "Kravområde": "Konvertering",
+                "Ställ krav på": "Hur många typer av konverteringar som ska köras för acceptanstest, utbildning, provdrift och drift."
+              },
+              {
+                "Kravområde": "Driftsättning",
+                "Ställ krav på": "Riktlinjer för driftsättning av det nya systemet."
+              },
+              {
+                "Kravområde": "Förvaltningsöverlämnande",
+                "Ställ krav på": "Att det ska finnas en förvaltningsorganisation och ett arbetssätt."
+              }
             ]
           }
         },
         {
-          "id": "identifiering",
-          "question": "Hur identifieras införandekrav per kravområde?",
+          "id": "kompetenser",
+          "question": "Vilka kompetenser krävs för att kunna formulera tydliga och välgrundade införandekrav?",
           "answer": {
-            "Beskrivning": "Kraven identifieras genom analys av verksamhetens behov, arbetssätt och tekniska förutsättningar.",
-            "Exempel": [
-              "Workshops med verksamheten",
-              "Analys av befintliga system och processer"
+            "Beskrivning": "Införandekrav behöver formuleras med stöd av flera kompetensområden eftersom de berör system, verksamhet samt teknik och drift.",
+            "Kompetenser": [
+              {
+                "Kompetens": "Systemkompetens",
+                "Beskrivning": "Kunskap om nytt eller förnyat system, befintliga system, samband med andra system, behörighetssystem och säkerhetssystem."
+              },
+              {
+                "Kompetens": "Verksamhetskompetens",
+                "Beskrivning": "Kunskap om målet med det nya eller förnyade systemet, nuvarande arbetssätt samt vad som måste förändras för att nå målet."
+              },
+              {
+                "Kompetens": "Teknik- och driftkompetens",
+                "Beskrivning": "Kunskap om tekniska krav och driftkrav på det nya eller förnyade systemet samt befintlig teknisk plattform."
+              }
             ],
-            "Resultat": "Dokumenterade och förankrade införandekrav per område."
+            "Resultat": "Kraven blir tydligare, mer relevanta och bättre förankrade i både verksamhet och IT-miljö."
           }
         },
         {
-          "id": "uppfoljning",
-          "question": "Hur används införandekrav i planering och uppföljning?",
+          "id": "mall",
+          "question": "Finns det mall för införandekrav?",
           "answer": {
-            "Beskrivning": "Införandekrav används som styrande underlag för planering, uppföljning och beslut per etapp.",
-            "Exempel": [
-              "Kontroll av utbildningskrav före driftsättning",
-              "Uppföljning av säkerhetskrav inför provdrift"
+            "Beskrivning": "Det finns en mall för införandekrav som är tänkt att vara ett stöd för att säkerställa att införandekraven beaktas.",
+            "Tabell": [
+              {
+                "Mall": "Kravmallen",
+                "Innehåll": "Mallen är tänkt att vara ett stöd till att införandekraven beaktas."
+              }
             ],
-            "Resultat": "Strukturerad uppföljning och tydliga beslut."
-          }
-        },
-        {
-          "id": "beslut",
-          "question": "När ska införandekrav vara fastställda och beslutade?",
-          "answer": {
-            "Beskrivning": "Införandekrav ska vara beslutade innan genomförandefasen startar.",
-            "Resultat": "Stabil grund för införandet."
+            "Källa": "https://www.systeminforande.se/checklistor-och-mallar-till-verktyget-1"
           }
         }
       ]
     },
-
     {
-      "id": "arbetsomraden",
-      "title": "Arbetsområden",
-      "main_question": "Hur delas införandet upp i arbetsområden?",
-      "subquestions": [
-        {
-          "id": "definition",
-          "question": "Vad är ett arbetsområde?",
-          "answer": {
-            "Beskrivning": "Ett arbetsområde samlar aktiviteter som hör ihop funktionellt eller organisatoriskt.",
-            "Exempel": [
-              "Acceptanstest",
-              "Utbildning",
-              "IT-miljöer"
-            ],
-            "Resultat": "Tydlig ansvarsfördelning."
-          }
-        },
-        {
-          "id": "typer",
-          "question": "Vilka typer av arbetsområden finns?",
-          "answer": {
-            "Beskrivning": "Arbetsområden kan vara verksamhetsnära, tekniska eller samordnande.",
-            "Resultat": "Heltäckande införande."
-          }
-        },
-        {
-          "id": "planering",
-          "question": "Hur används arbetsområden i planeringen?",
-          "answer": {
-            "Beskrivning": "Arbetsområden ligger till grund för etapp- och aktivitetsplanering.",
-            "Resultat": "Uppföljningsbart genomförande."
-          }
-        }
-      ]
-    },
-
-    {
-      "id": "arbetsomraden_etapper_aktiviteter",
-      "title": "Arbetsområden, etapper och aktiviteter",
-      "main_question": "Hur hänger arbetsområden, etapper och aktiviteter ihop?",
-      "subquestions": [
-        {
-          "id": "relation",
-          "question": "Vad är relationen mellan arbetsområden, etapper och aktiviteter?",
-          "answer": {
-            "Beskrivning": "Arbetsområde anger vad som ska göras, etapp när och aktivitet hur.",
-            "Resultat": "Gemensam struktur."
-          }
-        },
-        {
-          "id": "nedbrytning",
-          "question": "Hur bryts ett arbetsområde ner i etapper och aktiviteter?",
-          "answer": {
-            "Exempel": [
-              "Acceptanstest → Etapp acceptanstest → Testplan, tester, rapport"
-            ],
-            "Resultat": "Planeringsbar helhet."
-          }
-        }
-      ]
-    },
-
-    {
-      "id": "faser_etapper",
-      "title": "Faser och etapper",
-      "main_question": "Vilka faser ingår i införandet?",
-      "subquestions": [
-        {
-          "id": "faser",
-          "question": "Vilka huvudfaser ingår i införandet?",
-          "answer": {
-            "Beskrivning": "Initiering, förberedelse, genomförande och avslut.",
-            "Resultat": "Kontrollerat införande."
-          }
-        },
-        {
-          "id": "etapper",
-          "question": "Hur används etapper i faserna?",
-          "answer": {
-            "Beskrivning": "Varje fas innehåller en eller flera etapper som avslutas med beslut.",
-            "Resultat": "Tydliga beslutspunkter."
-          }
-        }
-      ]
-    },
-
-    {
-      "id": "faser_aktiviteter",
-      "title": "Faser och aktiviteter",
-      "main_question": "Hur delas faser upp i aktiviteter?",
-      "subquestions": [
-        {
-          "id": "aktivitet",
-          "question": "Vad är en aktivitet?",
-          "answer": {
-            "Beskrivning": "Minsta planerings- och uppföljningsbara enhet.",
-            "Exempel": ["Ta fram utbildningsmaterial"],
-            "Resultat": "Genomförbar plan."
-          }
-        },
-        {
-          "id": "koppling",
-          "question": "Hur kopplas aktiviteter till faser?",
-          "answer": {
-            "Beskrivning": "Aktiviteter grupperas per fas och etapp.",
-            "Resultat": "Spårbarhet."
-          }
-        }
-      ]
-    },
-
-    {
-      "id": "aktivitetsbeskrivningar",
-      "title": "Faser och aktivitetsbeskrivningar",
-      "main_question": "Hur beskrivs aktiviteter strukturerat?",
-      "subquestions": [
-        {
-          "id": "innehall",
-          "question": "Vad ska ingå i en aktivitetsbeskrivning?",
-          "answer": {
-            "Beskrivning": "Syfte, ansvar, underlag och resultat.",
-            "Resultat": "Enhetlig dokumentation."
-          }
-        }
-      ]
-    },
-
-    {
-      "id": "införandeprocess",
-      "title": "Införandeprocess för IT-system",
-      "main_question": "Hur ser den övergripande införandeprocessen ut?",
-      "subquestions": [
-        {
-          "id": "process",
-          "question": "Vad är införandeprocessen?",
-          "answer": {
-            "Beskrivning": "Från uppdrag till överlämning till förvaltning.",
-            "Resultat": "Helhetsperspektiv."
-          }
-        }
-      ]
-    },
-
-    {
-      "id": "arbetsmodell",
-      "title": "Arbetsmodell vid införande av IT-system",
-      "main_question": "Vilken arbetsmodell används vid införandet?",
-      "subquestions": [
-        {
-          "id": "modell",
-          "question": "Vad innebär arbetsmodellen?",
-          "answer": {
-            "Beskrivning": "Planera, utföra, följa upp och stämma av.",
-            "Resultat": "Iterativ kontroll."
-          }
-        }
-      ]
-    },
-
-    {
-      "id": "mallar",
-      "title": "Mallar – översikt",
-      "main_question": "Vilka mallar används i införandet och när?",
+      "id": "implementering",
+      "title": "Implementering",
+      "main_question": "På vilket sätt bör implementeringen planeras och följas upp?",
       "subquestions": [
         {
           "id": "syfte",
-          "question": "Varför används mallar?",
+          "question": "Vad är syftet med implementeringen?",
           "answer": {
-            "Beskrivning": "För att skapa enhetlighet och kvalitet.",
-            "Resultat": "Effektiv dokumentation."
+            "Syfte": "Att klarlägga hur införandet ska planeras, genomföras och följas upp för att säkerställa att lösningen integreras i verksamheten på ett effektivt och hållbart sätt.",
+            "Beskrivning": "Implementeringen delas upp i arbetsområden som kräver olika kompetenser. Dessa kan vara systemrelaterade, verksamhetsrelaterade samt teknik- och driftrelaterade.",
+            "Resultat": "Arbetet identifierar nödvändiga aktiviteter, ansvar och uppföljningsmetoder så att införandet når önskade effekter och skapar långsiktigt värde.",
+            "Källa": "https://www.systeminforande.se/implementering2"
           }
         },
         {
-          "id": "exempel",
-          "question": "Vilka mallar används?",
+          "id": "arbetsomraden",
+          "question": "Vilka arbetsområden behöver vi identifiera?",
           "answer": {
-            "Exempel": [
-              "Projektplan",
-              "Etappplan",
-              "Aktivitetsplan",
-              "Statusrapport",
-              "Acceptanstest"
+            "Beskrivning": "Implementeringen bör brytas ned i arbetsområden som gör det möjligt att planera, ansvara för och följa upp införandet strukturerat.",
+            "Tabell": [
+              {
+                "Arbetsområde": "Systemuppsättning",
+                "Övergripande beskrivning": "Ta reda på hur verksamheten vill använda funktionerna i systemet och göra systemet körbart genom parametrar och stödinformation."
+              },
+              {
+                "Arbetsområde": "Säkerhet & behörigheter",
+                "Övergripande beskrivning": "Stäm av ambitionsnivån för säkerhet och behörigheter samt verifiera att de fungerar i IT-miljön."
+              },
+              {
+                "Arbetsområde": "Systemsamband",
+                "Övergripande beskrivning": "Testa och följ upp samtliga kopplingar samt verifiera att befintligt system kan avvecklas som planerat."
+              },
+              {
+                "Arbetsområde": "Arbetsrutiner",
+                "Övergripande beskrivning": "Beskriv förändringsbehoven och utforma arbetsrutinerna."
+              },
+              {
+                "Arbetsområde": "Acceptanstest",
+                "Övergripande beskrivning": "Säkerställ att systemet har testats i verksamhetsmiljö och godkänts av beställaren."
+              },
+              {
+                "Arbetsområde": "Utbildning & information",
+                "Övergripande beskrivning": "Utbilda personal i nya arbetsrutiner, processer och system samt informera kunder, leverantörer och partners."
+              },
+              {
+                "Arbetsområde": "Användarstöd",
+                "Övergripande beskrivning": "Hjälpa användarna att tillämpa systemet och arbetsrutinerna."
+              },
+              {
+                "Arbetsområde": "Dokumentation",
+                "Övergripande beskrivning": "Fastställ i vilka former dokumentationen ska produceras och i vilka medier."
+              },
+              {
+                "Arbetsområde": "Registerinformation",
+                "Övergripande beskrivning": "Fastställ och beskriv informationsmålen samt hur dessa ska uppnås."
+              },
+              {
+                "Arbetsområde": "Teknisk plattform",
+                "Övergripande beskrivning": "Verifiera att den tekniska plattformen är tillräckligt kraftfull."
+              },
+              {
+                "Arbetsområde": "IT-miljöer",
+                "Övergripande beskrivning": "Säkerställ att systemet stödjer parallell drift i flera separata miljöer såsom acceptanstest, utbildning, provdrift och skarp drift."
+              },
+              {
+                "Arbetsområde": "Konvertering & laddning",
+                "Övergripande beskrivning": "Fastställ hur många typer av konverteringar eller laddningar som ska köras."
+              },
+              {
+                "Arbetsområde": "Omläggning",
+                "Övergripande beskrivning": "Beskriv hur omläggningen ska ske före driftstart, vid driftstart och efter driftstart."
+              },
+              {
+                "Arbetsområde": "Provdrift",
+                "Övergripande beskrivning": "Genomför provdriften enligt körschema med verkligt material och ge rekommendation till beslut om godkännande."
+              },
+              {
+                "Arbetsområde": "Driftsättning",
+                "Övergripande beskrivning": "Beskriv hur och när driftsättning ska göras samt hur driftorganisationen tar över ansvaret."
+              },
+              {
+                "Arbetsområde": "Förvaltningsöverlämnande",
+                "Övergripande beskrivning": "Fastställ vilka förvaltningsobjekt som ska förvaltas samt godkänn och avsluta överlämnandet."
+              }
             ],
-            "Resultat": "Stöd för styrning. Se mer på https://www.systeminforande.se/checklistor-och-mallar-till-verktyget-1"
+            "Källa": "https://www.systeminforande.se/verktyg"
+          }
+        },
+        {
+          "id": "aktivitetsstruktur",
+          "question": "Hur är aktiviteterna strukturerade?",
+          "answer": {
+            "Beskrivning": "Varje arbetsområde delas upp i specifika aktiviteter. För varje aktivitet finns en beskrivning, underlag och resultat. Aktiviteten kan även ha en inriktning mot exempelvis koordinering, system, verksamhet eller teknik och drift.",
+            "Exempel": {
+              "Arbetsområde": "Acceptanstest",
+              "Aktivitet": "Planering",
+              "Inriktning": [
+                "Koordinering",
+                "System",
+                "Verksamhet",
+                "Teknik & drift"
+              ],
+              "Beskrivning": [
+                "Fastställ kriterier för godkännande av testen.",
+                "Ta fram testplan inklusive krav på resurser.",
+                "Ta fram plan för testfall, testspecifikationer och testmiljö.",
+                "Gå igenom vad som testats i tidigare teststeg och vad som inte testats tillräckligt.",
+                "Planera och förbered utbildning för testarna i systemet och i testmetodik."
+              ],
+              "Underlag": [
+                "Kravspecifikation med prestandakrav",
+                "Verksamhetens arbetssätt",
+                "Testrapporter från genomförda systemtester"
+              ],
+              "Resultat": [
+                "Kriterier för godkännande av testen",
+                "Testplan",
+                "Tid- och resursplan för acceptanstesten",
+                "Utbildning för testarna förberedd"
+              ]
+            },
+            "Källa": "https://www.systeminforande.se/verktyg"
+          }
+        },
+        {
+          "id": "kompetenser",
+          "question": "Vilka kompetenser krävs för att kunna beskriva aktiviteter på ett tydligt och strukturerat sätt?",
+          "answer": {
+            "Beskrivning": "Vissa aktiviteter sträcker sig över flera kompetensområden och behöver därför samordnas.",
+            "Kompetenser": [
+              {
+                "Kompetens": "Systemkompetens",
+                "Beskrivning": "Kunskap om nytt eller förnyat system, befintliga system, samband med andra system, behörighetssystem och säkerhetssystem."
+              },
+              {
+                "Kompetens": "Verksamhetskompetens",
+                "Beskrivning": "Kunskap om målet med det nya eller förnyade systemet, nuvarande arbetssätt samt vad som måste förändras för att nå målet."
+              },
+              {
+                "Kompetens": "Teknik- och driftkompetens",
+                "Beskrivning": "Kunskap om tekniska krav och driftkrav på det nya eller förnyade systemet samt befintlig teknisk plattform."
+              }
+            ]
+          }
+        },
+        {
+          "id": "etappmal",
+          "question": "Vilka är målen för de olika etapperna?",
+          "answer": {
+            "Beskrivning": "Implementeringen genomförs i etapper med tydliga mål, underlag och resultat.",
+            "Etapper": [
+              {
+                "Etapp": "Riktlinjer",
+                "Mål": "Att med projektbeskrivningen som grund ta fram tydliga och förankrade riktlinjer för projektets genomförande. Riktlinjerna omfattar strategier, grova planer, ambitionsnivåer och prioriteringar. Driftmiljö och teknisk plattform är beslutade och fastställda."
+              },
+              {
+                "Etapp": "Acceptanstest",
+                "Mål": "Det nya systemet eller systemversionen är levererat och formellt godkänt av beställaren. Driftförberedelserna följer fastställda riktlinjer och den grova planen."
+              },
+              {
+                "Etapp": "Driftförberedelser",
+                "Mål": "Samtliga driftförberedelser är genomförda enligt fastställda riktlinjer och den grova planen. Det nya systemet eller systemversionen är klart för provdrift."
+              },
+              {
+                "Etapp": "Provdrift",
+                "Mål": "Det nya systemet eller systemversionen är kört i provdrift och godkänt för driftsättning. Samtliga förberedelser inför driftsättning är klara."
+              },
+              {
+                "Etapp": "Driftsättning",
+                "Mål": "Det nya systemet eller systemversionen är driftsatt på samtliga enheter och förvaltningsorganisationen tar över ansvaret. Införandeprojektet avvecklas."
+              }
+            ],
+            "Källa": "https://www.systeminforande.se/verktyg"
+          }
+        },
+        {
+          "id": "grov_plan",
+          "question": "Vad innehåller den grova planen?",
+          "answer": {
+            "Beskrivning": "Den grova planen omfattar inleveranser av systemversioner, ansvarsfördelning mellan arbetsområden, aktiviteter per etapp samt tidpunkter för milstolpar, beslut och kvalitetsgranskningar.",
+            "Innehåll": [
+              "Etapper",
+              "Arbetsområden",
+              "Aktiviteter",
+              "Milstolpar",
+              "Projektindelning"
+            ],
+            "Resultat": "Planen ger en gemensam struktur för styrning, ansvarsfördelning och uppföljning.",
+            "Källa": "https://www.systeminforande.se/verktyg"
           }
         }
       ]
     },
-
     {
-      "id": "oversikt",
-      "title": "Översikt och aktivitetsbeskrivningar",
-      "main_question": "Hur hänger införandets alla delar ihop?",
+      "id": "arbetssatt",
+      "title": "Arbetssätt",
+      "main_question": "På vilket sätt ska implementeringen genomföras och styras?",
       "subquestions": [
         {
-          "id": "helhet",
-          "question": "Vad visar översikten?",
+          "id": "inforandeprocess",
+          "question": "Vad är syftet med införandeprocessen?",
           "answer": {
-            "Beskrivning": "Samband mellan krav, arbetsområden, faser och aktiviteter.",
-            "Resultat": "Gemensam förståelse."
+            "Syfte": "Att tydliggöra hur implementeringen ska genomföras och beskriva den arbetsgång som krävs för att styra införandeprojektet.",
+            "Beskrivning": "Införandeprocessen fungerar som ett stöd genom att klargöra vad som ska göras, hur arbetet ska bedrivas och hur ansvar och roller ska fördelas.",
+            "Resultat": "En gemensam och anpassningsbar struktur för ledning, huvudprocess och stödprocesser.",
+            "Källa": "https://www.systeminforande.se/arbetsmodell"
+          }
+        },
+        {
+          "id": "arbetsmodell",
+          "question": "Vad är syftet med arbetsmodellen?",
+          "answer": {
+            "Syfte": "Att fungera som stöd i införandeprocessen och beskriva det arbetssätt som krävs för att genomföra implementeringen.",
+            "Beskrivning": "Arbetsmodellen beskriver på aktivitetsnivå hur arbetet ska bedrivas och hur införandeprojektet ska styras strukturerat.",
+            "Resultat": "Tydligare arbetsgång och bättre styrning av genomförandet.",
+            "Källa": "https://www.systeminforande.se/arbetsmodell"
+          }
+        },
+        {
+          "id": "projektstyrningsmodell",
+          "question": "Vad är syftet med projektstyrningsmodellen?",
+          "answer": {
+            "Syfte": "Att fungera som stöd i införandeprocessen och beskriva hur införandeprojektet ska styras på ett strukturerat sätt.",
+            "Beskrivning": "Arbetet genomförs i tre projektfaser: Start, Införande och Avslut. Mellan faserna finns beslutspunkter där styrgruppen prövar och godkänner om resultaten uppfyller kraven för att projektet ska gå vidare.",
+            "Projektfaser": [
+              "Start",
+              "Införande",
+              "Avslut"
+            ],
+            "Etapper_i_inforandefasen": [
+              "Riktlinjer",
+              "Acceptanstest",
+              "Driftförberedelser",
+              "Provdrift",
+              "Driftsättning"
+            ],
+            "Resultat": "Ett kontrollerat genomförande med tydliga beslutspunkter, etapper och aktiviteter."
+          }
+        },
+        {
+          "id": "mallar",
+          "question": "Finns det mallar för olika användningsområden?",
+          "answer": {
+            "Beskrivning": "Det finns mallar som är anpassade både för projektets genomförande och för etappresultat som ska tas fram.",
+            "Resultat": "Mallarna skapar enhetlighet, kvalitet och stöd för styrning och dokumentation.",
+            "Källa": "https://www.systeminforande.se/checklistor-och-mallar-till-verktyget-1"
+          }
+        }
+      ]
+    },
+    {
+      "id": "projektstyrning",
+      "title": "Projektstyrning",
+      "main_question": "Hur bör ett införandeprojekt styras för att nå önskat resultat?",
+      "subquestions": [
+        {
+          "id": "projektstyrningsmodell",
+          "question": "Vad är syftet med projektstyrningsmodellen?",
+          "answer": {
+            "Syfte": "Att fungera som stöd i införandeprocessen och beskriva på aktivitetsnivå det arbetssätt som krävs för att genomföra implementeringen och styra införandeprojektet.",
+            "Beskrivning": "Projektet genomförs i faserna Start, Införande och Avslut. Beslutspunkter används för att pröva om resultaten uppfyller kraven för att projektet ska kunna gå vidare.",
+            "Etapper_i_inforandefasen": [
+              "Riktlinjer",
+              "Acceptanstest",
+              "Driftförberedelser",
+              "Provdrift",
+              "Driftsättning"
+            ],
+            "Resultat": "Strukturerat och kontrollerat genomförande."
+          }
+        },
+        {
+          "id": "planering_uppfoljning",
+          "question": "Vad är syftet med planering och uppföljning?",
+          "answer": {
+            "Syfte": "Att tid- och resursplanera projektarbetet och löpande följa upp arbetet mot plan, budget och kvalitetsmål.",
+            "Beskrivning": "Planeringen skapar inte bara planer utan också medvetenhet, deltagande och motivation. Alla ansvariga bör delta i planeringsprocessen och resultatet ska vara förankrat som en överenskommelse mellan projektledare, delprojektledare och aktivitetsansvariga.",
+            "Uppföljning": "Pågående arbete följs upp kontinuerligt mot plan, budget och kvalitetsmål. Återkoppling ska ges till projektmedlemmarna om deras insatser.",
+            "Innehåll": [
+              "Tider",
+              "Resurser",
+              "Kvalitetssäkring",
+              "Kvalitetsgranskningar",
+              "Möten"
+            ],
+            "Resultat": "Bättre styrning, transparens och möjlighet att korrigera avvikelser tidigt."
+          }
+        },
+        {
+          "id": "projektorganisation",
+          "question": "Vad är syftet med projektorganisationen?",
+          "answer": {
+            "Syfte": "Att skapa en tillfällig struktur som är frikopplad från linjeorganisationen och anpassad efter projektets behov.",
+            "Beskrivning": "Projektmedlemmarna ingår i projektet under en avgränsad tidsperiod och bidrar med sin kompetens utifrån projektets behov. Projekt kan organiseras på flera olika sätt.",
+            "Resultat": "Tydliga roller, ansvar och bemanning för införandeprojektet."
+          }
+        },
+        {
+          "id": "beslutspunkter",
+          "question": "Vad är syftet med beslutspunkter?",
+          "answer": {
+            "Syfte": "Att kunna kontrollera och styra projektet.",
+            "Beskrivning": "Projektet indelas i projektfaser och, under införandefasen, i etapper, milstolpar och aktiviteter som startas och avslutas i beslutspunkter. Besluten ska bygga på dokumenterade resultat.",
+            "Ansvar": "Under startfasen överlåter beställaren eller uppdragsgivaren de överordnade besluten till projektets styrgrupp. Styrgruppen fattar därefter överordnade beslut under införandefasen fram till avslut. Det slutliga godkännandet tas av beställaren eller uppdragsgivaren.",
+            "Resultat": "Projektets ansvariga kan kontrollera och styra projektets fortskridande på olika nivåer."
+          }
+        },
+        {
+          "id": "kvalitetssakring",
+          "question": "Vad är syftet med kvalitetssäkring?",
+          "answer": {
+            "Syfte": "Att vid viktiga tidpunkter granska att kvaliteten på projektarbetet och projektets resultat är tillfredsställande.",
+            "Beskrivning": "Kvalitetssäkring ska vara ett stöd för projektet, inte ett hot. Granskning kan göras av personer utanför projektet eller inom arbetsgruppen av någon som inte producerat resultatet.",
+            "Genomförande": "Granskning sker vid viktiga tidpunkter, exempelvis i slutet av varje etapp i införandefasen. De som granskar bör ha insyn i verksamheten, projektarbete och de modeller eller metoder som används.",
+            "Provdrift": "För att säkerställa att systemet uppfyller ställda krav och fungerar tillfredsställande i verksamheten och i driftliknande miljö bör provdrift genomföras före driftsättning. I provdriften verifieras även utbildning, dokumentation och konvertering.",
+            "Resultat": "Förslag till åtgärder som leder till bättre projektgenomförande och högre kvalitet i resultatet."
+          }
+        },
+        {
+          "id": "andringshantering",
+          "question": "Vad är syftet med ändringshantering?",
+          "answer": {
+            "Syfte": "Att beskriva hur nya och förändrade krav ska hanteras.",
+            "Beskrivning": "En vanlig orsak till att projekt inte håller tidsplaner är att projektet inte gör det som står i projektbeskrivningen. Nya och förändrade krav kan därför orsaka förseningar om de inte hanteras kontrollerat.",
+            "Beslut": "Beslut om nya eller förändrade krav som påverkar planeringen tas av beställaren, styrgruppen eller projektledaren beroende på hur ändringshanteringen har utformats i projektbeskrivningen.",
+            "Resultat": "Kontrollerad hantering av ändringar och minskad risk för oplanerade förseningar."
+          }
+        },
+        {
+          "id": "projektbibliotek",
+          "question": "Vad är syftet med projektbibliotek?",
+          "answer": {
+            "Syfte": "Att ha en struktur för hur material som arbetsresultat, filer och dokument rörande införandeprojektet ska lagras under projektets gång.",
+            "Beskrivning": "När projektet avslutas rensas projektbiblioteket på material som inte är relevant för kommande projekt. Material som rör förvaltningsobjekt överlämnas till förvaltningen och material som är intressant för kommande projekt flyttas till en historikkatalog.",
+            "Resultat": "Ordning, spårbarhet och effektiv överlämning till förvaltning och framtida projekt."
           }
         }
       ]
