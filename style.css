@@ -258,6 +258,18 @@ button.gr-button.card {
     box-sizing: border-box !important;
 }
 
+.gradio-container .form:has(.question-list),
+.gradio-container div.form:has(.question-list),
+.gradio-container .block:has(.question-list),
+.gradio-container .wrap:has(.question-list) {
+    background: #ffffff !important;
+    border: 2px solid #1e5bd7 !important;
+    border-radius: 16px !important;
+    box-shadow: none !important;
+    outline: none !important;
+    padding: 0 !important;
+}
+
 .question-list > div,
 .question-list > div > div,
 .question-list fieldset,
@@ -270,9 +282,35 @@ button.gr-button.card {
     border-color: transparent !important;
 }
 
+.question-list::before,
+.question-list::after,
+.question-list > div::before,
+.question-list > div::after,
+.question-list > div > div::before,
+.question-list > div > div::after,
+.question-list fieldset::before,
+.question-list fieldset::after {
+    display: none !important;
+    content: none !important;
+    border: none !important;
+    box-shadow: none !important;
+}
+
 .question-list label[data-testid="block-label"],
 .question-list legend {
     display: none !important;
+}
+
+.question-list:focus,
+.question-list:focus-visible,
+.question-list:focus-within,
+.question-list > div:focus,
+.question-list > div:focus-visible,
+.question-list > div:focus-within,
+.question-list fieldset:focus-within {
+    outline: none !important;
+    box-shadow: none !important;
+    border-color: transparent !important;
 }
 
 .question-list .gr-radio {

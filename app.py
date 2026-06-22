@@ -223,6 +223,10 @@ def submit(message, doc_id, debug_mode, llm_model):
     - Annars → RAG över PDF-material
     """
 
+    if not message:
+        yield ""
+        return
+
     message = message.strip()
     if not message:
         yield ""
