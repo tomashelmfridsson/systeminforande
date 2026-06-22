@@ -266,16 +266,37 @@ def submit(message, doc_id, debug_mode, llm_model):
     yield from handle_rag_query(message, debug_mode, llm_model)
 
 def format_answer(answer):
+    return "\n".join(_format_answer_sections(answer)).strip()
+
+
+def _format_answer_sections(answer: dict, level: int = 0) -> list[str]:
     out = []
     for key, value in answer.items():
-        out.append(f"**{key}**")
-        if isinstance(value, list):
-            for item in value:
-                out.append(f"- {item}")
+        heading_prefix = "#" * min(level + 4, 6)
+        if level == 0:
+            out.append(f"**{key}**")
         else:
-            out.append(value)
+            out.append(f"{heading_prefix} {key}")
+
+        out.extend(_format_answer_value(value, level))
         out.append("")
-    return "\n".join(out)
+    return out
+
+
+def _format_answer_value(value, level: int) -> list[str]:
+    if isinstance(value, dict):
+        return _format_answer_sections(value, level + 1)
+
+    if isinstance(value, list):
+        lines = []
+        for item in value:
+            if isinstance(item, dict):
+                lines.extend(_format_answer_sections(item, level + 1))
+            else:
+                lines.append(f"- {item}")
+        return lines
+
+    return [str(value)]
 
 
 def build_structured_reasoning(question: str, answer: dict) -> str:
@@ -718,10 +739,6 @@ with gr.Blocks() as demo:
     
     with gr.Tabs() as tabs:
         with gr.Tab("CHATBOT"):
-            gr.Markdown(
-                "<p class='tab-intro'>Ställ en fråga på materialet.</p>"
-            )
-
             message = gr.Textbox(
                 placeholder="Skriv en fritextfråga här om du vill söka i källmaterialet.",
                 lines=6,

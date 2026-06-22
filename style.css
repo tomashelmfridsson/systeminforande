@@ -249,9 +249,9 @@ button.gr-button.card {
 }
 
 .question-list {
-    border: 2px solid #1e5bd7 !important;
+    border: none !important;
     border-radius: 16px !important;
-    padding: 8px !important;
+    padding: 6px !important;
     min-height: 0 !important;
     height: auto !important;
     overflow: visible !important;
@@ -380,7 +380,7 @@ button.gr-button.card {
     border: 2px solid #1e5bd7 !important;
     border-radius: 16px !important;
     padding: 12px !important;
-    min-height: 340px;
+    min-height: 170px;
     box-shadow: none !important;
     box-sizing: border-box !important;
 }
@@ -449,7 +449,7 @@ button.gr-button.card {
 /* Själva textarea – ALL text ritas här */
 .message-box textarea {
     width: 100% !important;
-    min-height: 260px !important;
+    min-height: 120px !important;
     overflow-y: auto !important;
 
     background-color: #ffffff !important;
