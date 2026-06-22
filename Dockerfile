@@ -6,19 +6,29 @@ ENV PYTHONUNBUFFERED=1 \
     GRADIO_SERVER_PORT=7860
 
 RUN apt-get update \
-    && apt-get install -y --no-install-recommends ca-certificates \
+    && apt-get install -y --no-install-recommends \
+        bash \
+        ca-certificates \
+        curl \
+        git \
+        git-lfs \
+        procps \
+        wget \
     && rm -rf /var/lib/apt/lists/*
 
 RUN useradd -m -u 1000 user
 
-USER user
-
 ENV HOME=/home/user \
     PATH=/home/user/.local/bin:$PATH
 
-WORKDIR $HOME/app
+WORKDIR /app
+
+RUN chown -R user:user /app
 
 COPY --chown=user requirements.txt .
+
+USER user
+
 RUN python -m pip install --upgrade pip \
     && python -m pip install --user -r requirements.txt
 
