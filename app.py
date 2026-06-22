@@ -18,6 +18,18 @@ HEADER_IMAGE_URL = (
     "https://raw.githubusercontent.com/"
     "tomashelmfridsson/systeminforande/main/brain.jpg"
 )
+DEPLOY_REVISION_FILE = "deploy_revision.txt"
+
+
+def load_deploy_revision() -> str:
+    try:
+        with open(DEPLOY_REVISION_FILE, encoding="utf-8") as revision_file:
+            return revision_file.read().strip() or "local"
+    except OSError:
+        return "local"
+
+
+DEPLOY_REVISION = load_deploy_revision()
 
 if not os.path.exists(CHUNKS_FILE):
     raise FileNotFoundError(
@@ -796,6 +808,16 @@ with gr.Blocks() as demo:
         outputs=[questions, message, answer, current_doc, *card_outputs]
     )
 
+
+@demo.app.get("/health")
+def health():
+    return {"status": "ok", "revision": DEPLOY_REVISION}
+
+
+@demo.app.get("/ready")
+def ready():
+    return {"status": "ok", "revision": DEPLOY_REVISION}
+
 # =====================================================
 # LAUNCH
 # =====================================================
@@ -803,4 +825,5 @@ with gr.Blocks() as demo:
 with open("style.css", encoding="utf-8") as f:
     css = f.read()
 
+print("Deploy revision:", DEPLOY_REVISION)
 demo.launch(theme=None,css=css, ssr_mode=False)

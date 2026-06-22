@@ -31,10 +31,13 @@ jobs:
           rm -rf /tmp/hf-deploy
           mkdir -p /tmp/hf-deploy
           cp app.py /tmp/hf-deploy/
+          cp Dockerfile /tmp/hf-deploy/
+          cp .dockerignore /tmp/hf-deploy/
           cp content.json /tmp/hf-deploy/
           cp requirements.txt /tmp/hf-deploy/
           cp style.css /tmp/hf-deploy/
           cp README.md /tmp/hf-deploy/
+          printf '%s\n' "$GITHUB_SHA" > /tmp/hf-deploy/deploy_revision.txt
           cp -R llm /tmp/hf-deploy/
           cp -R rag /tmp/hf-deploy/
           rm -rf /tmp/hf-deploy/rag/__pycache__
@@ -43,6 +46,7 @@ jobs:
           cp rag/web/source.txt /tmp/hf-deploy/rag/web/source.txt
 
       - name: Push to Hugging Face Space
+        id: push
         env:
           HF_TOKEN: ${{ secrets.HF_TOKEN }}
         run: |
@@ -54,5 +58,7 @@ jobs:
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add .
           git commit -m "Deploy from GitHub Actions"
+          SPACE_SHA=$(git rev-parse HEAD)
+          echo "sha=$SPACE_SHA" >> "$GITHUB_OUTPUT"
           git remote add hf "https://oauth2:${HF_TOKEN}@huggingface.co/spaces/helmfridsson/systeminforande"
           git push --force hf main:main
