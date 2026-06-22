@@ -113,9 +113,14 @@ h2, h3, h4, p, span, label, li {
    ===================================================== */
 
 .tabs,
+.tabs > div,
+.tabs .tab-wrapper,
 .tabs .tab-nav,
 .tabs .tabitem {
     background: #ffffff !important;
+    border: none !important;
+    box-shadow: none !important;
+    outline: none !important;
 }
 
 button[role="tab"] {
@@ -134,6 +139,28 @@ button[role="tab"][aria-selected="true"] {
 .tabitem {
     border: none !important;
     box-shadow: none !important;
+}
+
+.tabs:focus,
+.tabs:focus-visible,
+.tabs:focus-within,
+.tabs > div:focus,
+.tabs > div:focus-visible,
+.tabs > div:focus-within,
+.tabs .tab-wrapper:focus,
+.tabs .tab-wrapper:focus-visible,
+.tabs .tab-wrapper:focus-within,
+.tabs .tabitem:focus,
+.tabs .tabitem:focus-visible,
+.tabs .tabitem:focus-within,
+.gradio-container .form:has(.tabs),
+.gradio-container div.form:has(.tabs),
+.gradio-container .block:has(.tabs),
+.gradio-container .wrap:has(.tabs) {
+    border: none !important;
+    box-shadow: none !important;
+    outline: none !important;
+    background: #ffffff !important;
 }
 
 .tab-intro {
