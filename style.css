@@ -230,12 +230,16 @@ button.gr-button.card {
 
 .question-list,
 .question-list *,
+.question-list > div,
+.question-list > div > div,
 .question-list .wrap,
 .question-list .wrap-inner,
 .question-list .form,
 .question-list .block,
 .question-list .container,
 .question-list fieldset,
+.question-list legend,
+.question-list label[data-testid="block-label"],
 .question-list label,
 .question-list .gr-radio {
     background: #ffffff !important;
@@ -252,6 +256,23 @@ button.gr-button.card {
     height: auto !important;
     overflow: visible !important;
     box-sizing: border-box !important;
+}
+
+.question-list > div,
+.question-list > div > div,
+.question-list fieldset,
+.question-list .wrap,
+.question-list .wrap-inner,
+.question-list .block,
+.question-list .container,
+.question-list .form {
+    box-shadow: none !important;
+    border-color: transparent !important;
+}
+
+.question-list label[data-testid="block-label"],
+.question-list legend {
+    display: none !important;
 }
 
 .question-list .gr-radio {

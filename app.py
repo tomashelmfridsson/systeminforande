@@ -206,6 +206,7 @@ def load_document(doc_id):
     questions = [q["question"] for q in DOC_INDEX[doc_id]["subquestions"]]
     return (
         gr.update(choices=questions, value=None),
+        "",
         doc_id,
         *build_main_card_updates(doc_id),
     )
@@ -769,7 +770,8 @@ with gr.Blocks() as demo:
             questions = gr.Radio(
                 choices=[],
                 value=None,
-                label=None,
+                label="",
+                show_label=False,
                 interactive=True,
                 elem_classes="question-list"
             )
@@ -789,7 +791,7 @@ with gr.Blocks() as demo:
     for btn, doc_id, _ in main_buttons:
         btn.click(
             fn=lambda d=doc_id: load_document(d),
-            outputs=[questions, current_doc, *card_outputs]
+            outputs=[questions, faq_answer, current_doc, *card_outputs]
         )
 
     questions.change(
