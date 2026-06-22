@@ -30,15 +30,19 @@ jobs:
         run: |
           rm -rf /tmp/hf-deploy
           mkdir -p /tmp/hf-deploy
-          cp minimal_app.py /tmp/hf-deploy/app.py
-          cp Dockerfile /tmp/hf-deploy/
-          cp .dockerignore /tmp/hf-deploy/
-          cp requirements-minimal.txt /tmp/hf-deploy/requirements.txt
+          cp app.py /tmp/hf-deploy/
+          cp content.json /tmp/hf-deploy/
+          cp requirements.txt /tmp/hf-deploy/
+          cp style.css /tmp/hf-deploy/
           cp README.md /tmp/hf-deploy/
-          printf '%s\n' "$GITHUB_SHA" > /tmp/hf-deploy/deploy_revision.txt
+          cp -R llm /tmp/hf-deploy/
+          cp -R rag /tmp/hf-deploy/
+          rm -rf /tmp/hf-deploy/rag/__pycache__
+          rm -rf /tmp/hf-deploy/rag/web
+          mkdir -p /tmp/hf-deploy/rag/web
+          cp rag/web/source.txt /tmp/hf-deploy/rag/web/source.txt
 
       - name: Push to Hugging Face Space
-        id: push
         env:
           HF_TOKEN: ${{ secrets.HF_TOKEN }}
         run: |
@@ -50,49 +54,5 @@ jobs:
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add .
           git commit -m "Deploy from GitHub Actions"
-          SPACE_SHA=$(git rev-parse HEAD)
-          echo "sha=$SPACE_SHA" >> "$GITHUB_OUTPUT"
           git remote add hf "https://oauth2:${HF_TOKEN}@huggingface.co/spaces/helmfridsson/systeminforande"
           git push --force hf main:main
-
-      - name: Wait for Space to start
-        timeout-minutes: 20
-        env:
-          HF_TOKEN: ${{ secrets.HF_TOKEN }}
-          EXPECTED_REVISION: ${{ github.sha }}
-          EXPECTED_SPACE_SHA: ${{ steps.push.outputs.sha }}
-        run: |
-          for attempt in {1..45}; do
-            SPACE_STATUS=$(curl --silent --show-error --max-time 5 \
-              --header "Authorization: Bearer ${HF_TOKEN}" \
-              "https://huggingface.co/api/spaces/helmfridsson/systeminforande" \
-              || printf '{}')
-            STAGE=$(jq --raw-output '.runtime.stage // "UNKNOWN"' <<< "$SPACE_STATUS")
-            SPACE_SHA=$(jq --raw-output '.sha // ""' <<< "$SPACE_STATUS")
-            RUNTIME_SHA=$(jq --raw-output '.runtime.sha // ""' <<< "$SPACE_STATUS")
-
-            RUN_LOG=$(curl --silent --show-error --max-time 8 \
-              --header "Authorization: Bearer ${HF_TOKEN}" \
-              "https://huggingface.co/api/spaces/helmfridsson/systeminforande/logs/run" \
-              || true)
-
-            echo "Checking Space (attempt $attempt): stage=$STAGE space_sha=${SPACE_SHA:-none} runtime_sha=${RUNTIME_SHA:-none}"
-
-            if grep --fixed-strings --quiet "Deploy revision: $EXPECTED_REVISION" <<< "$RUN_LOG" \
-              && grep --fixed-strings --quiet "Running on local URL" <<< "$RUN_LOG" \
-              && [[ "$STAGE" == "RUNNING" ]] \
-              && [[ "$SPACE_SHA" == "$EXPECTED_SPACE_SHA" ]]; then
-              echo "Space is serving revision $EXPECTED_REVISION"
-              exit 0
-            fi
-
-            if [[ "$STAGE" == *"ERROR"* ]]; then
-              echo "Space failed to start revision $EXPECTED_REVISION" >&2
-              exit 1
-            fi
-
-            sleep 12
-          done
-
-          echo "Space did not start revision $EXPECTED_REVISION within 15 minutes" >&2
-          exit 1

@@ -3,8 +3,8 @@ title: Systeminforande
 emoji: 🦀
 colorFrom: purple
 colorTo: yellow
-sdk: docker
-app_port: 7860
+sdk: gradio
+sdk_version: 6.2.0
 app_file: app.py
 pinned: false
 license: apache-2.0
@@ -12,8 +12,6 @@ short_description: Sida för systeminforande
 ---
 
 Session guidelines for coding work live in `AI_CODING_GUIDELINES.md`.
-En sammanfattning av labben, arkitekturen och viktiga tekniska val finns i
-`RAG_LAB_LESSONS.md`.
 
 PDF-källor för publika länkar ligger under `docs/pdfs/`.
 Appen bygger käll-länkar mot GitHub Pages på

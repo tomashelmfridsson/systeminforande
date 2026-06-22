@@ -1,5 +1,4 @@
 import json
-import inspect
 import os
 import re
 import time
@@ -17,20 +16,8 @@ GITHUB_PAGES_BASE_URL = "https://tomashelmfridsson.github.io/systeminforande"
 GITHUB_PAGES_PDF_BASE_URL = f"{GITHUB_PAGES_BASE_URL}/pdfs"
 HEADER_IMAGE_URL = (
     "https://raw.githubusercontent.com/"
-    "tomashelmfridsson/systeminforande/main/brain.png"
+    "tomashelmfridsson/systeminforande/main/brain.jpg"
 )
-DEPLOY_REVISION_FILE = "deploy_revision.txt"
-
-
-def load_deploy_revision() -> str:
-    try:
-        with open(DEPLOY_REVISION_FILE, encoding="utf-8") as revision_file:
-            return revision_file.read().strip() or "local"
-    except OSError:
-        return "local"
-
-
-DEPLOY_REVISION = load_deploy_revision()
 
 if not os.path.exists(CHUNKS_FILE):
     raise FileNotFoundError(
@@ -50,6 +37,7 @@ with open("content.json", encoding="utf-8") as f:
 
 DOC_INDEX = {d["id"]: d for d in DOCUMENTS}
 
+HF_MODELS_ENDPOINT = "https://router.huggingface.co/v1/models"
 FALLBACK_LLM_MODELS = [
     {
         "id": "google/gemma-2-2b-it",
@@ -77,6 +65,11 @@ FALLBACK_LLM_MODELS = [
         "description": "Liten resonemangsmodell.",
     },
 ]
+FALLBACK_MODEL_DESCRIPTIONS = {
+    model["id"]: model["description"] for model in FALLBACK_LLM_MODELS
+}
+
+
 def _format_model_label(model_id: str, description: str = "") -> str:
     if not description:
         return model_id
@@ -88,8 +81,77 @@ def _choice_from_model(model_id: str, description: str = "") -> tuple[str, str]:
 
 
 def load_llm_model_options() -> list[tuple[str, str]]:
-    print("Använder lokal fallback-lista för LLM-modeller.")
-    return [
+    headers = {}
+    token = os.getenv("HF_TOKEN")
+    if token:
+        headers["Authorization"] = f"Bearer {token}"
+
+    try:
+        response = requests.get(HF_MODELS_ENDPOINT, headers=headers, timeout=15)
+        response.raise_for_status()
+        payload = response.json()
+    except Exception as exc:
+        print(f"Kunde inte hämta modellista från HF API: {exc}")
+        return [
+            _choice_from_model(model["id"], model["description"])
+            for model in FALLBACK_LLM_MODELS
+        ]
+
+    if not isinstance(payload, list):
+        print("HF API returnerade oväntat format för modellistan.")
+        return [
+            _choice_from_model(model["id"], model["description"])
+            for model in FALLBACK_LLM_MODELS
+        ]
+
+    available = {}
+    for item in payload:
+        if not isinstance(item, dict):
+            continue
+
+        model_id = (
+            item.get("id")
+            or item.get("model")
+            or item.get("name")
+        )
+        if not isinstance(model_id, str) or not model_id.strip():
+            continue
+
+        description = (
+            item.get("description")
+            or item.get("summary")
+            or FALLBACK_MODEL_DESCRIPTIONS.get(model_id, "")
+        )
+        available[model_id] = _choice_from_model(model_id, str(description).strip())
+
+    if not available:
+        print("HF API gav ingen användbar modellista.")
+        return [
+            _choice_from_model(model["id"], model["description"])
+            for model in FALLBACK_LLM_MODELS
+        ]
+
+    curated = []
+    seen = set()
+
+    for model in FALLBACK_LLM_MODELS:
+        model_id = model["id"]
+        if model_id in available:
+            curated.append(available[model_id])
+            seen.add(model_id)
+
+    extra_candidates = []
+    for model_id, choice in available.items():
+        lowered = model_id.lower()
+        if model_id in seen:
+            continue
+        if any(keyword in lowered for keyword in ["instruct", "chat", "it", "thinking", "r1", "gemma", "glm", "gpt-oss"]):
+            extra_candidates.append(choice)
+
+    extra_candidates.sort(key=lambda choice: choice[1].lower())
+    curated.extend(extra_candidates[:10])
+
+    return curated or [
         _choice_from_model(model["id"], model["description"])
         for model in FALLBACK_LLM_MODELS
     ]
@@ -133,15 +195,11 @@ def load_document(doc_id):
     return (
         gr.update(choices=questions, value=None),
         doc_id,
-        "",
         *build_main_card_updates(doc_id),
     )
 
 
 def select_and_submit(message: str, doc_id, debug_mode, llm_model):
-    if not isinstance(message, str) or not message.strip():
-        yield ""
-        return
     for answer in submit(message, doc_id, debug_mode, llm_model):
         yield answer
 
@@ -151,9 +209,6 @@ def submit(message, doc_id, debug_mode, llm_model):
     - Om message matchar en underfråga → vanlig Q&A
     - Annars → RAG över PDF-material
     """
-    if not isinstance(message, str):
-        yield ""
-        return
 
     message = message.strip()
     if not message:
@@ -342,10 +397,6 @@ def build_sources_md(results) -> str:
 
 def clear_all():
     return gr.update(choices=[], value=None), "", "", None, *build_main_card_updates(None)
-
-
-def clear_chatbot():
-    return "", ""
 
 def format_pages(pages):
     if not pages:
@@ -627,48 +678,63 @@ def build_predefined_debug_md(question: str, reasoning: str, source_results, llm
 # UI
 # =====================================================
 
-with open("style.css", encoding="utf-8") as f:
-    css = f.read()
-
-launch_signature = inspect.signature(gr.Blocks.launch)
-supports_launch_css = "css" in launch_signature.parameters
-blocks_kwargs = {} if supports_launch_css else {"css": css}
-launch_kwargs = {
-    "ssr_mode": False,
-    "server_name": "0.0.0.0",
-    "server_port": 7860,
-}
-if supports_launch_css:
-    launch_kwargs["css"] = css
-
 # with gr.Blocks(css=".gradio-container {background-color: white}") as demo:
-with gr.Blocks(**blocks_kwargs) as demo:
-    gr.HTML(
-        f"""
-        <div class="app-header-row">
-            <img src="{HEADER_IMAGE_URL}" alt="Citrus-chatbot logotyp" class="app-header-logo" />
-            <h1 class="title">Citrus-chatbot</h1>
-            <span data-deploy-revision="{DEPLOY_REVISION}" style="display: none;"></span>
-        </div>
-        """
+with gr.Blocks() as demo:
+    gr.HTML("<h1 class='title'>Citrus-chatbot</h1>")
+
+    gr.Image(
+        value=HEADER_IMAGE_URL,
+        show_label=False,
+        interactive=False,
+        elem_classes="brain-header"
     )
 
     current_doc = gr.State(None)
+    
+    # -------------------------
+    # HUVUDFRÅGOR
+    # -------------------------
+    with gr.Row():
+        main_buttons = []
+    
+        for doc in DOCUMENTS:
+            with gr.Column(min_width=260, elem_classes="card"):
+                card_html = gr.HTML(build_main_card_html(doc))
+    
+                btn = gr.Button(
+                    "",
+                    elem_classes="card-overlay"
+                )
+    
+                main_buttons.append((btn, doc["id"], card_html))
 
-    with gr.Tabs() as tabs:
-        with gr.Tab("CHATBOT"):
-            gr.Markdown(
-                "<p class='tab-intro'>Ställ en fråga på materialet?</p>"
-            )
-
-            message = gr.Textbox(
-                placeholder="Skriv din fråga här.",
-                lines=6,
+    # -------------------------
+    # INNEHÅLL
+    # -------------------------
+    with gr.Row():
+        
+        # VÄNSTER: Underfrågor
+        with gr.Column(scale=2):
+            gr.Markdown("<h3>FAQ</h3>")
+            questions = gr.Radio(
+                choices=[],
+                value=None,
                 label=None,
+                interactive=True,
+                elem_classes="question-list"
+            )
+    
+        # HÖGER: Fritextfråga
+        with gr.Column(scale=3):
+            gr.Markdown("<h3>Egen fråga</h3>")
+            message = gr.Textbox(
+                placeholder="Skriv en fritextfråga här om du vill söka i källmaterialet.",
+                lines=6,
+                label=None,  
                 show_label=False,
                 elem_classes="message-box"
             )
-
+    
             with gr.Row():
                 send_btn = gr.Button("Skicka", elem_classes="send-btn")
                 clear_btn = gr.Button("Rensa", elem_classes="send-btn")
@@ -686,41 +752,11 @@ with gr.Blocks(**blocks_kwargs) as demo:
                 visible=False,
             )
 
+    # RAD 2 – Svar över hela bredden
+    with gr.Row():
+        with gr.Column():
             gr.Markdown("<h3>Svar</h3>")
-            chatbot_answer = gr.Markdown(
-                "",
-                elem_classes="answer-box"
-            )
-
-        with gr.Tab("FAQ"):
-            gr.Markdown("<h3>Välj ämnesområde</h3>")
-
-            with gr.Row():
-                main_buttons = []
-
-                for doc in DOCUMENTS:
-                    with gr.Column(min_width=260, elem_classes="card"):
-                        card_html = gr.HTML(build_main_card_html(doc))
-
-                        btn = gr.Button(
-                            "",
-                            elem_classes="card-overlay"
-                        )
-
-                        main_buttons.append((btn, doc["id"], card_html))
-
-            gr.Markdown("<h3>Underfrågor</h3>")
-            questions = gr.Radio(
-                choices=[],
-                value=None,
-                label=None,
-                show_label=False,
-                interactive=True,
-                elem_classes="question-list"
-            )
-
-            gr.Markdown("<h3>Svar</h3>")
-            faq_answer = gr.Markdown(
+            answer = gr.Markdown(
                 "",
                 elem_classes="answer-box"
             )
@@ -734,43 +770,37 @@ with gr.Blocks(**blocks_kwargs) as demo:
     for btn, doc_id, _ in main_buttons:
         btn.click(
             fn=lambda d=doc_id: load_document(d),
-            outputs=[questions, current_doc, faq_answer, *card_outputs]
+            outputs=[questions, current_doc, *card_outputs]
         )
 
     questions.change(
         fn=select_and_submit,
         inputs=[questions, current_doc, debug_mode, llm_model],
-        outputs=[faq_answer]
+        outputs=[answer]
     )
 
     send_btn.click(
         fn=submit,
         inputs=[message, current_doc, debug_mode, llm_model],
-        outputs=[chatbot_answer]
+        outputs=[answer]
     )
     
     message.submit(
         fn=submit,
         inputs=[message, current_doc, debug_mode, llm_model],
-        outputs=[chatbot_answer]
+        outputs=[answer]
     )
 
     clear_btn.click(
-        fn=clear_chatbot,
-        outputs=[message, chatbot_answer]
+        fn=clear_all,
+        outputs=[questions, message, answer, current_doc, *card_outputs]
     )
-
-@demo.app.get("/health")
-def health():
-    return {"status": "ok", "revision": DEPLOY_REVISION}
-
-@demo.app.get("/ready")
-def ready():
-    return {"status": "ok", "revision": DEPLOY_REVISION}
 
 # =====================================================
 # LAUNCH
 # =====================================================
 
-print("Deploy revision:", DEPLOY_REVISION)
-demo.launch(**launch_kwargs)
+with open("style.css", encoding="utf-8") as f:
+    css = f.read()
+
+demo.launch(theme=None,css=css, ssr_mode=False)
