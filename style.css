@@ -9,6 +9,9 @@ html, body {
 /* Gradio root */
 .gradio-container {
     background: #ffffff !important;
+    border: none !important;
+    box-shadow: none !important;
+    outline: none !important;
 }
 
 }
@@ -19,6 +22,37 @@ html, body {
 .app,
 main {
     background: #ffffff !important;
+    border: none !important;
+    box-shadow: none !important;
+    outline: none !important;
+}
+
+.gradio-container > .main,
+.gradio-container > .main > .wrap,
+.gradio-container .contain,
+.gradio-container .contain > .tabs,
+.gradio-container .block,
+.gradio-container .form {
+    background: #ffffff !important;
+    box-shadow: none !important;
+    outline: none !important;
+}
+
+.gradio-container:focus,
+.gradio-container:focus-visible,
+.gradio-container:focus-within,
+.gradio-container > .main:focus,
+.gradio-container > .main:focus-visible,
+.gradio-container > .main:focus-within,
+.gradio-container > .main > .wrap:focus,
+.gradio-container > .main > .wrap:focus-visible,
+.gradio-container > .main > .wrap:focus-within,
+.gradio-container .contain:focus,
+.gradio-container .contain:focus-visible,
+.gradio-container .contain:focus-within {
+    border: none !important;
+    box-shadow: none !important;
+    outline: none !important;
 }
 
 /* =====================================================
