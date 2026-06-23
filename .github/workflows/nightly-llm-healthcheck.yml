@@ -16,7 +16,7 @@ jobs:
     steps:
       - name: Check deployed Space availability
         env:
-          APP_URL: https://helmfridsson-chatbot.hf.space
+          APP_URL: https://helmfridsson-systeminforande.hf.space
         run: |
           python - <<'PY'
           import os
@@ -42,9 +42,9 @@ jobs:
           print("Space availability check passed.")
           PY
 
-      - name: Check deployed chatbot LLM path
+      - name: Check deployed systeminforande LLM path
         env:
-          APP_URL: https://helmfridsson-chatbot.hf.space
+          APP_URL: https://helmfridsson-systeminforande.hf.space
           TEST_MODEL: openai/gpt-oss-120b
           TEST_QUESTION: Vad är ett arbetsområde?
         run: |
