@@ -239,27 +239,16 @@ def submit(message, doc_id, debug_mode, llm_model):
         for q in doc["subquestions"]:
             if q["question"] == message:
                 fact_answer = format_answer(q["answer"])
-                source_results = search(f"{doc['title']} {message}", top_k=5)
-                model_reasoning = build_structured_reasoning(
-                    question=message,
-                    answer=q["answer"],
-                )
-                structured_combined = fact_answer
-
-                if model_reasoning:
-                    structured_combined += "\n\n" + model_reasoning
-
-                sources_md = build_sources_md(source_results)
-                structured_combined += sources_md
 
                 if debug_mode:
-                    structured_combined += build_predefined_debug_md(
+                    source_results = search(f"{doc['title']} {message}", top_k=5)
+                    fact_answer += build_predefined_debug_md(
                         question=message,
-                        reasoning=model_reasoning,
+                        reasoning="",
                         source_results=source_results,
                         llm_answer=None,
                     )
-                yield structured_combined
+                yield fact_answer
                 return
     
     # 2️⃣ Ingen match → RAG-fritext
@@ -288,6 +277,9 @@ def _format_answer_value(value, level: int) -> list[str]:
         return _format_answer_sections(value, level + 1)
 
     if isinstance(value, list):
+        if _is_table_rows(value):
+            return _format_markdown_table(value)
+
         lines = []
         for item in value:
             if isinstance(item, dict):
@@ -297,6 +289,40 @@ def _format_answer_value(value, level: int) -> list[str]:
         return lines
 
     return [str(value)]
+
+
+def _is_table_rows(value: list) -> bool:
+    if not value or not all(isinstance(item, dict) for item in value):
+        return False
+
+    columns = list(value[0].keys())
+    if not columns:
+        return False
+
+    return all(list(item.keys()) == columns for item in value)
+
+
+def _format_markdown_table(rows: list[dict]) -> list[str]:
+    columns = list(rows[0].keys())
+    table = [
+        "| " + " | ".join(_format_markdown_cell(column) for column in columns) + " |",
+        "| " + " | ".join("---" for _ in columns) + " |",
+    ]
+
+    for row in rows:
+        table.append(
+            "| "
+            + " | ".join(_format_markdown_cell(row.get(column, "")) for column in columns)
+            + " |"
+        )
+
+    return table
+
+
+def _format_markdown_cell(value) -> str:
+    text = str(value).strip()
+    text = " ".join(text.split())
+    return text.replace("|", "\\|")
 
 
 def build_structured_reasoning(question: str, answer: dict) -> str:
@@ -478,11 +504,32 @@ def format_source_link(chunk: dict) -> str:
 
 
 def _simple_tokenize(text: str) -> set[str]:
-    return {
-        token
-        for token in re.findall(r"\w+", (text or "").lower())
-        if len(token) > 2
-    }
+    tokens = set()
+    for raw_token in re.findall(r"\w+", (text or "").lower()):
+        token = raw_token
+        if token.endswith("erna") and len(token) > 6:
+            token = token[:-1]
+        elif token.endswith("arna") and len(token) > 6:
+            token = token[:-1]
+        elif token.endswith("or") and len(token) > 5:
+            token = token[:-2]
+        elif token.endswith("ar") and len(token) > 5:
+            token = token[:-2]
+        elif token.endswith("er") and len(token) > 5:
+            token = token[:-2]
+        elif token.endswith("en") and len(token) > 5:
+            token = token[:-2]
+        elif token.endswith("n") and len(token) > 5:
+            token = token[:-1]
+
+        if len(token) > 2:
+            tokens.add(token)
+            if token.endswith("område"):
+                tokens.add(token[:-1])
+            elif token.endswith("områd"):
+                tokens.add(f"{token}e")
+
+    return tokens
 
 
 def _has_relevant_rag_support(search_debug: dict) -> tuple[bool, str]:
@@ -738,7 +785,40 @@ with gr.Blocks() as demo:
     current_doc = gr.State(None)
     
     with gr.Tabs() as tabs:
-        with gr.Tab("CHATBOT"):
+        with gr.Tab("FAQ"):
+            gr.Markdown("<p class='tab-intro'>Välj ämnesområde och underfråga.</p>")
+
+            with gr.Row():
+                main_buttons = []
+
+                for doc in DOCUMENTS:
+                    with gr.Column(min_width=260, elem_classes="card"):
+                        card_html = gr.HTML(build_main_card_html(doc))
+
+                        btn = gr.Button(
+                            "",
+                            elem_classes="card-overlay"
+                        )
+
+                        main_buttons.append((btn, doc["id"], card_html))
+
+            gr.Markdown("<h3>Underfrågor</h3>")
+            questions = gr.Radio(
+                choices=[],
+                value=None,
+                label="",
+                show_label=False,
+                interactive=True,
+                elem_classes="question-list"
+            )
+
+            gr.Markdown("<h3>Svar</h3>")
+            faq_answer = gr.Markdown(
+                "",
+                elem_classes="answer-box"
+            )
+
+        with gr.Tab("CHATTBOT"):
             message = gr.Textbox(
                 placeholder="Skriv en fritextfråga här om du vill söka i källmaterialet.",
                 lines=6,
@@ -772,39 +852,6 @@ with gr.Blocks() as demo:
             gr.Markdown(
                 "_Obs: Detta svar är AI-genererat och bör vid behov verifieras mot källmaterialet._",
                 elem_classes="answer-note"
-            )
-
-        with gr.Tab("FAQ"):
-            gr.Markdown("<p class='tab-intro'>Välj ämnesområde och underfråga.</p>")
-
-            with gr.Row():
-                main_buttons = []
-
-                for doc in DOCUMENTS:
-                    with gr.Column(min_width=260, elem_classes="card"):
-                        card_html = gr.HTML(build_main_card_html(doc))
-
-                        btn = gr.Button(
-                            "",
-                            elem_classes="card-overlay"
-                        )
-
-                        main_buttons.append((btn, doc["id"], card_html))
-
-            gr.Markdown("<h3>Underfrågor</h3>")
-            questions = gr.Radio(
-                choices=[],
-                value=None,
-                label="",
-                show_label=False,
-                interactive=True,
-                elem_classes="question-list"
-            )
-
-            gr.Markdown("<h3>Svar</h3>")
-            faq_answer = gr.Markdown(
-                "",
-                elem_classes="answer-box"
             )
             
     # -------------------------
