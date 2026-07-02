@@ -4,6 +4,11 @@
       "id": "inforandekrav",
       "title": "Införandekrav",
       "main_question": "Hur definieras och struktureras införandekrav?",
+      "main_answer": {
+        "Område": "Införandekrav",
+        "Beskrivning": "Hur definieras och struktureras införandekrav?\n\nFörutom att ställa funktionella och icke funktionella krav, ställ även indirekta krav som är relaterade till systemet. Vi kallar dessa krav för införandekrav.\n\nGenom att ställa tydliga och välformulerade krav minskar risken för krångel, förseningar och onödiga merkostnader.",
+        "Källa": "https://www.systeminforande.se/infrandekrav-1"
+      },
       "subquestions": [
         {
           "id": "syfte",
@@ -122,6 +127,11 @@
       "id": "implementering",
       "title": "Implementering",
       "main_question": "På vilket sätt bör implementeringen planeras och följas upp?",
+      "main_answer": {
+        "Område": "Implementering",
+        "Beskrivning": "På vilket sätt bör implementeringen planeras och följas upp?\n\nVi har strukturerat arbetet i olika arbetsområden och aktiviteter som kräver olika kompetenser. Implementeringen genomförs i etapperna: riktlinjer, acceptanstest, driftförberedelser, provdrift och driftsättning.",
+        "Källa": "https://www.systeminforande.se/implementering2"
+      },
       "subquestions": [
         {
           "id": "syfte",
@@ -316,6 +326,11 @@
       "id": "arbetssatt",
       "title": "Arbetssätt",
       "main_question": "På vilket sätt ska implementeringen genomföras och styras?",
+      "main_answer": {
+        "Område": "Arbetssätt",
+        "Beskrivning": "På vilket sätt ska implementeringen genomföras och styras?\n\nVi har utvecklat en införandeprocess som beskriver arbetsgången och omfattar ledningsprocess, huvudprocess och stödprocesser, som tillsammans med en arbetsmodell och en projektstyrningsmodell som stödjer processen.\n\nInförandeprocessen, arbetsmodellen och projektstyrningsmodellen kan anpassas utifrån den aktuella situationen.",
+        "Källa": "https://www.systeminforande.se/arbetsmodell"
+      },
       "subquestions": [
         {
           "id": "inforandeprocess",
@@ -373,6 +388,10 @@
       "id": "projektstyrning",
       "title": "Projektstyrning",
       "main_question": "Hur bör ett införandeprojekt styras för att nå önskat resultat?",
+      "main_answer": {
+        "Område": "Projektstyrning",
+        "Beskrivning": "Hur bör ett införandeprojekt styras för att nå önskat resultat?\n\nSyftet är att få vägledning i hur införandeprojekt kan planeras, ledas och följas upp på ett strukturerat och kontrollerat sätt. Detta innebär att beakta projektstyrningsmodellen, planering och uppföljning, projektorganisation, beslutspunkter, kvalitetssäkring, ändringshantering samt ett välorganiserat projektbibliotek."
+      },
       "subquestions": [
         {
           "id": "projektstyrningsmodell",

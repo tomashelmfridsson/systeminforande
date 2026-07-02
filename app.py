@@ -239,10 +239,12 @@ def build_main_card_updates(selected_doc_id: str | None):
 
 
 def load_document(doc_id):
-    questions = [q["question"] for q in DOC_INDEX[doc_id]["subquestions"]]
+    doc = DOC_INDEX[doc_id]
+    questions = [q["question"] for q in doc["subquestions"]]
+    main_answer = format_answer(doc.get("main_answer", {}))
     return (
         gr.update(choices=questions, value=None),
-        "",
+        main_answer,
         doc_id,
         *build_main_card_updates(doc_id),
     )
@@ -824,7 +826,7 @@ with gr.Blocks() as demo:
         with gr.Tab("FAQ"):
             gr.Markdown("<p class='tab-intro'>Välj ämnesområde och underfråga.</p>")
 
-            with gr.Row():
+            with gr.Row(elem_classes="main-card-grid"):
                 main_buttons = []
 
                 for doc in DOCUMENTS:
