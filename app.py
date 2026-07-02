@@ -19,6 +19,42 @@ HEADER_IMAGE_URL = (
     "tomashelmfridsson/systeminforande/main/brain.jpg"
 )
 DEPLOY_REVISION_FILE = "deploy_revision.txt"
+EMBED_RESIZE_JS = """
+() => {
+    const messageType = "systeminforande:resize";
+
+    const getHeight = () => Math.max(
+        document.body.scrollHeight,
+        document.documentElement.scrollHeight,
+        document.body.offsetHeight,
+        document.documentElement.offsetHeight
+    );
+
+    const sendHeight = () => {
+        window.parent.postMessage(
+            {
+                type: messageType,
+                height: getHeight()
+            },
+            "*"
+        );
+    };
+
+    sendHeight();
+
+    if (!window.__systeminforandeResizeObserver) {
+        window.__systeminforandeResizeObserver = new ResizeObserver(sendHeight);
+        window.__systeminforandeResizeObserver.observe(document.body);
+    }
+
+    if (!window.__systeminforandeResizeListener) {
+        window.__systeminforandeResizeListener = true;
+        window.addEventListener("load", sendHeight);
+        window.addEventListener("resize", sendHeight);
+        window.setInterval(sendHeight, 1000);
+    }
+}
+"""
 
 
 def load_deploy_revision() -> str:
@@ -887,6 +923,13 @@ with gr.Blocks() as demo:
     clear_btn.click(
         fn=clear_chatbot,
         outputs=[message, chatbot_answer]
+    )
+
+    demo.load(
+        fn=None,
+        inputs=None,
+        outputs=None,
+        js=EMBED_RESIZE_JS,
     )
 
 

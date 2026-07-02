@@ -4,6 +4,8 @@
 
 html, body {
     background: #ffffff !important;
+    min-height: auto !important;
+    overflow-x: hidden !important;
 }
 
 /* Gradio root */
@@ -19,8 +21,6 @@ html, body {
     border: none !important;
     box-shadow: none !important;
     outline: none !important;
-}
-
 }
 
 /* HF wrapper runt appen */
