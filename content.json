@@ -7,7 +7,7 @@
       "main_answer": {
         "Område": "Införandekrav",
         "Beskrivning": "Hur definieras och struktureras införandekrav?\n\nFörutom att ställa funktionella och icke funktionella krav, ställ även indirekta krav som är relaterade till systemet. Vi kallar dessa krav för införandekrav.\n\nGenom att ställa tydliga och välformulerade krav minskar risken för krångel, förseningar och onödiga merkostnader.",
-        "Källa": "https://www.systeminforande.se/infrandekrav-1"
+        "Mer om införandekrav": "https://www.systeminforande.se/infrandekrav-1"
       },
       "subquestions": [
         {
@@ -17,7 +17,7 @@
             "Syfte": "Att säkerställa att samtliga införandekrav beaktas så att inget faller mellan stolarna.",
             "Beskrivning": "Införandekrav beskriver vilka krav som ställs på verksamhet, teknik, drift och organisation vid införandet av ett nytt eller förnyat IT-system. De kompletterar funktionella och icke-funktionella krav genom att även fånga indirekta krav som är relaterade till systeminförandet.",
             "Resultat": "Tydliga och välformulerade införandekrav minskar risken för krångel, förseningar och onödiga merkostnader.",
-            "Källa": "https://www.systeminforande.se/infrandekrav-1"
+            "Mer om införandekrav": "https://www.systeminforande.se/infrandekrav-1"
           }
         },
         {
@@ -118,7 +118,7 @@
                 "Innehåll": "Mallen är tänkt att vara ett stöd till att införandekraven beaktas."
               }
             ],
-            "Källa": "https://www.systeminforande.se/checklistor-och-mallar-till-verktyget-1"
+            "Kravmallen hittar du överst i \"Mall för införandekrav\"": "https://www.systeminforande.se/checklistor-och-mallar-till-verktyget-1"
           }
         }
       ]
@@ -130,7 +130,7 @@
       "main_answer": {
         "Område": "Implementering",
         "Beskrivning": "På vilket sätt bör implementeringen planeras och följas upp?\n\nVi har strukturerat arbetet i olika arbetsområden och aktiviteter som kräver olika kompetenser. Implementeringen genomförs i etapperna: riktlinjer, acceptanstest, driftförberedelser, provdrift och driftsättning.",
-        "Källa": "https://www.systeminforande.se/implementering2"
+        "Mer om implementering": "https://www.systeminforande.se/implementering2"
       },
       "subquestions": [
         {
@@ -140,7 +140,7 @@
             "Syfte": "Att klarlägga hur införandet ska planeras, genomföras och följas upp för att säkerställa att lösningen integreras i verksamheten på ett effektivt och hållbart sätt.",
             "Beskrivning": "Implementeringen delas upp i arbetsområden som kräver olika kompetenser. Dessa kan vara systemrelaterade, verksamhetsrelaterade samt teknik- och driftrelaterade.",
             "Resultat": "Arbetet identifierar nödvändiga aktiviteter, ansvar och uppföljningsmetoder så att införandet når önskade effekter och skapar långsiktigt värde.",
-            "Källa": "https://www.systeminforande.se/implementering2"
+            "Mer om implementering": "https://www.systeminforande.se/implementering2"
           }
         },
         {
@@ -214,7 +214,7 @@
                 "Övergripande beskrivning": "Fastställ vilka förvaltningsobjekt som ska förvaltas samt godkänn och avsluta överlämnandet."
               }
             ],
-            "Källa": "https://www.systeminforande.se/verktyg"
+            "Läs mer om \"Arbetsområden\" under Verktyget - Hjälpdokument": "https://www.systeminforande.se/verktyg"
           }
         },
         {
@@ -227,9 +227,7 @@
               "Aktivitet": "Planering",
               "Inriktning": [
                 "Koordinering",
-                "System",
-                "Verksamhet",
-                "Teknik & drift"
+                "Verksamhet"
               ],
               "Beskrivning": [
                 "Fastställ kriterier för godkännande av testen.",
@@ -250,7 +248,7 @@
                 "Utbildning för testarna förberedd"
               ]
             },
-            "Källa": "https://www.systeminforande.se/verktyg"
+            "Läs mer om \"Aktiviteter\" under Verktyget - Hjälpdokument": "https://www.systeminforande.se/verktyg"
           }
         },
         {
@@ -301,7 +299,7 @@
                 "Mål": "Det nya systemet eller systemversionen är driftsatt på samtliga enheter och förvaltningsorganisationen tar över ansvaret. Införandeprojektet avvecklas."
               }
             ],
-            "Källa": "https://www.systeminforande.se/verktyg"
+            "Läs mer om \"Etapper\" under Verktyget - Hjälpdokument": "https://www.systeminforande.se/verktyg"
           }
         },
         {
@@ -317,19 +315,19 @@
               "Projektindelning"
             ],
             "Resultat": "Planen ger en gemensam struktur för styrning, ansvarsfördelning och uppföljning.",
-            "Källa": "https://www.systeminforande.se/verktyg"
+            "\"Grov plan\" hittar du under Verktyget - Hjälpdokument": "https://www.systeminforande.se/verktyg"
           }
         }
       ]
     },
     {
       "id": "arbetssatt",
-      "title": "Arbetssätt",
+      "title": "Införandeprocess & Arbetsmodell",
       "main_question": "På vilket sätt ska implementeringen genomföras och styras?",
       "main_answer": {
-        "Område": "Arbetssätt",
+        "Område": "Införandeprocess & Arbetsmodell",
         "Beskrivning": "På vilket sätt ska implementeringen genomföras och styras?\n\nVi har utvecklat en införandeprocess som beskriver arbetsgången och omfattar ledningsprocess, huvudprocess och stödprocesser, som tillsammans med en arbetsmodell och en projektstyrningsmodell som stödjer processen.\n\nInförandeprocessen, arbetsmodellen och projektstyrningsmodellen kan anpassas utifrån den aktuella situationen.",
-        "Källa": "https://www.systeminforande.se/arbetsmodell"
+        "Mer om införandeprocessen och arbetsmodellen": "https://www.systeminforande.se/arbetsmodell"
       },
       "subquestions": [
         {
@@ -339,7 +337,7 @@
             "Syfte": "Att tydliggöra hur implementeringen ska genomföras och beskriva den arbetsgång som krävs för att styra införandeprojektet.",
             "Beskrivning": "Införandeprocessen fungerar som ett stöd genom att klargöra vad som ska göras, hur arbetet ska bedrivas och hur ansvar och roller ska fördelas.",
             "Resultat": "En gemensam och anpassningsbar struktur för ledning, huvudprocess och stödprocesser.",
-            "Källa": "https://www.systeminforande.se/arbetsmodell"
+            "Mer om införandeprocessen": "https://www.systeminforande.se/arbetsmodell"
           }
         },
         {
@@ -349,7 +347,7 @@
             "Syfte": "Att fungera som stöd i införandeprocessen och beskriva det arbetssätt som krävs för att genomföra implementeringen.",
             "Beskrivning": "Arbetsmodellen beskriver på aktivitetsnivå hur arbetet ska bedrivas och hur införandeprojektet ska styras strukturerat.",
             "Resultat": "Tydligare arbetsgång och bättre styrning av genomförandet.",
-            "Källa": "https://www.systeminforande.se/arbetsmodell"
+            "Mer om arbetsmodellen": "https://www.systeminforande.se/arbetsmodell"
           }
         },
         {
@@ -370,7 +368,8 @@
               "Provdrift",
               "Driftsättning"
             ],
-            "Resultat": "Ett kontrollerat genomförande med tydliga beslutspunkter, etapper och aktiviteter."
+            "Resultat": "Ett kontrollerat genomförande med tydliga beslutspunkter, etapper och aktiviteter.",
+            "Projektstyrningsmodellen hittar du i \"Projektstyrning\" under Verktyget - Hjälpdokument": "https://www.systeminforande.se/verktyg"
           }
         },
         {
@@ -379,7 +378,7 @@
           "answer": {
             "Beskrivning": "Det finns mallar som är anpassade både för projektets genomförande och för etappresultat som ska tas fram.",
             "Resultat": "Mallarna skapar enhetlighet, kvalitet och stöd för styrning och dokumentation.",
-            "Källa": "https://www.systeminforande.se/checklistor-och-mallar-till-verktyget-1"
+            "Alla mallar hittar du här de är indelade i olika områden": "https://www.systeminforande.se/checklistor-och-mallar-till-verktyget-1"
           }
         }
       ]
@@ -390,7 +389,8 @@
       "main_question": "Hur bör ett införandeprojekt styras för att nå önskat resultat?",
       "main_answer": {
         "Område": "Projektstyrning",
-        "Beskrivning": "Hur bör ett införandeprojekt styras för att nå önskat resultat?\n\nSyftet är att få vägledning i hur införandeprojekt kan planeras, ledas och följas upp på ett strukturerat och kontrollerat sätt. Detta innebär att beakta projektstyrningsmodellen, planering och uppföljning, projektorganisation, beslutspunkter, kvalitetssäkring, ändringshantering samt ett välorganiserat projektbibliotek."
+        "Beskrivning": "Hur bör ett införandeprojekt styras för att nå önskat resultat?\n\nSyftet är att få vägledning i hur införandeprojekt kan planeras, ledas och följas upp på ett strukturerat och kontrollerat sätt. Detta innebär att beakta projektstyrningsmodellen, planering och uppföljning, projektorganisation, beslutspunkter, kvalitetssäkring, ändringshantering samt ett välorganiserat projektbibliotek.",
+        "Läs mer om \"Projektstyrning\" under Verktyget - Hjälpdokument": "https://www.systeminforande.se/verktyg"
       },
       "subquestions": [
         {
@@ -406,7 +406,8 @@
               "Provdrift",
               "Driftsättning"
             ],
-            "Resultat": "Strukturerat och kontrollerat genomförande."
+            "Resultat": "Strukturerat och kontrollerat genomförande.",
+            "Projektstyrningsmodellen hittar du i \"Projektstyrning\" under Verktyget - Hjälpdokument": "https://www.systeminforande.se/verktyg"
           }
         },
         {
@@ -423,7 +424,8 @@
               "Kvalitetsgranskningar",
               "Möten"
             ],
-            "Resultat": "Bättre styrning, transparens och möjlighet att korrigera avvikelser tidigt."
+            "Resultat": "Bättre styrning, transparens och möjlighet att korrigera avvikelser tidigt.",
+            "Mer om planering och uppföljning hittar du i \"Projektstyrning\" under Verktyget - Hjälpdokument": "https://www.systeminforande.se/verktyg"
           }
         },
         {
@@ -432,7 +434,8 @@
           "answer": {
             "Syfte": "Att skapa en tillfällig struktur som är frikopplad från linjeorganisationen och anpassad efter projektets behov.",
             "Beskrivning": "Projektmedlemmarna ingår i projektet under en avgränsad tidsperiod och bidrar med sin kompetens utifrån projektets behov. Projekt kan organiseras på flera olika sätt.",
-            "Resultat": "Tydliga roller, ansvar och bemanning för införandeprojektet."
+            "Resultat": "Tydliga roller, ansvar och bemanning för införandeprojektet.",
+            "Mer om projektorganisation hittar du i \"Projektstyrning\" under Verktyget - Hjälpdokument": "https://www.systeminforande.se/verktyg"
           }
         },
         {
@@ -442,7 +445,8 @@
             "Syfte": "Att kunna kontrollera och styra projektet.",
             "Beskrivning": "Projektet indelas i projektfaser och, under införandefasen, i etapper, milstolpar och aktiviteter som startas och avslutas i beslutspunkter. Besluten ska bygga på dokumenterade resultat.",
             "Ansvar": "Under startfasen överlåter beställaren eller uppdragsgivaren de överordnade besluten till projektets styrgrupp. Styrgruppen fattar därefter överordnade beslut under införandefasen fram till avslut. Det slutliga godkännandet tas av beställaren eller uppdragsgivaren.",
-            "Resultat": "Projektets ansvariga kan kontrollera och styra projektets fortskridande på olika nivåer."
+            "Resultat": "Projektets ansvariga kan kontrollera och styra projektets fortskridande på olika nivåer.",
+            "Mer om beslutspunkter hittar du i \"Projektstyrning\" under Verktyget - Hjälpdokument": "https://www.systeminforande.se/verktyg"
           }
         },
         {
@@ -453,7 +457,8 @@
             "Beskrivning": "Kvalitetssäkring ska vara ett stöd för projektet, inte ett hot. Granskning kan göras av personer utanför projektet eller inom arbetsgruppen av någon som inte producerat resultatet.",
             "Genomförande": "Granskning sker vid viktiga tidpunkter, exempelvis i slutet av varje etapp i införandefasen. De som granskar bör ha insyn i verksamheten, projektarbete och de modeller eller metoder som används.",
             "Provdrift": "För att säkerställa att systemet uppfyller ställda krav och fungerar tillfredsställande i verksamheten och i driftliknande miljö bör provdrift genomföras före driftsättning. I provdriften verifieras även utbildning, dokumentation och konvertering.",
-            "Resultat": "Förslag till åtgärder som leder till bättre projektgenomförande och högre kvalitet i resultatet."
+            "Resultat": "Förslag till åtgärder som leder till bättre projektgenomförande och högre kvalitet i resultatet.",
+            "Mer om kvalitetssäkring hittar du i \"Projektstyrning\" under Verktyget - Hjälpdokument": "https://www.systeminforande.se/verktyg"
           }
         },
         {
@@ -463,7 +468,8 @@
             "Syfte": "Att beskriva hur nya och förändrade krav ska hanteras.",
             "Beskrivning": "En vanlig orsak till att projekt inte håller tidsplaner är att projektet inte gör det som står i projektbeskrivningen. Nya och förändrade krav kan därför orsaka förseningar om de inte hanteras kontrollerat.",
             "Beslut": "Beslut om nya eller förändrade krav som påverkar planeringen tas av beställaren, styrgruppen eller projektledaren beroende på hur ändringshanteringen har utformats i projektbeskrivningen.",
-            "Resultat": "Kontrollerad hantering av ändringar och minskad risk för oplanerade förseningar."
+            "Resultat": "Kontrollerad hantering av ändringar och minskad risk för oplanerade förseningar.",
+            "Mer om ändringshantering hittar du i \"Projektstyrning\" under Verktyget - Hjälpdokument": "https://www.systeminforande.se/verktyg"
           }
         },
         {
@@ -472,7 +478,8 @@
           "answer": {
             "Syfte": "Att ha en struktur för hur material som arbetsresultat, filer och dokument rörande införandeprojektet ska lagras under projektets gång.",
             "Beskrivning": "När projektet avslutas rensas projektbiblioteket på material som inte är relevant för kommande projekt. Material som rör förvaltningsobjekt överlämnas till förvaltningen och material som är intressant för kommande projekt flyttas till en historikkatalog.",
-            "Resultat": "Ordning, spårbarhet och effektiv överlämning till förvaltning och framtida projekt."
+            "Resultat": "Ordning, spårbarhet och effektiv överlämning till förvaltning och framtida projekt.",
+            "Mer om projektbibliotek hittar du i \"Projektstyrning\" under Verktyget - Hjälpdokument": "https://www.systeminforande.se/verktyg"
           }
         }
       ]
