@@ -504,6 +504,17 @@ def clear_all():
 def clear_chatbot():
     return "", ""
 
+
+def reset_tab_state():
+    return (
+        gr.update(choices=[], value=None),
+        "",
+        None,
+        "",
+        "",
+        *build_main_card_updates(None),
+    )
+
 def format_pages(pages):
     if not pages:
         return ""
@@ -522,17 +533,14 @@ def format_pages(pages):
 def format_source_link(chunk: dict) -> str:
     source = chunk.get("source", "Okänd källa")
     source_type = chunk.get("source_type")
-    pages = chunk.get("pages")
 
     if source_type == "pdf":
-        page_info = format_pages(pages)
         encoded_source = quote(source)
         return (
             f"📄 "
             f"[{source}]("
             f"{GITHUB_PAGES_PDF_BASE_URL}/{encoded_source}"
             f")"
-            f"{' — ' + page_info if page_info else ''}"
         )
 
     if source_type == "web":
@@ -713,7 +721,6 @@ def handle_rag_query(query: str, debug: bool, llm_model: str):
 
     final_llm_answer = (
         llm_answer
-        + f"\n\n_Svarstid: {llm_elapsed:.2f} s_"
         + sources_md
         + llm_debug_md
     )
@@ -823,7 +830,7 @@ with gr.Blocks() as demo:
     current_doc = gr.State(None)
     
     with gr.Tabs() as tabs:
-        with gr.Tab("FAQ"):
+        with gr.Tab("FAQ") as faq_tab:
             gr.Markdown("<p class='tab-intro'>Välj ämnesområde och underfråga.</p>")
 
             with gr.Row(elem_classes="main-card-grid"):
@@ -856,7 +863,7 @@ with gr.Blocks() as demo:
                 elem_classes="answer-box"
             )
 
-        with gr.Tab("CHATTBOT"):
+        with gr.Tab("CHATTBOT") as chatbot_tab:
             message = gr.Textbox(
                 placeholder="Skriv en fritextfråga här om du vill söka i källmaterialet.",
                 lines=6,
@@ -866,7 +873,7 @@ with gr.Blocks() as demo:
             )
 
             with gr.Row():
-                send_btn = gr.Button("Skicka", elem_classes="send-btn")
+                send_btn = gr.Button("Sök", elem_classes="send-btn")
                 clear_btn = gr.Button("Rensa", elem_classes="send-btn")
                 debug_mode = gr.Checkbox(
                     label="Debug",
@@ -904,7 +911,7 @@ with gr.Blocks() as demo:
             outputs=[questions, faq_answer, current_doc, *card_outputs]
         )
 
-    questions.change(
+    questions.select(
         fn=select_and_submit,
         inputs=[questions, current_doc, debug_mode, llm_model],
         outputs=[faq_answer]
@@ -925,6 +932,16 @@ with gr.Blocks() as demo:
     clear_btn.click(
         fn=clear_chatbot,
         outputs=[message, chatbot_answer]
+    )
+
+    faq_tab.select(
+        fn=reset_tab_state,
+        outputs=[questions, faq_answer, current_doc, message, chatbot_answer, *card_outputs],
+    )
+
+    chatbot_tab.select(
+        fn=reset_tab_state,
+        outputs=[questions, faq_answer, current_doc, message, chatbot_answer, *card_outputs],
     )
 
     demo.load(
