@@ -580,7 +580,7 @@ def _simple_tokenize(text: str) -> set[str]:
 
 def _has_relevant_rag_support(search_debug: dict) -> tuple[bool, str]:
     top_results = search_debug.get("top_results", [])
-    query_terms = set(search_debug.get("query_terms", []))
+    query_terms = set(search_debug.get("expanded_query_terms") or search_debug.get("query_terms", []))
 
     if not top_results or not query_terms:
         return False, "Inga tydliga träffar hittades i materialet."

@@ -35,6 +35,9 @@ HEADER_FOOTER_LINES = {
     "utskriftsdatum",
 }
 
+WEB_MIN_CHUNK_LENGTH = 180
+WEB_TARGET_CHUNK_LENGTH = 900
+
 def ingest_all():
     """
     Publikt API för app.py.
@@ -131,6 +134,81 @@ def extract_web_page(url: str):
     text = soup.get_text("\n")
     lines = [l.strip() for l in text.splitlines() if l.strip()]
     return [(1, "\n".join(lines))]
+
+
+def _build_web_fallback_chunks(pages, source_name, source_ref):
+    chunks = []
+
+    for page_no, text in pages:
+        lines = [line.strip() for line in text.splitlines() if line.strip()]
+        if not lines:
+            continue
+
+        title = _pick_web_title(lines, source_ref)
+        content_lines = lines[1:] if lines and lines[0] == title else lines
+        blocks = _chunk_web_lines(content_lines)
+
+        for index, block in enumerate(blocks, start=1):
+            chunks.append(
+                {
+                    "id": f"{source_name}_web_{page_no}_{index}",
+                    "title": title,
+                    "section": f"web-{page_no}-{index}",
+                    "text": block,
+                    "pages": [page_no],
+                    "source": source_ref,
+                    "source_type": "web",
+                }
+            )
+
+    return chunks
+
+
+def _pick_web_title(lines, source_ref):
+    for line in lines[:6]:
+        if 3 <= len(line) <= 120 and not is_noise_line(line):
+            return line
+
+    path = urlparse(source_ref).path.strip("/")
+    return path or source_ref
+
+
+def _chunk_web_lines(lines):
+    blocks = []
+    current = []
+    current_len = 0
+
+    for line in lines:
+        if is_noise_line(line):
+            continue
+
+        current.append(line)
+        current_len += len(line) + 1
+
+        if current_len >= WEB_TARGET_CHUNK_LENGTH:
+            block = "\n".join(current).strip()
+            if _is_useful_web_chunk(block):
+                blocks.append(block)
+            current = []
+            current_len = 0
+
+    if current:
+        block = "\n".join(current).strip()
+        if _is_useful_web_chunk(block):
+            blocks.append(block)
+
+    return blocks
+
+
+def _is_useful_web_chunk(text):
+    text = text.strip()
+    if len(text) < WEB_MIN_CHUNK_LENGTH:
+        return False
+
+    if is_useful_chunk(text):
+        return True
+
+    return bool(re.search(r"\b(modell\w*|process\w*|inför\w*|implement\w*|projekt\w*|krav\w*|arbete\w*|stöd\w*)\b", text.lower()))
 
 
 # =========================
@@ -294,6 +372,12 @@ def ingest_pdfs_and_web():
                 source_type="web",
                 source_ref=url
             )
+            if not chunks:
+                chunks = _build_web_fallback_chunks(
+                    pages,
+                    source_name=domain,
+                    source_ref=url,
+                )
             all_chunks.extend(chunks)
 
     elapsed = time.perf_counter() - start

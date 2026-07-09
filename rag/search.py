@@ -15,10 +15,32 @@ STOPWORDS = {
     "utifrån", "finns", "används", "ingår", "vilka", "vilken", "då", "har",
     "eller", "utan", "också", "samt", "bara", "inte", "under", "över", "efter"
 }
+QUERY_SYNONYMS = {
+    "arbetsmodell": {
+        "införandemodell",
+        "inforandemodell",
+        "införandeprocess",
+        "inforandeprocess",
+        "projektstyrningsmodell",
+        "implementering",
+    },
+    "införandemodell": {
+        "arbetsmodell",
+        "införandeprocess",
+        "projektstyrningsmodell",
+    },
+    "inforandemodell": {
+        "arbetsmodell",
+        "inforandeprocess",
+        "projektstyrningsmodell",
+    },
+}
 TITLE_BOOST = 1.8
 DEFINITION_TITLE_BOOST = 1.5
 BM25_K1 = 1.5
 BM25_B = 0.75
+MIN_RESULT_SCORE = 1.5
+RELATIVE_SCORE_CUTOFF = 0.35
 DOMAIN_RULES = [
     {
         "when_any": {"arbetsområde", "arbetsområd"},
@@ -115,6 +137,24 @@ def classify_query_intent(query: str) -> str:
     if query_terms & {"när", "beslut", "fastställd", "driftsättning"}:
         return "timing_or_decision"
     return "general"
+
+
+def _expand_query_terms(query_terms: list[str]) -> list[str]:
+    expanded = []
+    seen = set()
+
+    for term in query_terms:
+        if term not in seen:
+            expanded.append(term)
+            seen.add(term)
+
+        for synonym in QUERY_SYNONYMS.get(term, set()):
+            normalized = _normalize_token(synonym)
+            if normalized and normalized not in STOPWORDS and len(normalized) > 2 and normalized not in seen:
+                expanded.append(normalized)
+                seen.add(normalized)
+
+    return expanded
 
 
 def _build_index():
@@ -284,29 +324,66 @@ def _score_document(query: str, query_terms: list[str], document: dict, index: d
     }
 
 
+def _matched_query_terms(query_terms: list[str], document: dict) -> set[str]:
+    document_terms = set(document["token_counts"]) | document["title_tokens"]
+    return {term for term in query_terms if term in document_terms}
+
+
+def _has_retrieval_support(
+    original_query_terms: list[str],
+    expanded_query_terms: list[str],
+    document: dict,
+) -> bool:
+    matched_original = _matched_query_terms(original_query_terms, document)
+    if matched_original:
+        return True
+
+    if len(original_query_terms) == 1:
+        matched_expanded = _matched_query_terms(expanded_query_terms, document)
+        return bool(matched_expanded)
+
+    return False
+
+
+def _prune_scored_results(scored: list[dict], top_k: int) -> list[dict]:
+    if not scored:
+        return []
+
+    top_score = scored[0]["score"]
+    cutoff = max(MIN_RESULT_SCORE, top_score * RELATIVE_SCORE_CUTOFF)
+    pruned = [item for item in scored if item["score"] >= cutoff]
+    return pruned[:top_k]
+
+
 def search(query: str, top_k: int = 5):
     index = _build_index()
     print(f"🔍 Search: laddade {index['doc_count']} chunkar")
     if not index["documents"]:
         return []
 
-    query_terms = _tokenize(query)
-    if not query_terms:
+    original_query_terms = _tokenize(query)
+    if not original_query_terms:
         return []
+    query_terms = _expand_query_terms(original_query_terms)
 
     scored = []
     for document in index["documents"]:
         score = _score_document(query, query_terms, document, index)["total"]
-        if score > 0:
-            scored.append((score, document["chunk"]))
+        if score <= 0:
+            continue
+        if not _has_retrieval_support(original_query_terms, query_terms, document):
+            continue
+        scored.append({"score": score, "chunk": document["chunk"]})
 
-    scored.sort(key=lambda item: item[0], reverse=True)
-    return scored[:top_k]
+    scored.sort(key=lambda item: item["score"], reverse=True)
+    pruned = _prune_scored_results(scored, top_k)
+    return [(item["score"], item["chunk"]) for item in pruned]
 
 
 def explain_search(query: str, top_k: int = 5) -> dict:
     index = _build_index()
-    query_terms = _tokenize(query)
+    original_query_terms = _tokenize(query)
+    query_terms = _expand_query_terms(original_query_terms)
     intent = classify_query_intent(query)
 
     scored = []
@@ -314,20 +391,24 @@ def explain_search(query: str, top_k: int = 5) -> dict:
         parts = _score_document(query, query_terms, document, index)
         if parts["total"] <= 0:
             continue
+        if not _has_retrieval_support(original_query_terms, query_terms, document):
+            continue
         scored.append(
             {
                 "score": parts["total"],
                 "parts": parts,
                 "chunk": document["chunk"],
+                "matched_terms": sorted(_matched_query_terms(query_terms, document)),
             }
         )
 
     scored.sort(key=lambda item: item["score"], reverse=True)
-    top = scored[:top_k]
+    top = _prune_scored_results(scored, top_k)
 
     return {
         "query": query,
-        "query_terms": query_terms,
+        "query_terms": original_query_terms,
+        "expanded_query_terms": query_terms,
         "intent": intent,
         "top_results": top,
     }
