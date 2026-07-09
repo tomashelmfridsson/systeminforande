@@ -2,7 +2,9 @@ import json
 import os
 import re
 import time
+from typing import Any
 from urllib.parse import quote
+from fastapi import HTTPException
 import gradio as gr
 import requests
 
@@ -254,6 +256,65 @@ def select_and_submit(message: str, doc_id, debug_mode, llm_model):
     for answer in submit(message, doc_id, debug_mode, llm_model):
         yield answer
 
+
+def answer_question(message, doc_id=None, debug_mode=False, llm_model=None) -> dict[str, Any]:
+    started_at = time.perf_counter()
+    raw_message = message or ""
+    message = raw_message.strip()
+
+    base_response = {
+        "question": raw_message,
+        "normalized_question": message,
+        "doc_id": doc_id,
+        "debug_mode": bool(debug_mode),
+        "llm_model": llm_model,
+        "route": None,
+        "answer_markdown": "",
+        "sources": [],
+        "retrieval": None,
+        "timing_ms": 0,
+    }
+
+    if not message:
+        base_response["timing_ms"] = round((time.perf_counter() - started_at) * 1000, 2)
+        return base_response
+
+    if doc_id and doc_id in DOC_INDEX:
+        doc = DOC_INDEX[doc_id]
+
+        for q in doc["subquestions"]:
+            if q["question"] == message:
+                fact_answer = format_answer(q["answer"])
+                source_results = search(f"{doc['title']} {message}", top_k=5)
+
+                if debug_mode:
+                    fact_answer += build_predefined_debug_md(
+                        question=message,
+                        reasoning="",
+                        source_results=source_results,
+                        llm_answer=None,
+                    )
+
+                base_response.update(
+                    {
+                        "route": "predefined",
+                        "answer_markdown": fact_answer,
+                        "sources": serialize_results(source_results),
+                        "retrieval": {
+                            "query": f"{doc['title']} {message}",
+                            "top_results": serialize_results(source_results),
+                        },
+                    }
+                )
+                base_response["timing_ms"] = round((time.perf_counter() - started_at) * 1000, 2)
+                return base_response
+
+    rag_response = build_rag_response(message, debug_mode, llm_model)
+    base_response.update(rag_response)
+    base_response["timing_ms"] = round((time.perf_counter() - started_at) * 1000, 2)
+    return base_response
+
+
 def submit(message, doc_id, debug_mode, llm_model):
     """
     Central router:
@@ -261,36 +322,8 @@ def submit(message, doc_id, debug_mode, llm_model):
     - Annars → RAG över PDF-material
     """
 
-    if not message:
-        yield ""
-        return
-
-    message = message.strip()
-    if not message:
-        yield ""
-        return
-
-    # 1️⃣ Försök matcha mot valt dokument (klassisk väg)
-    if doc_id and doc_id in DOC_INDEX:
-        doc = DOC_INDEX[doc_id]
-
-        for q in doc["subquestions"]:
-            if q["question"] == message:
-                fact_answer = format_answer(q["answer"])
-
-                if debug_mode:
-                    source_results = search(f"{doc['title']} {message}", top_k=5)
-                    fact_answer += build_predefined_debug_md(
-                        question=message,
-                        reasoning="",
-                        source_results=source_results,
-                        llm_answer=None,
-                    )
-                yield fact_answer
-                return
-    
-    # 2️⃣ Ingen match → RAG-fritext
-    yield from handle_rag_query(message, debug_mode, llm_model)
+    response = answer_question(message, doc_id, debug_mode, llm_model)
+    yield response["answer_markdown"]
 
 def format_answer(answer):
     return "\n".join(_format_answer_sections(answer)).strip()
@@ -549,6 +582,39 @@ def format_source_link(chunk: dict) -> str:
     return source
 
 
+def format_source_url(chunk: dict) -> str | None:
+    source = chunk.get("source")
+    source_type = chunk.get("source_type")
+
+    if not source:
+        return None
+
+    if source_type == "pdf":
+        return f"{GITHUB_PAGES_PDF_BASE_URL}/{quote(source)}"
+
+    if source_type == "web":
+        return source
+
+    return None
+
+
+def serialize_chunk(chunk: dict, score: float | None = None) -> dict[str, Any]:
+    payload = {
+        "source": chunk.get("source"),
+        "source_type": chunk.get("source_type"),
+        "title": chunk.get("title"),
+        "pages": chunk.get("pages"),
+        "url": format_source_url(chunk),
+    }
+    if score is not None:
+        payload["score"] = round(score, 4)
+    return payload
+
+
+def serialize_results(results) -> list[dict[str, Any]]:
+    return [serialize_chunk(chunk, score) for score, chunk in results]
+
+
 def _simple_tokenize(text: str) -> set[str]:
     tokens = set()
     for raw_token in re.findall(r"\w+", (text or "").lower()):
@@ -604,18 +670,29 @@ def _has_relevant_rag_support(search_debug: dict) -> tuple[bool, str]:
         return False, "För liten del av frågans nyckelord stöds av de högst rankade träffarna."
 
     return True, ""
-    
-def handle_rag_query(query: str, debug: bool, llm_model: str):
+
+
+def build_rag_response(query: str, debug: bool, llm_model: str | None) -> dict[str, Any]:
     results = search(query, top_k=5)
 
     if not results:
         no_data = "Det finns inget tillräckligt underlag i materialet för att besvara frågan."
-        yield no_data
-        return
+        return {
+            "route": "rag",
+            "answer_markdown": no_data,
+            "sources": [],
+            "retrieval": {
+                "query": query,
+                "query_terms": [],
+                "expanded_query_terms": [],
+                "intent": "general",
+                "top_results": [],
+                "relevance_supported": False,
+                "relevance_reason": "Inga tydliga träffar hittades i materialet.",
+                "confidence": 0,
+            },
+        }
 
-    # -----------------------------
-    # Confidence score
-    # -----------------------------
     scores = [score for score, _ in results]
     confidence = round(sum(scores) / len(scores), 2)
 
@@ -631,58 +708,28 @@ def handle_rag_query(query: str, debug: bool, llm_model: str):
                 f"**Query-termer:** `{', '.join(search_debug['query_terms'])}`\n"
                 f"**Diagnos:** {relevance_reason}"
             )
-        yield no_data
-        return
+        return {
+            "route": "rag",
+            "answer_markdown": no_data,
+            "sources": serialize_results(results),
+            "retrieval": {
+                "query": query,
+                "query_terms": search_debug["query_terms"],
+                "expanded_query_terms": search_debug["expanded_query_terms"],
+                "intent": search_debug["intent"],
+                "top_results": serialize_results(results),
+                "relevance_supported": False,
+                "relevance_reason": relevance_reason,
+                "confidence": confidence,
+            },
+        }
 
     chunks = [chunk for _, chunk in results]
     structured_answer = build_extractive_reasoning(query, chunks)
     llm_prompt = rag_prompt(query, chunks)
     sources_md = build_sources_md(results)
 
-    # -----------------------------
-    # Debug (valfritt)
-    # -----------------------------
-    model_debug_md = ""
-    if debug:
-        model_debug_lines = [
-            "\n\n---\n\n### Debug",
-            f"**Confidence:** {confidence}",
-            f"**Frågetyp:** {translate_intent(search_debug['intent'])}",
-            f"**Query-termer:** `{', '.join(search_debug['query_terms'])}`",
-            f"**Diagnos:** {diagnose_retrieval(structured_answer, search_debug)}",
-            ""
-        ]
-
-        for item in search_debug["top_results"]:
-            score = item["score"]
-            c = item["chunk"]
-            parts = item["parts"]
-            block = (
-                f"""**📄 Källa:** {c['source']}
-- **Typ:** {c.get('source_type')}
-- **Rubrik:** {c.get('title')}
-- **Sidor:** {c.get('pages')}
-- **Score:** `{round(score, 4)}`
-- **BM25:** `{parts['bm25']}`
-- **Titelboost:** `{parts['title_overlap']}`
-- **Definitionsboost:** `{parts['definition_boost']}`
-- **Domänboost:** `{parts['domain_boost']}`
-- **Intentboost:** `{parts['intent_boost']}`
-
-{c['text'][:500]}{'…' if len(c['text']) > 500 else ''}
----
-"""
-            )
-            model_debug_lines.append(block)
-
-        model_debug_md = "\n".join(model_debug_lines)
-
-    # -----------------------------
-    # Slutligt svar
-    # -----------------------------
-    llm_start = time.perf_counter()
     llm_answer = safe_generate_reasoning_from_prompt_with_model(llm_prompt, llm_model)
-    llm_elapsed = time.perf_counter() - llm_start
     llm_debug_md = ""
     if debug:
         llm_debug_lines = [
@@ -724,7 +771,27 @@ def handle_rag_query(query: str, debug: bool, llm_model: str):
         + sources_md
         + llm_debug_md
     )
-    yield final_llm_answer
+    return {
+        "route": "rag",
+        "answer_markdown": final_llm_answer,
+        "sources": serialize_results(results),
+        "retrieval": {
+            "query": query,
+            "query_terms": search_debug["query_terms"],
+            "expanded_query_terms": search_debug["expanded_query_terms"],
+            "intent": search_debug["intent"],
+            "top_results": serialize_results(results),
+            "relevance_supported": True,
+            "relevance_reason": "",
+            "confidence": confidence,
+            "diagnosis": diagnose_retrieval(structured_answer, search_debug),
+            "llm_status": diagnose_llm_status(llm_answer),
+        },
+    }
+
+
+def handle_rag_query(query: str, debug: bool, llm_model: str):
+    yield build_rag_response(query, debug, llm_model)["answer_markdown"]
 
 
 def translate_intent(intent: str) -> str:
@@ -960,6 +1027,29 @@ def health():
 @demo.app.get("/ready")
 def ready():
     return {"status": "ok", "revision": DEPLOY_REVISION}
+
+
+@demo.app.post("/api/ask")
+def api_ask(payload: dict[str, Any]):
+    question = payload.get("question")
+    if not isinstance(question, str) or not question.strip():
+        raise HTTPException(status_code=400, detail="question måste vara en icke-tom sträng")
+
+    doc_id = payload.get("doc_id")
+    if doc_id is not None and not isinstance(doc_id, str):
+        raise HTTPException(status_code=400, detail="doc_id måste vara en sträng om det anges")
+
+    debug_mode = bool(payload.get("debug_mode", False))
+    llm_model = payload.get("llm_model")
+    if llm_model is not None and not isinstance(llm_model, str):
+        raise HTTPException(status_code=400, detail="llm_model måste vara en sträng om det anges")
+
+    return answer_question(
+        message=question,
+        doc_id=doc_id,
+        debug_mode=debug_mode,
+        llm_model=llm_model,
+    )
 
 # =====================================================
 # LAUNCH
