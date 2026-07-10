@@ -10,7 +10,7 @@ from gradio_client import Client
 
 BASE_URL = os.getenv("SYSTEMINFORANDE_BASE_URL", "https://helmfridsson-systeminforande.hf.space").rstrip("/")
 TIMEOUT_SECONDS = float(os.getenv("SYSTEMINFORANDE_API_TIMEOUT", "60"))
-DEFAULT_MODEL = os.getenv("SYSTEMINFORANDE_LLM_MODEL", "openai/gpt-oss-120b")
+DEFAULT_MODEL = os.getenv("SYSTEMINFORANDE_LLM_MODEL", "zai-org/GLM-5.2")
 SCENARIO_PATH = Path(__file__).parent / "data" / "live_api_scenarios.json"
 
 

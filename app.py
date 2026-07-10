@@ -90,9 +90,9 @@ DOC_INDEX = {d["id"]: d for d in DOCUMENTS}
 HF_MODELS_ENDPOINT = "https://router.huggingface.co/v1/models"
 FALLBACK_LLM_MODELS = [
     {
-        "id": "google/gemma-2-2b-it",
-        "label": "Gemma 2 2B IT",
-        "description": "Liten instruktionsmodell, sannolikt snabbare.",
+        "id": "zai-org/GLM-5.2",
+        "label": "GLM 5.2",
+        "description": "Ny standardmodell med lång kontext och stark generell kvalitet.",
     },
     {
         "id": "deepseek-ai/DeepSeek-R1",
@@ -110,9 +110,9 @@ FALLBACK_LLM_MODELS = [
         "description": "Stark generell textmodell.",
     },
     {
-        "id": "Qwen/Qwen3-4B-Thinking-2507",
-        "label": "Qwen3 4B Thinking",
-        "description": "Liten resonemangsmodell.",
+        "id": "Qwen/Qwen3-32B",
+        "label": "Qwen3 32B",
+        "description": "Stark flerspråkig modell med bra alternativ för svensk syntes.",
     },
 ]
 FALLBACK_MODEL_DESCRIPTIONS = {
@@ -208,7 +208,7 @@ def load_llm_model_options() -> list[tuple[str, str]]:
 
 
 LLM_MODEL_OPTIONS = load_llm_model_options()
-PREFERRED_LLM_MODEL = "openai/gpt-oss-120b"
+PREFERRED_LLM_MODEL = "zai-org/GLM-5.2"
 DEFAULT_LLM_MODEL = (
     PREFERRED_LLM_MODEL
     if any(choice[1] == PREFERRED_LLM_MODEL for choice in LLM_MODEL_OPTIONS)
