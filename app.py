@@ -616,8 +616,18 @@ def serialize_results(results) -> list[dict[str, Any]]:
 
 
 def _simple_tokenize(text: str) -> set[str]:
+    def _ascii_fold(value: str) -> str:
+        return (
+            value.replace("å", "a")
+            .replace("ä", "a")
+            .replace("ö", "o")
+            .replace("Å", "A")
+            .replace("Ä", "A")
+            .replace("Ö", "O")
+        )
+
     tokens = set()
-    for raw_token in re.findall(r"\w+", (text or "").lower()):
+    for raw_token in re.findall(r"\w+", _ascii_fold((text or "").lower())):
         token = raw_token
         if token.endswith("erna") and len(token) > 6:
             token = token[:-1]
@@ -646,9 +656,14 @@ def _simple_tokenize(text: str) -> set[str]:
 
 def _has_relevant_rag_support(search_debug: dict) -> tuple[bool, str]:
     top_results = search_debug.get("top_results", [])
-    query_terms = set(search_debug.get("expanded_query_terms") or search_debug.get("query_terms", []))
+    original_query_terms = {
+        term
+        for term in (search_debug.get("query_terms") or [])
+        if len(term) >= 4 and term not in {"maste", "onskat"}
+    }
+    expanded_query_terms = set(search_debug.get("expanded_query_terms") or original_query_terms)
 
-    if not top_results or not query_terms:
+    if not top_results or not (original_query_terms or expanded_query_terms):
         return False, "Inga tydliga träffar hittades i materialet."
 
     top_score = top_results[0]["score"]
@@ -660,13 +675,22 @@ def _has_relevant_rag_support(search_debug: dict) -> tuple[bool, str]:
         chunk = item["chunk"]
         combined_tokens |= _simple_tokenize(chunk.get("title", ""))
         combined_tokens |= _simple_tokenize(chunk.get("text", ""))
+        combined_tokens |= _simple_tokenize(chunk.get("source", ""))
 
-    matched_terms = query_terms & combined_tokens
-    if not matched_terms:
+    matched_original_terms = original_query_terms & combined_tokens
+    if matched_original_terms:
+        coverage = len(matched_original_terms) / max(len(original_query_terms), 1)
+        if coverage >= 0.34 or len(matched_original_terms) >= 2 or top_score >= 10:
+            return True, ""
+
+    matched_expanded_terms = expanded_query_terms & combined_tokens
+    if not matched_expanded_terms:
         return False, "Frågans nyckelord återfinns inte i de högst rankade träffarna."
 
-    coverage = len(matched_terms) / len(query_terms)
-    if len(query_terms) >= 3 and coverage < 0.34:
+    expanded_coverage = len(matched_expanded_terms) / max(len(expanded_query_terms), 1)
+    if top_score >= 14 and matched_expanded_terms:
+        return True, ""
+    if len(expanded_query_terms) >= 3 and expanded_coverage < 0.2:
         return False, "För liten del av frågans nyckelord stöds av de högst rankade träffarna."
 
     return True, ""
@@ -676,7 +700,7 @@ def build_rag_response(query: str, debug: bool, llm_model: str | None) -> dict[s
     results = search(query, top_k=5)
 
     if not results:
-        no_data = "Det finns inget tillräckligt underlag i materialet för att besvara frågan."
+        no_data = "Det finns inte tillräckligt underlag i materialet för att besvara frågan."
         return {
             "route": "rag",
             "answer_markdown": no_data,
