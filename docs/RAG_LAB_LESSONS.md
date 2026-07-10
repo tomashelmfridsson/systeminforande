@@ -1,5 +1,17 @@
 # RAG Lab Lessons
 
+**Författare**
+Tomas Helmfridsson och OpenAI Codex
+
+**Datum**
+2026-07-10
+
+**Framtagning**
+Detta dokument är framtaget med AI-assisterat stöd. Struktur, analys, testobservationer och textbearbetning har tagits fram i samarbete mellan människa och AI.
+
+**Publik länk till chatboten**
+https://www.systeminforande.se/chatt-bot
+
 Detta dokument sammanfattar labben bakom chatboten för systeminförande. Fokus ligger på hur vi gick från ett antal PDF-filer till en sökbar applikation med både modellfri syntes och LLM-baserade svar, vilka tekniska val som gjordes och vad vi lärde oss av dem.
 
 Syftet med dokumentet är inte bara att beskriva slutresultatet, utan att förklara själva RAG-resan:
@@ -9,6 +21,31 @@ Syftet med dokumentet är inte bara att beskriva slutresultatet, utan att förkl
 - hur retrieval fungerar
 - vad som skiljer modellfri syntes från LLM-generering
 - vilka förbättringar vi har testat och varför
+
+## Innehållsförteckning
+
+1. Målbild
+2. Övergripande arkitektur
+3. Vad RAG betyder i denna lösning
+4. Varför Hugging Face och Gradio valdes
+5. Från PDF till sökbart index
+6. Chunkning
+7. Retrieval
+8. BM25
+9. Tokenisering, normalisering och stopwords
+10. Heuristiker och boostar
+11. Query intent
+12. Temperaturspåret och vad det faktiskt påverkade
+13. Alternativ till BM25
+14. Strukturerad modellfri syntes
+15. LLM-baserad syntes
+16. Modellval och praktiska LLM-erfarenheter
+17. Källor och transparens
+18. Deployment och drift
+19. Viktigaste lärdomar
+20. Nästa rimliga förbättringar
+21. Sammanfattning
+22. När vi upptäckte att RAG:en inte höll måttet
 
 ## 1. Målbild
 
