@@ -1,1 +1,2 @@
 pytest>=8.0,<9.0
+gradio-client==2.5.0

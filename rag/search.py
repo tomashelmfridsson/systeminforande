@@ -5,6 +5,7 @@ import math
 import os
 import re
 from collections import Counter
+from pathlib import Path
 
 
 DATA_DIR = "rag/data"
@@ -13,29 +14,72 @@ STOPWORDS = {
     "vad", "är", "hur", "ska", "kan", "det", "de", "den", "och", "att", "som",
     "för", "från", "med", "till", "om", "i", "på", "av", "en", "ett", "vid",
     "utifrån", "finns", "används", "ingår", "vilka", "vilken", "då", "har",
-    "eller", "utan", "också", "samt", "bara", "inte", "under", "över", "efter"
+    "eller", "utan", "också", "samt", "bara", "inte", "under", "över", "efter",
+    "bör", "sätt", "vilket",
+}
+CANONICAL_TERM_MAP = {
+    "arbetsomrade": "arbetsomrade",
+    "arbetsomraden": "arbetsomrade",
+    "arbetsomraden": "arbetsomrade",
+    "acceptans": "acceptanstest",
+    "acceptanstest": "acceptanstest",
+    "acceptanstesten": "acceptanstest",
+    "acceptanstester": "acceptanstest",
+    "acceptenstest": "acceptanstest",
+    "acceptanstes": "acceptanstest",
+    "acceptanstst": "acceptanstest",
+    "leveransgodkannande": "leveransgodkannande",
+    "godkannande": "leveransgodkannande",
+    "inforande": "inforande",
+    "inforandet": "inforande",
+    "implementering": "implementering",
+    "implementationen": "implementering",
+    "implmentering": "implementering",
+    "planering": "planering",
+    "planeras": "planering",
+    "uppfoljning": "uppfoljning",
+    "foljas": "uppfoljning",
+    "verifiering": "verifiering",
+    "testplan": "testplan",
+    "testpla": "testplan",
 }
 QUERY_SYNONYMS = {
     "arbetsmodell": {
-        "införandemodell",
         "inforandemodell",
-        "införandeprocess",
         "inforandeprocess",
         "projektstyrningsmodell",
         "implementering",
-    },
-    "införandemodell": {
-        "arbetsmodell",
-        "införandeprocess",
-        "projektstyrningsmodell",
     },
     "inforandemodell": {
         "arbetsmodell",
         "inforandeprocess",
         "projektstyrningsmodell",
     },
+    "acceptanstest": {
+        "testplan",
+        "testrapport",
+        "leveransgodkannande",
+        "verifiering",
+        "godkannande",
+    },
+    "arbetsomrade": {
+        "arbetsomraden",
+        "checklista",
+        "aktivitet",
+        "planering",
+    },
+    "implementering": {
+        "inforande",
+        "planering",
+        "uppfoljning",
+        "verifiering",
+        "konvertering",
+        "acceptanstest",
+    },
 }
 TITLE_BOOST = 1.8
+SOURCE_BOOST = 2.2
+FAMILY_BOOST = 3.5
 DEFINITION_TITLE_BOOST = 1.5
 BM25_K1 = 1.5
 BM25_B = 0.75
@@ -43,21 +87,21 @@ MIN_RESULT_SCORE = 1.5
 RELATIVE_SCORE_CUTOFF = 0.35
 DOMAIN_RULES = [
     {
-        "when_any": {"arbetsområde", "arbetsområd"},
+        "when_any": {"arbetsomrade"},
         "source_any": {"checklista_arbetsomraden.pdf"},
-        "title_any": {"arbetsområd", "modell", "kompetens", "systembyte"},
+        "title_any": {"arbetsomrade", "modell", "kompetens", "systembyte"},
         "boost": 6.0,
         "require_source_for_generic_titles": True,
     },
     {
-        "when_any": {"införandekrav", "införandekravet", "kravområde", "kravområd"},
+        "when_any": {"inforandekrav", "kravomrade"},
         "source_any": {"checklista_inforandekrav.pdf"},
-        "title_any": {"införandekrav", "kravtyp", "kravområd", "modell", "kompetens"},
+        "title_any": {"inforandekrav", "kravtyp", "kravomrade", "modell", "kompetens"},
         "boost": 6.0,
         "require_source_for_generic_titles": True,
     },
     {
-        "when_any": {"fas", "faser", "etapp", "etapper", "aktivitet", "aktivitete"},
+        "when_any": {"fas", "etapp", "aktivitet"},
         "source_any": {"checklista_arbetsomraden.pdf", "checklista_inforandekrav.pdf"},
         "title_any": {"fas", "etapp", "aktivitet", "inledning"},
         "boost": 4.5,
@@ -69,9 +113,43 @@ DOMAIN_RULES = [
         "title_any": {"plan", "planering", "genomförande"},
         "boost": 3.5,
     },
+    {
+        "when_any": {"acceptanstest", "leveransgodkannande", "testplan", "testrapport"},
+        "source_any": {
+            "210_acceptanstest_testplan.pdf",
+            "211_acceptanstest_testrapport.pdf",
+            "220_acceptanstest_delprojektplan.pdf",
+            "221_acceptanstest_testoversikt.pdf",
+            "222_acceptanstest_testplan.pdf",
+            "223_acceptanstest_korningsschema.pdf",
+            "224_acceptanstest_presentation.pdf",
+            "225_acceptanstest_praktiskt_om_prestandatester.pdf",
+            "226_acceptanstest_checklista_icke_funktionella_krav_batch.pdf",
+            "227_acceptanstest_checklista_icke_funktionella_krav_online.pdf",
+            "230_acceptanstest_projektstatusrapport.pdf",
+            "231_acceptanstest_krav_leveransgodkannande.pdf",
+            "checklista_arbetsomraden.pdf",
+            "checklista_inforandekrav.pdf",
+        },
+        "title_any": {"acceptanstest", "testplan", "testrapport", "leveransgodkannande"},
+        "boost": 7.0,
+    },
+    {
+        "when_any": {"implementering", "inforande", "planering", "uppfoljning", "verifiering", "konvertering"},
+        "source_any": {
+            "102_projektbeskrivning.pdf",
+            "112_projektbeskrivning.pdf",
+            "210_acceptanstest_testplan.pdf",
+            "350_konvertering_strategi.pdf",
+            "354_konvertering_verifiering_kontroller.pdf",
+        },
+        "title_any": {"planering", "uppfoljning", "strategi", "verifiering", "genomforande"},
+        "boost": 4.5,
+    },
 ]
 OVERVIEW_SECTION_BOOST = 4.0
 DETAIL_SECTION_PENALTY = 1.5
+WEB_RESULT_PENALTY = 5.0
 
 _CHUNKS_CACHE = None
 _INDEX_CACHE = None
@@ -92,17 +170,28 @@ def load_chunks():
 
 
 def _tokenize(text: str) -> list[str]:
-    raw_tokens = re.findall(r"\w+", text.lower())
+    raw_tokens = re.findall(r"\w+", _ascii_fold(text.lower()))
     tokens = []
     for token in raw_tokens:
         normalized = _normalize_token(token)
-        if normalized and normalized not in STOPWORDS and len(normalized) > 2:
+        if normalized and normalized not in NORMALIZED_STOPWORDS and len(normalized) > 2:
             tokens.append(normalized)
     return tokens
 
 
+def _ascii_fold(text: str) -> str:
+    return (
+        text.replace("å", "a")
+        .replace("ä", "a")
+        .replace("ö", "o")
+        .replace("Å", "A")
+        .replace("Ä", "A")
+        .replace("Ö", "O")
+    )
+
+
 def _normalize_token(token: str) -> str:
-    token = token.lower()
+    token = _ascii_fold(token.lower())
     if token.endswith("erna") and len(token) > 6:
         token = token[:-1]
     elif token.endswith("arna") and len(token) > 6:
@@ -117,7 +206,34 @@ def _normalize_token(token: str) -> str:
         token = token[:-2]
     elif token.endswith("n") and len(token) > 5:
         token = token[:-1]
-    return token
+    return CANONICAL_TERM_MAP.get(token, token)
+
+
+NORMALIZED_STOPWORDS = {_normalize_token(word) for word in STOPWORDS}
+
+
+def _extract_source_tokens(source: str) -> list[str]:
+    stem = Path(source).stem
+    return _tokenize(re.sub(r"[_-]+", " ", stem))
+
+
+def _document_family(source_tokens: list[str]) -> str:
+    families = {
+        "acceptanstest",
+        "konvertering",
+        "utbildning",
+        "dokumentation",
+        "omlaggning",
+        "provdrift",
+        "driftsattning",
+        "projekt",
+        "arbetsomrade",
+        "inforandekrav",
+    }
+    for token in source_tokens:
+        if token in families:
+            return token
+    return ""
 
 
 def classify_query_intent(query: str) -> str:
@@ -134,7 +250,7 @@ def classify_query_intent(query: str) -> str:
         return "list"
     if query_lower.startswith("hur"):
         return "process"
-    if query_terms & {"när", "beslut", "fastställd", "driftsättning"}:
+    if query_terms & {"nar", "beslut", "faststalld", "driftsattning"}:
         return "timing_or_decision"
     return "general"
 
@@ -157,6 +273,63 @@ def _expand_query_terms(query_terms: list[str]) -> list[str]:
     return expanded
 
 
+def _edit_distance_at_most(a: str, b: str, max_distance: int) -> bool:
+    if a == b:
+        return True
+    if abs(len(a) - len(b)) > max_distance:
+        return False
+
+    previous = list(range(len(b) + 1))
+    for i, char_a in enumerate(a, start=1):
+        current = [i]
+        row_min = current[0]
+        for j, char_b in enumerate(b, start=1):
+            substitution_cost = 0 if char_a == char_b else 1
+            value = min(
+                previous[j] + 1,
+                current[j - 1] + 1,
+                previous[j - 1] + substitution_cost,
+            )
+            current.append(value)
+            row_min = min(row_min, value)
+
+        if row_min > max_distance:
+            return False
+        previous = current
+
+    return previous[-1] <= max_distance
+
+
+def _fuzzy_matches(term: str, vocabulary: set[str]) -> list[str]:
+    if len(term) < 5:
+        return []
+
+    max_distance = 1 if len(term) < 10 else 2
+    candidates = []
+    for candidate in vocabulary:
+        if candidate == term:
+            continue
+        if candidate[:1] != term[:1]:
+            continue
+        if _edit_distance_at_most(term, candidate, max_distance):
+            candidates.append(candidate)
+
+    return sorted(candidates, key=lambda candidate: (abs(len(candidate) - len(term)), candidate))[:3]
+
+
+def _expand_query_with_vocabulary(query_terms: list[str], vocabulary: set[str]) -> list[str]:
+    expanded = _expand_query_terms(query_terms)
+    seen = set(expanded)
+
+    for term in list(expanded):
+        for candidate in _fuzzy_matches(term, vocabulary):
+            if candidate not in seen:
+                expanded.append(candidate)
+                seen.add(candidate)
+
+    return expanded
+
+
 def _build_index():
     global _INDEX_CACHE
     if _INDEX_CACHE is not None:
@@ -170,7 +343,8 @@ def _build_index():
     for chunk in chunks:
         title_tokens = _tokenize(chunk.get("title", ""))
         text_tokens = _tokenize(chunk.get("text", ""))
-        tokens = title_tokens + text_tokens
+        source_tokens = _extract_source_tokens(chunk.get("source", ""))
+        tokens = title_tokens + text_tokens + source_tokens
         token_counts = Counter(tokens)
 
         for term in token_counts:
@@ -184,8 +358,10 @@ def _build_index():
                 "token_counts": token_counts,
                 "length": len(tokens),
                 "title_tokens": set(title_tokens),
-                "source_lower": (chunk.get("source", "") or "").lower(),
-                "title_lower": (chunk.get("title", "") or "").lower(),
+                "source_tokens": set(source_tokens),
+                "document_family": _document_family(source_tokens),
+                "source_lower": _ascii_fold((chunk.get("source", "") or "").lower()),
+                "title_lower": _ascii_fold((chunk.get("title", "") or "").lower()),
                 "section": chunk.get("section", "") or "",
             }
         )
@@ -196,6 +372,7 @@ def _build_index():
         "doc_freq": doc_freq,
         "doc_count": len(documents),
         "avg_doc_len": avg_doc_len,
+        "vocabulary": set(doc_freq),
     }
     return _INDEX_CACHE
 
@@ -231,15 +408,18 @@ def _heuristic_boost(query: str, query_terms: list[str], document: dict) -> floa
     boost = 0.0
     title_overlap = len(set(query_terms) & document["title_tokens"])
     boost += title_overlap * TITLE_BOOST
+    boost += len(set(query_terms) & document["source_tokens"]) * SOURCE_BOOST
 
     if query.lower().startswith("vad är") and any(
         token in document["title_tokens"]
-        for token in ["inledning", "syfte", "omfattning", "arbetsområde", "arbetsområd"]
+        for token in ["inledning", "syfte", "omfattning", "arbetsomrade"]
     ):
         boost += DEFINITION_TITLE_BOOST
 
     boost += _domain_boost(set(query_terms), document)
     boost += _query_intent_boost(query, set(query_terms), document)
+    if document["chunk"].get("source_type") == "web":
+        boost -= WEB_RESULT_PENALTY
 
     return boost
 
@@ -276,13 +456,15 @@ def _query_intent_boost(query: str, query_terms: set[str], document: dict) -> fl
     source_lower = document["source_lower"]
     section = document["section"]
     is_definition = query.lower().startswith("vad är") or "syfte" in query_terms
-    is_overview = bool(query_terms & {"kravområd", "arbetsområd", "fas", "etapp"})
+    is_overview = bool(query_terms & {"kravomrade", "arbetsomrade", "fas", "etapp"})
 
     if "checklista_arbetsomraden.pdf" in source_lower:
         if is_definition and any(term in title_lower for term in ["systembyte", "kompetens", "modell"]):
             boost += OVERVIEW_SECTION_BOOST
         if is_overview and section.startswith("4."):
             boost -= DETAIL_SECTION_PENALTY
+        if is_definition and section in {"1", "2", "3"}:
+            boost += 3.0
 
     if "checklista_inforandekrav.pdf" in source_lower:
         if is_definition and any(term in title_lower for term in ["kravtyp", "modell", "kompetens"]):
@@ -295,6 +477,19 @@ def _query_intent_boost(query: str, query_terms: set[str], document: dict) -> fl
     if "planering" in query_terms and "checklista_arbetsomraden.pdf" in source_lower:
         if any(term in title_lower for term in ["modell", "systembyte", "kompetens"]):
             boost += 2.5
+
+    if "acceptanstest" in query_terms:
+        if document["document_family"] == "acceptanstest":
+            boost += FAMILY_BOOST
+        if is_definition and section.startswith("1"):
+            boost += 2.0
+        if "acceptanstest" in title_lower:
+            boost += 2.0
+
+    if "arbetsomrade" in query_terms and document["document_family"] == "arbetsomrade":
+        boost += FAMILY_BOOST
+        if section.startswith("4."):
+            boost -= DETAIL_SECTION_PENALTY
 
     return boost
 
@@ -325,7 +520,7 @@ def _score_document(query: str, query_terms: list[str], document: dict, index: d
 
 
 def _matched_query_terms(query_terms: list[str], document: dict) -> set[str]:
-    document_terms = set(document["token_counts"]) | document["title_tokens"]
+    document_terms = set(document["token_counts"]) | document["title_tokens"] | document["source_tokens"]
     return {term for term in query_terms if term in document_terms}
 
 
@@ -364,7 +559,7 @@ def search(query: str, top_k: int = 5):
     original_query_terms = _tokenize(query)
     if not original_query_terms:
         return []
-    query_terms = _expand_query_terms(original_query_terms)
+    query_terms = _expand_query_with_vocabulary(original_query_terms, index["vocabulary"])
 
     scored = []
     for document in index["documents"]:
@@ -383,7 +578,7 @@ def search(query: str, top_k: int = 5):
 def explain_search(query: str, top_k: int = 5) -> dict:
     index = _build_index()
     original_query_terms = _tokenize(query)
-    query_terms = _expand_query_terms(original_query_terms)
+    query_terms = _expand_query_with_vocabulary(original_query_terms, index["vocabulary"])
     intent = classify_query_intent(query)
 
     scored = []

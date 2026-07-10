@@ -30,6 +30,14 @@
     ]
   },
   {
+    "id": "work_area_definition",
+    "question": "Vad är ett arbetsområde?",
+    "answer_contains_any": ["arbetsområde", "aktivit", "grupper", "planering"],
+    "expected_source_any": [
+      "Checklista_Arbetsomraden.pdf"
+    ]
+  },
+  {
     "id": "unsupported_question",
     "question": "Vilken färg har månen i projektmodellen?",
     "answer_contains_any": [

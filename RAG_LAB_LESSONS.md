@@ -622,3 +622,216 @@ Från ett lärperspektiv blev detta särskilt tydligt:
 - heuristiker kan ge stor effekt i en smal domän
 
 Det gör denna labb till mer än en chatbot. Den fungerar också som en konkret genomlysning av hur en RAG-lösning faktiskt byggs, justeras och utvärderas i praktiken.
+
+## 22. När vi upptäckte att RAG:en inte höll måttet
+
+Den 10 juli 2026 gjorde vi ett mer systematiskt kvalitetspass mot den deployade chatboten via Gradio API i stället för att bara klicktesta GUI:t.
+
+Det var ett viktigt skifte. Så länge vi bara ställde enstaka frågor manuellt gick det att få intrycket att lösningen fungerade "ganska bra". När vi däremot började köra samma frågor om och om igen som regressionstester blev svagheterna tydliga.
+
+### Vilka fel vi såg
+
+Två typer av fel stack ut direkt:
+
+- frågor om `acceptanstest` drog inte alltid upp de mest relevanta acceptanstestdokumenten
+- definitionsfrågor som `Vad är ett arbetsområde?` kunde ranka ett testplandokument före själva checklistan för arbetsområden
+
+Vi såg också en tredje svaghet:
+
+- vanliga stavfel i svenska frågor gjorde retrievalen märkbart sämre
+
+Exempel på detta var att frågor som innehöll former som `acceptanstst` eller `implmenteringen` tappade precision trots att användarens avsikt fortfarande var mycket tydlig.
+
+### Hur testerna avslöjade problemen
+
+Vi byggde först live-tester mot den deployade Gradio-API:n. De testerna valdes medvetet för att täcka tre saker:
+
+- typiska verksamhetsfrågor
+- frågor där rätt källdokument borde vara ganska uppenbara
+- frågor med små stavfel som en praktiskt användbar RAG borde tåla
+
+Detta gav oss en bättre signal än rena enhetstester, eftersom vi kunde se hela kedjan:
+
+- fråga
+- retrieval
+- syntes
+- källänkar i svaret
+
+När testen för `acceptanstest` och `arbetsområde` föll blev det tydligt att problemet satt i retrievalen, inte primärt i LLM-prompten.
+
+Det viktiga var alltså inte bara att ett svar blev "lite svagt", utan att fel dokumentfamilj eller fel sektion faktiskt vann rankningen.
+
+### Vår diagnos
+
+Efter att ha läst igenom `rag/search.py` och kört förklarande sökningar lokalt kunde vi se flera konkreta orsaker.
+
+#### 1. För strikt matchning av originaltermer
+
+Den tidigare funktionen `_has_retrieval_support(...)` krävde i praktiken att originaltermer från frågan återfanns ganska direkt i chunkens text eller titel.
+
+Det gav två problem:
+
+- singular och plural möttes inte alltid väl nog
+- ett dokument som var rätt i sak men där termen främst syntes i filnamn eller närliggande variationer kunde filtreras bort
+
+Detta förklarade till stor del varför `Vad är ett arbetsområde?` kunde missa `Checklista_Arbetsomraden.pdf` trots att just den filen uppenbart är central.
+
+#### 2. För svag användning av filnamn och dokumentfamilj
+
+Den tidigare retrievalen tittade främst på titel och löptext. Men i ett fast corpus som detta bär själva filnamnen mycket domäninformation:
+
+- `Acceptanstest`
+- `Konvertering`
+- `Utbildning`
+- `Driftsättning`
+- `Checklista_Arbetsomraden`
+
+Att inte använda dessa signaler fullt ut var ett misstag, särskilt när dokumentbeståndet är stabilt och känt.
+
+#### 3. För liten tolerans för svenska stavfel och skrivvarianter
+
+Den tidigare normaliseringen var enkel och hjälpte vid vissa böjningar, men inte tillräckligt för:
+
+- `arbetsområde` kontra `arbetsområden`
+- `införande` kontra `inforande`
+- `acceptanstest` kontra `acceptanstst`
+- `implementeringen` kontra `implmenteringen`
+
+Det gjorde att retrievalen fortfarande i hög grad betedde sig som en ganska strikt ordmatchare.
+
+#### 4. Webbkällor kunde konkurrera för lätt med de kuraterade PDF:erna
+
+Vi hade både PDF-material och vissa webbkällor i indexet. För mer allmänna frågor kunde webbsidor ibland rankas för högt, trots att vår viktigaste kunskapsmassa i praktiken finns i PDF:erna.
+
+För just denna lösning var det fel prioritering.
+
+### Vad vi ändrade
+
+När diagnosen var klar gjorde vi förbättringarna i retrievallagret först. Vi ändrade inte prompten först, eftersom testen redan visade att fel chunkar kom in i kedjan.
+
+#### 1. Vi gjorde tokeniseringen mer svensk-robust
+
+Vi införde en tydligare normaliseringskedja:
+
+- teckenfoldning för `å`, `ä`, `ö`
+- fortsatt suffixnormalisering
+- kanonisering av vanliga domänord till samma form
+
+Detta gjorde att exempelvis:
+
+- `införandet` och `inforande` hamnar närmare varandra
+- `arbetsområde` och `arbetsområden` kopplas starkare ihop
+- vissa felstavade former av centrala ord kan landa i rätt domänterm
+
+Det var ett medvetet val att hålla detta heuristiskt och lättviktigt i stället för att dra in en tung svensk NLP-pipeline.
+
+#### 2. Vi började använda filnamn som en förstklassig retrievalsignal
+
+Varje chunk får nu även sökbara token från sin källa, alltså filnamnet.
+
+Det betyder att sökningen inte bara ser:
+
+- rubriken i chunken
+- löptexten i chunken
+
+utan också:
+
+- vilken dokumentfamilj chunken tillhör
+
+I en smal, fast dokumentmängd är detta mycket värdefullt. Ett dokument som heter `210_Acceptanstest_testplan.pdf` ska naturligtvis få extra chans att vinna på frågor om acceptanstest.
+
+#### 3. Vi lade till dokumentfamiljer och domänboostar
+
+Vi införde starkare regler för dokumentfamiljer som:
+
+- `acceptanstest`
+- `arbetsomrade`
+- `konvertering`
+- `projekt`
+
+Dessutom förstärktes `DOMAIN_RULES` för frågor om:
+
+- acceptanstest
+- leveransgodkännande
+- implementering
+- planering
+- uppföljning
+- verifiering
+
+Skälet var enkelt: med ett fast corpus är det rationellt att använda domänkunskap explicit. Detta är inte ett generellt webbsökproblem utan en kuraterad kunskapsmängd.
+
+#### 4. Vi lade till fuzzy-expansion mot corpusets eget vokabulär
+
+I stället för att försöka gissa alla stavfel manuellt lät vi frågetermer expandera mot indexets eget ordförråd när avståndet är litet nog.
+
+Det är en enkel men effektiv strategi för interna RAG-lösningar:
+
+- den kräver ingen extern stavningsmodell
+- den använder bara de ord som faktiskt finns i corpus
+- den hjälper just där användaren ligger "nära rätt"
+
+Detta förbättrade särskilt frågor som innehöll små skrivfel i centrala begrepp.
+
+#### 5. Vi nedviktade webbkällor
+
+För denna labb är PDF:erna det viktigaste källmaterialet. Därför lades en mindre straffpoäng på webbkällor i retrievalen.
+
+Detta innebär inte att webbinnehåll ignoreras, men att det inte lika lätt får slå ut de kuraterade PDF-dokument som bygger själva verksamhetskunskapen.
+
+### Varför vi inte började med embeddings direkt
+
+Det hade varit möjligt att gå direkt till hybrid retrieval eller embeddingsökning. Vi valde ändå att först pressa den lexikala retrievalen längre.
+
+Det valet gjordes av tre skäl:
+
+- corpus är litet och stabilt
+- domänspråket är smalt och på svenska
+- vi ville först förstå exakt vilka fel som kom från index, normalisering och rankning
+
+Det gav bättre transparens. När en förbättring fungerar vet vi då också varför den fungerar.
+
+### De nya lokala regressionstesterna
+
+Efter live-testerna lade vi också till lokala retrievaltester. Det var viktigt av två skäl:
+
+- de går snabbt att köra utan deploy
+- de låser fast de svagheter vi redan har hittat så att de inte smyger tillbaka
+
+Testerna fokuserar på fyra riskzoner:
+
+- att `acceptanstest` leder till acceptanstestdokument
+- att `arbetsområde` leder till rätt checklista
+- att stavfel i nyckelord fortfarande ger rätt dokumentfamilj
+- att projektets PDF:er prioriteras före webbkällor i interna kvalitetsfrågor
+
+Detta är ett bra exempel på varför RAG bör testas som en sök- och rankningsprodukt, inte bara som "något som får en LLM att svara".
+
+### Vad resultaten visade efter förbättringen
+
+Efter retrievaländringarna kunde vi lokalt verifiera att:
+
+- frågor om `acceptanstest` nu tydligt drog upp acceptanstestdokument
+- `Vad är ett arbetsområde?` rankade `Checklista_Arbetsomraden.pdf` först
+- vanliga stavfel i centrala ord inte längre slog sönder retrievalen på samma sätt
+- PDF-spåret fick högre prioritet än webbsidor i våra regressioner
+
+Det betyder inte att RAG:en nu är "färdig". Men det betyder att den inte längre faller på samma grundläggande retrievalmisstag som tidigare.
+
+### Den viktigaste lärdomen från detta förbättringspass
+
+Den viktigaste lärdomen var att en svag RAG mycket ofta ser ut som ett promptproblem fast den i själva verket är ett retrievalproblem.
+
+Så länge fel dokumentfamilj, fel sektion eller fel stavningshantering vinner i rankningen hjälper det begränsat att:
+
+- byta modell
+- ändra temperatur
+- skriva längre prompt
+
+Det som gav verklig effekt här var i stället:
+
+- bättre svensk normalisering
+- bättre användning av metadata
+- bättre dokumentfamiljsignaler
+- regressionstester som gjorde svagheterna synliga
+
+Detta kapitel är därför kanske den viktigaste praktiska lärdomen i hela labben: RAG förbättras inte främst genom att man "ber modellen smartare", utan genom att man gör retrievalen mer sann mot den kunskap man faktiskt har.
