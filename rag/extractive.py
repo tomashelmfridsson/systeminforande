@@ -151,12 +151,57 @@ def _build_intro(query: str, chunks: list) -> str:
 
 
 def _build_closing(chunks: list) -> str:
+    references = _build_source_references(chunks)
+    if references:
+        if len(references) == 1:
+            return f"Bedömningen bygger främst på {references[0]}."
+        if len(references) == 2:
+            return f"Bedömningen bygger främst på {references[0]} och {references[1]}."
+        return (
+            "Bedömningen bygger främst på "
+            + ", ".join(references[:-1])
+            + f" och {references[-1]}."
+        )
+
     pages = sorted({page for chunk in chunks for page in (chunk.get("pages") or [])})
     if not pages:
         return ""
     if len(pages) == 1:
         return f"Bedömningen bygger på underlag från sida {pages[0]}."
     return f"Bedömningen bygger på underlag från sidorna {pages[0]}-{pages[-1]}."
+
+
+def _build_source_references(chunks: list, max_sources: int = 2) -> list[str]:
+    seen = set()
+    references = []
+
+    for chunk in chunks:
+        source = (chunk.get("source") or "").strip()
+        if not source or source in seen:
+            continue
+
+        pages = _format_pages(chunk.get("pages") or [])
+        if pages:
+            references.append(f"{source} ({pages})")
+        else:
+            references.append(source)
+        seen.add(source)
+
+        if len(references) >= max_sources:
+            break
+
+    return references
+
+
+def _format_pages(pages: list[int]) -> str:
+    unique_pages = sorted(set(page for page in pages if isinstance(page, int)))
+    if not unique_pages:
+        return ""
+    if len(unique_pages) == 1:
+        return f"s. {unique_pages[0]}"
+    if unique_pages[-1] - unique_pages[0] + 1 == len(unique_pages):
+        return f"s. {unique_pages[0]}-{unique_pages[-1]}"
+    return "s. " + ", ".join(str(page) for page in unique_pages)
 
 
 def _extract_stage_names(chunks: list) -> list[str]:
