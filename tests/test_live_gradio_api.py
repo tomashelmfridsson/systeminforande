@@ -11,7 +11,7 @@ from gradio_client import Client
 
 BASE_URL = os.getenv("SYSTEMINFORANDE_BASE_URL", "https://helmfridsson-systeminforande.hf.space").rstrip("/")
 TIMEOUT_SECONDS = float(os.getenv("SYSTEMINFORANDE_API_TIMEOUT", "60"))
-DEFAULT_MODEL = os.getenv("SYSTEMINFORANDE_LLM_MODEL", "zai-org/GLM-5.2")
+DEFAULT_MODEL = os.getenv("SYSTEMINFORANDE_LLM_MODEL", "openai/gpt-oss-120b")
 SCENARIO_PATH = Path(__file__).parent / "data" / "live_api_scenarios.json"
 
 
@@ -25,7 +25,9 @@ def gradio_client():
 
 
 def _submit_question(client: Client, question: str, debug_mode: bool = False, llm_model: str = DEFAULT_MODEL) -> str:
-    result = client.predict(question, debug_mode, llm_model, api_name="/submit")
+    # The live Gradio endpoint takes four inputs:
+    # message, current_doc state, debug_mode, llm_model.
+    result = client.predict(question, None, debug_mode, llm_model, api_name="/submit")
     assert isinstance(result, str)
     return result
 
