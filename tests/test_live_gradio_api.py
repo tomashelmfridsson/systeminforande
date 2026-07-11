@@ -1,6 +1,7 @@
 import json
 import os
 import re
+import time
 from pathlib import Path
 
 import pytest
@@ -32,6 +33,30 @@ def _submit_question(client: Client, question: str, debug_mode: bool = False, ll
 def _extract_sources(answer_markdown: str) -> set[str]:
     matches = re.findall(r"\[([^\]]+\.(?:pdf|PDF))\]\(", answer_markdown)
     return {match.strip() for match in matches}
+
+
+def _extract_answer_body(answer_markdown: str) -> str:
+    body = answer_markdown
+    for marker in ("\n\n---\n\n### Källor", "\n\n---\n\n### Debug"):
+        if marker in body:
+            body = body.split(marker, 1)[0]
+    return body.strip()
+
+
+def _has_narrative_answer(answer_markdown: str) -> bool:
+    body = _extract_answer_body(answer_markdown)
+    if not body:
+        return False
+
+    body = re.sub(r"!\[[^\]]*\]\([^)]+\)", " ", body)
+    body = re.sub(r"\[[^\]]+\]\([^)]+\)", " ", body)
+    body = re.sub(r"[#>*_`-]+", " ", body)
+    body = re.sub(r"\s+", " ", body).strip()
+    if len(body) < 40:
+        return False
+
+    words = re.findall(r"[A-Za-zÅÄÖåäö0-9]+", body)
+    return len(words) >= 8
 
 
 @pytest.mark.live_api
@@ -96,4 +121,45 @@ def test_submit_rejects_unsupported_question_with_fallback(gradio_client):
         "inte tillräckligt underlag" in answer_lower
         or "inte relevant stöd" in answer_lower
         or "källmaterialet" in answer_lower
+    )
+
+
+@pytest.mark.live_api
+@pytest.mark.parametrize(
+    ("question", "expected_keywords"),
+    [
+        (
+            "Hur testar man ett nytt system",
+            ["test", "acceptans", "verifier", "prestanda", "godkänn"],
+        ),
+        (
+            "Vilka etapper finns det",
+            ["etapp", "planering", "acceptanstest", "pilotdrift", "driftsättning"],
+        ),
+    ],
+)
+def test_submit_returns_narrative_before_sources_for_known_regressions(
+    gradio_client,
+    question,
+    expected_keywords,
+):
+    answer = _submit_question(gradio_client, question)
+    answer_lower = answer.lower()
+
+    assert _has_narrative_answer(answer), (
+        f"Expected narrative answer before sources for question {question!r}, got: {answer!r}"
+    )
+    assert any(keyword in answer_lower for keyword in expected_keywords)
+
+
+@pytest.mark.live_api
+def test_submit_known_regression_question_completes_within_budget(gradio_client):
+    max_seconds = float(os.getenv("SYSTEMINFORANDE_MAX_REGRESSION_RESPONSE_SECONDS", "20"))
+    started_at = time.perf_counter()
+    answer = _submit_question(gradio_client, "Hur testar man ett nytt system")
+    elapsed = time.perf_counter() - started_at
+
+    assert answer.strip()
+    assert elapsed <= max_seconds, (
+        f"Regression question exceeded latency budget: {elapsed:.2f}s > {max_seconds:.2f}s"
     )

@@ -46,5 +46,26 @@
       "källmaterialet"
     ],
     "expected_source_any": []
+  },
+  {
+    "id": "new_system_testing",
+    "question": "Hur testar man ett nytt system",
+    "answer_contains_any": ["test", "acceptans", "verifier", "prestanda", "godkänn"],
+    "expected_source_any": [
+      "210_Acceptanstest_testplan.pdf",
+      "222_Acceptanstest_testplan.pdf",
+      "225_Acceptanstest_praktiskt_om_prestandatester.pdf",
+      "211_Acceptanstest_testrapport.pdf"
+    ]
+  },
+  {
+    "id": "implementation_stages",
+    "question": "Vilka etapper finns det",
+    "answer_contains_any": ["etapp", "planering", "acceptanstest", "pilotdrift", "driftsättning"],
+    "expected_source_any": [
+      "102_Projektbeskrivning.pdf",
+      "112_Projektbeskrivning.pdf",
+      "120_Etapplan.pdf"
+    ]
   }
 ]

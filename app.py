@@ -530,6 +530,48 @@ def build_sources_md(results) -> str:
     return "\n".join(sources_lines)
 
 
+def _strip_answer_metadata(answer: str) -> str:
+    text = (answer or "").strip()
+    if not text:
+        return ""
+
+    for marker in ("\n\n---\n\n### Källor", "\n\n---\n\n### Debug"):
+        if marker in text:
+            text = text.split(marker, 1)[0].strip()
+
+    return text
+
+
+def _looks_like_narrative_answer(answer: str) -> bool:
+    body = _strip_answer_metadata(answer)
+    if not body:
+        return False
+
+    # Ignore bare markdown scaffolding or link-heavy fragments without actual prose.
+    body = re.sub(r"!\[[^\]]*\]\([^)]+\)", " ", body)
+    body = re.sub(r"\[[^\]]+\]\([^)]+\)", " ", body)
+    body = re.sub(r"[#>*_`-]+", " ", body)
+    body = re.sub(r"\s+", " ", body).strip()
+    if len(body) < 40:
+        return False
+
+    words = re.findall(r"[A-Za-zÅÄÖåäö0-9]+", body)
+    return len(words) >= 8
+
+
+def _select_reasoning_answer(llm_answer: str, structured_answer: str) -> str:
+    llm_answer = (llm_answer or "").strip()
+    structured_answer = (structured_answer or "").strip()
+
+    if _looks_like_narrative_answer(llm_answer):
+        return llm_answer
+
+    if structured_answer:
+        return structured_answer
+
+    return llm_answer
+
+
 def clear_all():
     return gr.update(choices=[], value=None), "", "", None, *build_main_card_updates(None)
 
@@ -790,8 +832,10 @@ def build_rag_response(query: str, debug: bool, llm_model: str | None) -> dict[s
 
         llm_debug_md = "\n".join(llm_debug_lines)
 
+    final_answer = _select_reasoning_answer(llm_answer, structured_answer)
+
     final_llm_answer = (
-        llm_answer
+        final_answer
         + sources_md
         + llm_debug_md
     )
@@ -808,7 +852,7 @@ def build_rag_response(query: str, debug: bool, llm_model: str | None) -> dict[s
             "relevance_supported": True,
             "relevance_reason": "",
             "confidence": confidence,
-            "diagnosis": diagnose_retrieval(structured_answer, search_debug),
+            "diagnosis": diagnose_retrieval(final_answer, search_debug),
             "llm_status": diagnose_llm_status(llm_answer),
         },
     }
