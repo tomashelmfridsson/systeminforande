@@ -2,9 +2,12 @@ import json
 import os
 import re
 import time
+import uuid
+import threading
 from typing import Any
 from urllib.parse import quote
-from fastapi import HTTPException
+from pathlib import Path
+from fastapi import HTTPException, Request as FastAPIRequest
 import gradio as gr
 import requests
 
@@ -21,6 +24,9 @@ HEADER_IMAGE_URL = (
     "tomashelmfridsson/systeminforande/main/brain.jpg"
 )
 DEPLOY_REVISION_FILE = "deploy_revision.txt"
+LOG_DIR = Path(os.getenv("SYSTEMINFORANDE_LOG_DIR", "/data/logs"))
+ENABLE_USAGE_LOGGING = os.getenv("SYSTEMINFORANDE_ENABLE_LOGGING", "true").strip().lower() not in {"0", "false", "no"}
+_LOG_WRITE_LOCK = threading.Lock()
 EMBED_RESIZE_JS = """
 () => {
     const messageType = "systeminforande:resize";
@@ -68,6 +74,112 @@ def load_deploy_revision() -> str:
 
 
 DEPLOY_REVISION = load_deploy_revision()
+
+
+def _ensure_log_dir() -> bool:
+    if not ENABLE_USAGE_LOGGING:
+        return False
+
+    try:
+        LOG_DIR.mkdir(parents=True, exist_ok=True)
+        return True
+    except OSError as exc:
+        print(f"Kunde inte skapa loggkatalog {LOG_DIR}: {exc}")
+        return False
+
+
+def _request_header(request: Any, header_name: str) -> str | None:
+    headers = getattr(request, "headers", None)
+    if headers is None:
+        return None
+    try:
+        return headers.get(header_name)
+    except Exception:
+        return None
+
+
+def _get_session_id(request: Any) -> str:
+    session_hash = getattr(request, "session_hash", None)
+    if session_hash:
+        return str(session_hash)
+
+    header_value = _request_header(request, "x-session-id")
+    if header_value:
+        return header_value.strip()
+
+    return f"anon-{uuid.uuid4().hex}"
+
+
+def _trim_text(value: str | None, max_length: int = 4000) -> str:
+    text = (value or "").strip()
+    if len(text) <= max_length:
+        return text
+    return text[: max_length - 1] + "…"
+
+
+def _serialize_sources_for_log(sources: list[dict[str, Any]] | None) -> list[dict[str, Any]]:
+    out = []
+    for source in sources or []:
+        out.append(
+            {
+                "source": source.get("source"),
+                "source_type": source.get("source_type"),
+                "title": source.get("title"),
+                "pages": source.get("pages"),
+                "url": source.get("url"),
+            }
+        )
+    return out
+
+
+def _append_log_record(event_type: str, payload: dict[str, Any]) -> None:
+    if not _ensure_log_dir():
+        return
+
+    timestamp = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
+    file_name = time.strftime("%Y-%m-%d", time.gmtime()) + ".jsonl"
+    record = {
+        "timestamp": timestamp,
+        "event_type": event_type,
+        "revision": DEPLOY_REVISION,
+        **payload,
+    }
+
+    try:
+        with _LOG_WRITE_LOCK:
+            with (LOG_DIR / file_name).open("a", encoding="utf-8") as log_file:
+                log_file.write(json.dumps(record, ensure_ascii=False) + "\n")
+    except OSError as exc:
+        print(f"Kunde inte skriva loggrad till {LOG_DIR / file_name}: {exc}")
+
+
+def log_usage_event(
+    event_type: str,
+    *,
+    request: Any = None,
+    question: str | None = None,
+    answer: str | None = None,
+    doc_id: str | None = None,
+    doc_title: str | None = None,
+    route: str | None = None,
+    llm_model: str | None = None,
+    timing_ms: float | int | None = None,
+    sources: list[dict[str, Any]] | None = None,
+    metadata: dict[str, Any] | None = None,
+) -> None:
+    payload = {
+        "session_id": _get_session_id(request),
+        "question": _trim_text(question),
+        "answer": _trim_text(answer),
+        "doc_id": doc_id,
+        "doc_title": doc_title,
+        "route": route,
+        "llm_model": llm_model,
+        "latency_ms": timing_ms,
+        "sources": _serialize_sources_for_log(sources),
+        "metadata": metadata or {},
+    }
+    _append_log_record(event_type, payload)
 
 if not os.path.exists(CHUNKS_FILE):
     raise FileNotFoundError(
@@ -240,8 +352,15 @@ def build_main_card_updates(selected_doc_id: str | None):
     return updates
 
 
-def load_document(doc_id):
+def load_document(doc_id, request: gr.Request | None = None):
     doc = DOC_INDEX[doc_id]
+    log_usage_event(
+        "faq_doc_click",
+        request=request,
+        doc_id=doc_id,
+        doc_title=doc.get("title"),
+        metadata={"main_question": doc.get("main_question")},
+    )
     questions = [q["question"] for q in doc["subquestions"]]
     main_answer = format_answer(doc.get("main_answer", {}))
     return (
@@ -252,8 +371,8 @@ def load_document(doc_id):
     )
 
 
-def select_and_submit(message: str, doc_id, debug_mode, llm_model):
-    for answer in submit(message, doc_id, debug_mode, llm_model):
+def select_and_submit(message: str, doc_id, debug_mode, llm_model, request: gr.Request | None = None):
+    for answer in submit(message, doc_id, debug_mode, llm_model, request):
         yield answer
 
 
@@ -315,7 +434,7 @@ def answer_question(message, doc_id=None, debug_mode=False, llm_model=None) -> d
     return base_response
 
 
-def submit(message, doc_id, debug_mode, llm_model):
+def submit(message, doc_id, debug_mode, llm_model, request: gr.Request | None = None):
     """
     Central router:
     - Om message matchar en underfråga → vanlig Q&A
@@ -323,6 +442,23 @@ def submit(message, doc_id, debug_mode, llm_model):
     """
 
     response = answer_question(message, doc_id, debug_mode, llm_model)
+    doc = DOC_INDEX.get(doc_id) if doc_id else None
+    event_type = "faq_question" if doc_id else "chat_question"
+    log_usage_event(
+        event_type,
+        request=request,
+        question=response["normalized_question"],
+        answer=response["answer_markdown"],
+        doc_id=doc_id,
+        doc_title=doc.get("title") if doc else None,
+        route=response.get("route"),
+        llm_model=response.get("llm_model"),
+        timing_ms=response.get("timing_ms"),
+        sources=response.get("sources"),
+        metadata={
+            "debug_mode": bool(debug_mode),
+        },
+    )
     yield response["answer_markdown"]
 
 def format_answer(answer):
@@ -1098,7 +1234,7 @@ def ready():
 
 
 @demo.app.post("/api/ask")
-def api_ask(payload: dict[str, Any]):
+def api_ask(payload: dict[str, Any], request: FastAPIRequest):
     question = payload.get("question")
     if not isinstance(question, str) or not question.strip():
         raise HTTPException(status_code=400, detail="question måste vara en icke-tom sträng")
@@ -1112,12 +1248,27 @@ def api_ask(payload: dict[str, Any]):
     if llm_model is not None and not isinstance(llm_model, str):
         raise HTTPException(status_code=400, detail="llm_model måste vara en sträng om det anges")
 
-    return answer_question(
+    response = answer_question(
         message=question,
         doc_id=doc_id,
         debug_mode=debug_mode,
         llm_model=llm_model,
     )
+    doc = DOC_INDEX.get(doc_id) if doc_id else None
+    log_usage_event(
+        "api_question",
+        request=request,
+        question=response["normalized_question"],
+        answer=response["answer_markdown"],
+        doc_id=doc_id,
+        doc_title=doc.get("title") if doc else None,
+        route=response.get("route"),
+        llm_model=response.get("llm_model"),
+        timing_ms=response.get("timing_ms"),
+        sources=response.get("sources"),
+        metadata={"debug_mode": debug_mode},
+    )
+    return response
 
 # =====================================================
 # LAUNCH
