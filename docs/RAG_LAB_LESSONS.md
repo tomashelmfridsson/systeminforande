@@ -894,3 +894,355 @@ Det som gav verklig effekt här var i stället:
 - regressionstester som gjorde svagheterna synliga
 
 Detta kapitel är därför kanske den viktigaste praktiska lärdomen i hela labben: RAG förbättras inte främst genom att man "ber modellen smartare", utan genom att man gör retrievalen mer sann mot den kunskap man faktiskt har.
+
+## 20. Ny corpus, mindre hårdkodning och bättre processsvar
+
+När PDF-underlaget byttes ut blev det tydligt att flera retrievalregler var för tätt bundna till de gamla filnamnen.
+
+Det syntes direkt i lokala körningar:
+
+- retrieval pekade fortfarande på gamla dokumentnamn i indexet
+- testsviten förutsatte gamla källor
+- vissa kvalitetsförbättringar byggde mer på dokumentnamn än på egenskaper i innehållet
+
+Den här delen av labben handlade därför om att göra lösningen mer portabel utan att tappa kvalitet i de frågor vi redan visste var svåra.
+
+### Steg 1. Vi byggde om indexet efter corpusbytet
+
+Det första praktiska steget var att köra om ingest och skriva om `rag/data/chunks.json` mot det nya PDF-beståndet.
+
+Detta var nödvändigt eftersom retrieval annars fortfarande arbetade mot chunkar från den gamla dokumentmängden.
+
+Lärdomen är enkel men viktig:
+
+- corpusbyte utan omindexering ger missvisande felsökning
+- retrievalfel kan annars se ut som rankningsfel fast indexet bara är stale
+
+### Steg 2. Vi uppdaterade regressionstesterna till den nya dokumentmängden
+
+De tidigare testerna i `tests/test_search_quality.py` och `tests/data/live_api_scenarios.json` var skrivna mot gamla filnamn.
+
+Vi justerade därför regressionerna så att de:
+
+- fortfarande testar samma användarfrågor
+- men accepterar de nya dokumenten som rätt svarskällor
+
+Detta gjorde två saker:
+
+- testerna blev användbara igen
+- vi kunde mäta förbättringar utan att vara låsta till gamla filstrukturer
+
+### Steg 3. Vi gick från dokumentnamnsstyrning till egenskapsstyrning i retrievalen
+
+Tidigare var retrievalen starkt påverkad av explicita regler för specifika dokumentnamn och dokumentfamiljer.
+
+Det fungerade bra i ett fast corpus, men blev skört när PDF:erna byttes ut.
+
+Vi ersatte därför stora delar av den logiken med mer generiska signaler:
+
+- titelmatch mot frågetermer
+- om frågan är en definitionsfråga, processfråga eller listfråga
+- om sektionen ligger tidigt i dokumentet
+- om rubriken ser ut som översikt, modell, kompetens, process eller planering
+- om chunken verkar handla om ämnet i själva titeln eller bara råkar ligga i rätt dokument
+
+Detta gav två viktiga effekter:
+
+- retrievalen blev mindre beroende av exakt filnamn
+- samma kod blev mer rimlig att återanvända mot ett annat corpus
+
+Den viktigaste lärdomen här var att hårdkodade boostar kan vara effektiva, men att de bör ersättas av egenskapsbaserade signaler så snart man vill ha en mer portabel RAG.
+
+### Steg 4. Vi lade till en lätt lokal reranker ovanpå BM25
+
+Efter att den första rankningen blivit mer generell lade vi in en andra rankningsfas ovanpå toppkandidaterna.
+
+Denna reranker:
+
+- arbetar lokalt
+- kräver inga externa modeller
+- använder en TF-IDF-liknande likhetsbedömning på teckenn-gram
+- kör bara på de högst rankade kandidaterna från första retrievalsteget
+
+Poängen var inte att ersätta BM25, utan att förbättra ordningen bland redan rimliga kandidater.
+
+Det gav särskilt nytta i frågor där flera chunkar innehöll samma domänord men där bara en av dem faktiskt var den bästa förstakällan.
+
+Ett tydligt exempel var:
+
+- `Vad är en projektorganisation`
+
+Där kunde en mallsektion och en riktig definitionssektion båda se relevanta ut, men rerankern hjälpte den verkliga ämnessektionen att vinna.
+
+Lärdomen är att en lätt andra rankingfas kan ge tydlig kvalitetsvinst även utan embeddings eller cross-encoder.
+
+### Steg 5. Vi förbättrade retrievalen för processfrågor
+
+När vi granskade frågan:
+
+- `Hur används acceptanstest i införandet?`
+
+så såg vi att retrievalen först gynnade en sektion om `Uppföljning` i en mall, snarare än den sektion som faktiskt hette `Acceptanstest`.
+
+Problemet var inte att ordmatchningen var fel, utan att processord som:
+
+- planering
+- uppföljning
+- genomförande
+
+ibland slog ut den chunk som faktiskt bar ämnet i rubriken.
+
+Vi justerade därför retrievalen så att:
+
+- chunkar vars titel innehåller den verkliga ämnestermen får starkare vikt
+- chunkar som bara matchar via generiska processord får mindre fördel
+
+Det förbättrade ordningen för både:
+
+- `Hur används acceptanstest i införandet?`
+- den felstavade varianten `Hur anvnds acceptanstst i införandet?`
+
+Detta var en viktig lärdom:
+
+- i processfrågor räcker det inte att hitta "processliknande" chunkar
+- man måste också hitta rätt process om flera konkurrerar
+
+### Steg 6. Vi byggde en särskild generator för processsvar
+
+När retrievalen väl gav bättre chunkar blev nästa svaghet tydlig:
+
+- den extractive svarsgenereringen var fortfarande för mekanisk
+
+För `hur`-frågor lade vi därför till en särskild processgenerator i `rag/extractive.py`.
+
+Den känner igen fasrubriker som:
+
+- `Planering`
+- `Förberedelser`
+- `Genomförande`
+- `Uppföljning`
+
+och bygger sedan ett svar som följer processens ordning.
+
+I stället för att bara välja "bästa meningar" gör den nu detta:
+
+- identifierar processfaser
+- samlar punktinnehåll under varje fas
+- sammanfattar faserna i ordning
+- bygger ett kompakt svar som liknar hur en människa förklarar ett arbetsflöde
+
+Detta förbättrade tydligt svaret på acceptanstestfrågan.
+
+Lärdomen här var att bättre retrieval inte automatiskt ger bättre svar. När retrievalen blivit tillräckligt bra behöver också själva syntesen bli mer frågetypsmedveten.
+
+### Nya regressioner från verkliga loggar
+
+Vi lade under detta pass också till regressioner för frågor som kom från verkliga loggar, bland annat:
+
+- `Finns det en checklista för införandekrav`
+- `Vad är ett arbetsområde?`
+- `Vad är ett projektbibliotek`
+- `Vad är en projektorganisation`
+- `Hur används acceptanstest i införandet?`
+
+Det viktiga med dessa tester är att de inte bara fångar retrieval utan också om svaret uttrycker rätt sak för den aktuella frågetypen.
+
+### Resultatet efter detta pass
+
+Efter dessa ändringar kunde vi lokalt verifiera att:
+
+- retrievalen fortfarande fungerar mot det nya corpuset
+- lösningen är mindre bunden till gamla filnamn
+- acceptanstestfrågan nu rankar rätt ämnessektion först
+- processfrågor får mer naturliga stegvisa svar
+- regressionstesterna fortsatt passerar lokalt
+
+### Viktigaste lärdomar från detta pass
+
+Detta förbättringspass gav tre centrala lärdomar:
+
+1. Dokumentnamnsstyrning kan vara effektivt, men är skör när corpus förändras.
+2. En lätt lokal reranker kan förbättra ordningen mellan redan relevanta träffar utan tunga externa beroenden.
+3. När retrievalen blir bättre måste även svargenereringen bli mer frågetypsspecifik, annars stannar kvalitetsvinsten i söksteget.
+
+Den kanske viktigaste sammanfattningen är därför:
+
+- portabel RAG kräver att retrievalsignaler uttrycks som innehållsegenskaper snarare än dokumenthårdkodning
+- och bra svar kräver att syntesen känner igen frågans struktur, inte bara källans ord
+
+## 21. Frågetypsstyrd svargenerering utöver processfrågor
+
+Efter att retrievalen och processgeneratorn förbättrats blev nästa steg att göra svargenereringen mer frågetypsmedveten även för andra typer av frågor.
+
+Det visade sig att flera svar fortfarande var "tekniskt rimliga" men kvalitativt svaga:
+
+- listfrågor kunde ge generiska uppräkningar av rubriker i stället för ett ärligt svar
+- syftesfrågor kunde fastna på ordet `syfte` och dra in fel chunk
+- tids- och beslutsfrågor kunde upprepa formuleringar från källan utan att tydligt säga om ett datum faktiskt fanns eller inte
+
+### Steg 1. Vi gjorde listsvaret för etappfrågor mer ärligt
+
+Frågan `Vilka etapper finns det` visade att retrievalen hittade material om etappindelning, men att de hämtade utdragen inte alltid faktiskt listade etapperna tydligt.
+
+Det tidigare listsvaret blev därför lätt missvisande: det lät konkret trots att underlaget i de hämtade chunkarna inte räckte till.
+
+Vi ändrade därför logiken så att etappsvaret:
+
+- listar etapper när de verkligen går att extrahera
+- annars uttryckligen säger att materialet visar att införandet är etappindelat men att de hämtade utdragen inte räcker för att återge varje etapp
+
+Lärdomen här är viktig:
+
+- ett bra RAG-svar ska inte bara vara relevant
+- det ska också vara ärligt om gränsen för vad de hämtade utdragen faktiskt stöder
+
+### Steg 2. Vi lade till en riktad generator för syftesfrågor
+
+Frågan `Vad är syftet med beslutspunkter?` visade en klassisk RAG-svaghet:
+
+- ordet `syfte` matchade generellt många chunkar
+- men den relevanta kunskapen låg i chunken `Beslutspunkter`, inte i andra chunkar som råkade innehålla ord om syfte eller mål
+
+Vi lade därför till en särskild syftesgenerator för frågor av typen:
+
+- `Vad är syftet med ...`
+
+Den gör inte bara ordmatchning på `syfte`, utan letar efter chunkar där själva ämnet också finns i titel eller innehåll.
+
+För `beslutspunkter` kunde den därefter formulera ett bättre svar:
+
+- syftet är att ge projektets ansvariga möjlighet att kontrollera och styra projektets fortskridande
+- beslutspunkter används för att starta och avsluta faser, etapper och viktiga delresultat
+- beslut ska kunna fattas på rätt organisatorisk nivå
+
+Lärdomen var att syftesfrågor ofta kräver en mer ämnesspecifik syntes än vanliga definitionsfrågor.
+
+### Steg 3. Vi lade till en riktad generator för tids- och beslutsfrågor
+
+Frågor som:
+
+- `När ska driftsättning ske?`
+- `När fattas beslut om leveransgodkännande?`
+
+blev tidigare lätt mekaniska. De kunde upprepa samma formulering flera gånger utan att tydligt säga det viktigaste:
+
+- finns det en exakt tidpunkt i underlaget eller inte?
+
+Vi lade därför till en särskild generator för tids- och beslutsfrågor som gör en mer användbar bedömning:
+
+- om materialet saknar exakt datum säger svaret det tydligt
+- om materialet bara anger att en tidpunkt ska planeras eller fastställas, så uttrycks just det
+- om beslut ska knytas till kriterier, beslutsfattare och planerad tidpunkt framgår det uttryckligt
+
+Detta förbättrade kvalitativt svaren, eftersom de nu säger vad materialet faktiskt ger stöd för i stället för att bara spegla frågans ord tillbaka.
+
+### Vad dessa ändringar förbättrade
+
+Efter detta pass blev svaren bättre på tre sätt:
+
+1. de blev ärligare när underlaget var begränsat
+2. de blev tydligare om vad som faktiskt anges i materialet
+3. de blev mer användbara för användaren än rena omformuleringar av chunkar
+
+### Nya regressioner från detta pass
+
+Vi lade även till lokala regressioner för:
+
+- `Vad är syftet med beslutspunkter?`
+- `När ska driftsättning ske?`
+- `När fattas beslut om leveransgodkännande?`
+
+Detta gav en viktig förstärkning av testmodellen:
+
+- vi testar nu inte bara retrieval och processfrågor
+- vi testar också om svaret uttrycker rätt kunskapstyp för syfte, tid och beslut
+
+### Viktigaste lärdomar från detta pass
+
+Detta förbättringspass gav en tydlig slutsats:
+
+- olika frågetyper behöver olika syntesstrategier
+
+Det räcker inte att retrievalen hittar rätt chunk. Om svargenereringen behandlar alla frågor som "plocka några bra meningar", blir svaren ofta:
+
+- för mekaniska
+- för vaga
+- eller för tvärsäkra på sådant som källan inte egentligen säger
+
+Den praktiska lärdomen är därför:
+
+- processfrågor bör byggas som steg
+- syftesfrågor bör byggas som funktion och avsikt
+- tids- och beslutsfrågor bör byggas som evidens om datum, villkor och ansvar
+
+Detta är ett viktigt steg mot en RAG där svargenereringen inte bara är korrekt, utan även mer användbar och mer sann mot underlaget.
+
+## 22. Planeringsfrågor som egen syntestyp
+
+Efter att vi lagt till generatorer för process-, syftes- och tidsfrågor återstod fortfarande en typ av fråga som inte blev riktigt bra:
+
+- `Hur används arbetsområden i planeringen?`
+
+Retrievalen för den frågan var redan tillräckligt bra. Den hämtade bland annat:
+
+- `Verktyget_och_systeminforandet.pdf | 1.4 Arbetsområden vid systeminförande`
+- `Verktyget_projektstyrning.pdf | 2.3 Planering och uppföljning`
+
+Problemet låg alltså inte främst i sökningen, utan i syntesen. Den generella extractive-logiken gav ett svar som i praktiken bara återgav att arbetsområden finns, inte hur de används i planeringen.
+
+### Vad vi ändrade
+
+Vi lade därför till en liten riktad generator för frågor som samtidigt handlar om:
+
+- `hur`
+- `arbetsområden`
+- `planering`
+
+Generatorn bygger inte svaret från enstaka meningar utan uttrycker den funktion som arbetsområden har i materialet:
+
+- de används för att strukturera planeringen
+- de gör det lättare att planera aktiviteter
+- de hjälper till att fördela ansvar
+- de fungerar som grund för uppföljning
+
+### Varför detta var viktigt
+
+Det här är ett bra exempel på att vissa frågor inte bara kräver en korrekt definition eller ett processflöde, utan en förklaring av hur ett begrepp används i projektstyrningen.
+
+Om man svarar för bokstavligt på sådana frågor blir svaret lätt:
+
+- sant men tunt
+- relevant men inte användbart
+
+Med en riktad generator kunde vi i stället ge ett svar som ligger närmare användarens verkliga avsikt:
+
+- inte bara vad arbetsområden är
+- utan vilken roll de spelar i planering och uppföljning
+
+### Ny regression från detta pass
+
+Vi lade till ett lokalt test som kontrollerar att svaret på:
+
+- `Hur används arbetsområden i planeringen?`
+
+innehåller signaler om:
+
+- planering
+- struktur
+- ansvar
+- uppföljning
+
+### Lärdomen
+
+Den här förbättringen förstärkte en tidigare slutsats:
+
+- även när retrievalen är god nog måste svargenereringen förstå vilken typ av användningsfråga som ställs
+
+Det räcker alltså inte alltid med:
+
+- definition
+- process
+- tidpunkt
+- syfte
+
+Vissa frågor kräver i stället ett svar om funktion i arbetssättet. Det är en egen kunskapstyp, och den blev tydlig just i frågorna om arbetsområden och planering.

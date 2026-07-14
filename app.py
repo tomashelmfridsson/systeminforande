@@ -468,8 +468,15 @@ def format_answer(answer):
 def _format_answer_sections(answer: dict, level: int = 0) -> list[str]:
     out = []
     for key, value in answer.items():
+        if key == "Tabell" and isinstance(value, list) and _is_table_rows(value):
+            out.extend(_format_markdown_table(value))
+            out.append("")
+            continue
+
         heading_prefix = "#" * min(level + 4, 6)
-        if level == 0:
+        if key == "Exempel":
+            out.append("<p class='faq-example-label'><strong>Exempel</strong></p>")
+        elif level == 0:
             out.append(f"**{key}**")
         else:
             out.append(f"{heading_prefix} {key}")

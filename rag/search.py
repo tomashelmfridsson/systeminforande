@@ -68,6 +68,27 @@ QUERY_SYNONYMS = {
         "aktivitet",
         "planering",
     },
+    "projektbibliotek": {
+        "projektstyrning",
+        "dokument",
+        "lagras",
+    },
+    "projektorganisation": {
+        "projektstyrning",
+        "roller",
+        "bemanning",
+        "ansvar",
+    },
+    "checklista": {
+        "mall",
+        "kravmall",
+    },
+    "inforandekrav": {
+        "kravtyper",
+        "kravomraden",
+        "kravmall",
+        "checklista",
+    },
     "implementering": {
         "inforande",
         "planering",
@@ -85,71 +106,28 @@ BM25_K1 = 1.5
 BM25_B = 0.75
 MIN_RESULT_SCORE = 1.5
 RELATIVE_SCORE_CUTOFF = 0.35
-DOMAIN_RULES = [
-    {
-        "when_any": {"arbetsomrade"},
-        "source_any": {"checklista_arbetsomraden.pdf"},
-        "title_any": {"arbetsomrade", "modell", "kompetens", "systembyte"},
-        "boost": 6.0,
-        "require_source_for_generic_titles": True,
-    },
-    {
-        "when_any": {"inforandekrav", "kravomrade"},
-        "source_any": {"checklista_inforandekrav.pdf"},
-        "title_any": {"inforandekrav", "kravtyp", "kravomrade", "modell", "kompetens"},
-        "boost": 6.0,
-        "require_source_for_generic_titles": True,
-    },
-    {
-        "when_any": {"fas", "etapp", "aktivitet"},
-        "source_any": {"checklista_arbetsomraden.pdf", "checklista_inforandekrav.pdf"},
-        "title_any": {"fas", "etapp", "aktivitet", "inledning"},
-        "boost": 4.5,
-        "require_source_for_generic_titles": True,
-    },
-    {
-        "when_any": {"planering", "plan", "tidplan"},
-        "source_any": {"checklista_arbetsomraden.pdf", "102_projektbeskrivning.pdf", "112_projektbeskrivning.pdf"},
-        "title_any": {"plan", "planering", "genomförande"},
-        "boost": 3.5,
-    },
-    {
-        "when_any": {"acceptanstest", "leveransgodkannande", "testplan", "testrapport"},
-        "source_any": {
-            "210_acceptanstest_testplan.pdf",
-            "211_acceptanstest_testrapport.pdf",
-            "220_acceptanstest_delprojektplan.pdf",
-            "221_acceptanstest_testoversikt.pdf",
-            "222_acceptanstest_testplan.pdf",
-            "223_acceptanstest_korningsschema.pdf",
-            "224_acceptanstest_presentation.pdf",
-            "225_acceptanstest_praktiskt_om_prestandatester.pdf",
-            "226_acceptanstest_checklista_icke_funktionella_krav_batch.pdf",
-            "227_acceptanstest_checklista_icke_funktionella_krav_online.pdf",
-            "230_acceptanstest_projektstatusrapport.pdf",
-            "231_acceptanstest_krav_leveransgodkannande.pdf",
-            "checklista_arbetsomraden.pdf",
-            "checklista_inforandekrav.pdf",
-        },
-        "title_any": {"acceptanstest", "testplan", "testrapport", "leveransgodkannande"},
-        "boost": 7.0,
-    },
-    {
-        "when_any": {"implementering", "inforande", "planering", "uppfoljning", "verifiering", "konvertering"},
-        "source_any": {
-            "102_projektbeskrivning.pdf",
-            "112_projektbeskrivning.pdf",
-            "210_acceptanstest_testplan.pdf",
-            "350_konvertering_strategi.pdf",
-            "354_konvertering_verifiering_kontroller.pdf",
-        },
-        "title_any": {"planering", "uppfoljning", "strategi", "verifiering", "genomforande"},
-        "boost": 4.5,
-    },
-]
 OVERVIEW_SECTION_BOOST = 4.0
 DETAIL_SECTION_PENALTY = 1.5
 WEB_RESULT_PENALTY = 5.0
+RERANK_POOL_SIZE = 12
+RERANK_LEXICAL_WEIGHT = 0.7
+RERANK_SIMILARITY_WEIGHT = 0.3
+EXISTENCE_TOKENS = {"checklista", "mall", "modell", "process", "kravmall", "arbetsgang"}
+OVERVIEW_TOKENS = {
+    "allmant", "oversikt", "modell", "modeller", "systembyte", "kravtyp", "kravtyper",
+    "kompetens", "kompetenser", "arbetsomrade", "arbetsomraden", "projektstyrningsmodell",
+}
+PROCESS_TOKENS = {
+    "planering", "uppfoljning", "genomforande", "strategi", "verifiering", "aktiviteter",
+    "aktivitetsforteckning", "grov", "plan", "tidplan",
+}
+ROLE_TOKENS = {"projektorganisation", "roller", "ansvar", "arbetsformer", "bemanning"}
+LIBRARY_TOKENS = {"projektbibliotek", "dokument", "filer", "historik", "forvaltning"}
+GENERIC_QUERY_TOKENS = {
+    "planering", "uppfoljning", "genomforande", "strategi", "verifiering", "modell",
+    "process", "checklista", "mall", "ansvar", "roller", "dokument", "lagras",
+    "inforande", "implementering", "projektstyrning",
+}
 
 _CHUNKS_CACHE = None
 _INDEX_CACHE = None
@@ -416,7 +394,7 @@ def _heuristic_boost(query: str, query_terms: list[str], document: dict) -> floa
     ):
         boost += DEFINITION_TITLE_BOOST
 
-    boost += _domain_boost(set(query_terms), document)
+    boost += _generic_pattern_boost(query, set(query_terms), document)
     boost += _query_intent_boost(query, set(query_terms), document)
     if document["chunk"].get("source_type") == "web":
         boost -= WEB_RESULT_PENALTY
@@ -424,28 +402,71 @@ def _heuristic_boost(query: str, query_terms: list[str], document: dict) -> floa
     return boost
 
 
-def _domain_boost(query_terms: set[str], document: dict) -> float:
+def _generic_pattern_boost(query: str, query_terms: set[str], document: dict) -> float:
     boost = 0.0
-    source_lower = document["source_lower"]
-    title_lower = document["title_lower"]
+    title_tokens = document["title_tokens"]
+    source_tokens = document["source_tokens"]
+    combined_tokens = title_tokens | source_tokens
+    section = document["section"]
+    intent = classify_query_intent(query)
+    overlap = len(query_terms & combined_tokens)
+    topical_terms = _topical_query_terms(query_terms)
+    topical_title_overlap = len(topical_terms & title_tokens)
+    topical_source_overlap = len(topical_terms & source_tokens)
 
-    for rule in DOMAIN_RULES:
-        if not (query_terms & rule["when_any"]):
-            continue
+    if intent == "definition":
+        boost += overlap * 1.2
+        if section in {"1", "2", "3"}:
+            boost += 2.0
+        if _section_depth(section) <= 1:
+            boost += 1.5
+        if title_tokens & OVERVIEW_TOKENS:
+            boost += 3.5
+        if query_terms & EXISTENCE_TOKENS and title_tokens & EXISTENCE_TOKENS:
+            boost += 4.0
 
-        source_match = any(source_term in source_lower for source_term in rule["source_any"])
-        title_match = any(title_term in title_lower for title_term in rule["title_any"])
+    if intent in {"overview_list", "list"}:
+        if title_tokens & OVERVIEW_TOKENS:
+            boost += 4.0
+        if section.startswith("4."):
+            boost -= DETAIL_SECTION_PENALTY
 
-        matched = source_match or title_match
+    if intent == "process":
+        if title_tokens & PROCESS_TOKENS:
+            boost += 4.0
+        if source_tokens & PROCESS_TOKENS:
+            boost += 2.5
+        if topical_title_overlap:
+            boost += 4.5
+        elif topical_source_overlap:
+            boost -= 1.5
 
-        if rule.get("require_source_for_generic_titles") and title_match and not source_match:
-            generic_titles = {"inledning", "syfte", "krav", "modell", "fas", "etapp", "aktivitet"}
-            title_tokens = set(_tokenize(title_lower))
-            if title_tokens & generic_titles:
-                matched = False
+    if query.lower().startswith("finns det"):
+        if overlap >= 1:
+            boost += 2.0
+        if title_tokens & EXISTENCE_TOKENS:
+            boost += 3.0
 
-        if matched:
-            boost += rule["boost"]
+    if "projektorganisation" in query_terms:
+        if title_tokens & ROLE_TOKENS:
+            boost += 6.0
+        if section.endswith(".1") and "projektorganisation" in title_tokens:
+            boost -= 2.0
+
+    if "projektbibliotek" in query_terms and title_tokens & LIBRARY_TOKENS:
+        boost += 6.0
+
+    if "arbetsomrade" in query_terms:
+        if title_tokens & {"arbetsomrade", "arbetsomraden", "systembyte", "modeller", "kompetenser"}:
+            boost += 5.0
+        if "acceptanstest" in title_tokens and "arbetsomrade" not in combined_tokens:
+            boost -= 4.0
+
+    if "inforandekrav" in query_terms:
+        if title_tokens & {"kravtyp", "kravtyper", "kravomrade", "kravomraden", "modeller", "kompetenser"}:
+            boost += 4.0
+        if "checklista" in query_terms and "checklista" in source_tokens:
+            boost += 4.0
 
     return boost
 
@@ -456,27 +477,6 @@ def _query_intent_boost(query: str, query_terms: set[str], document: dict) -> fl
     source_lower = document["source_lower"]
     section = document["section"]
     is_definition = query.lower().startswith("vad är") or "syfte" in query_terms
-    is_overview = bool(query_terms & {"kravomrade", "arbetsomrade", "fas", "etapp"})
-
-    if "checklista_arbetsomraden.pdf" in source_lower:
-        if is_definition and any(term in title_lower for term in ["systembyte", "kompetens", "modell"]):
-            boost += OVERVIEW_SECTION_BOOST
-        if is_overview and section.startswith("4."):
-            boost -= DETAIL_SECTION_PENALTY
-        if is_definition and section in {"1", "2", "3"}:
-            boost += 3.0
-
-    if "checklista_inforandekrav.pdf" in source_lower:
-        if is_definition and any(term in title_lower for term in ["kravtyp", "modell", "kompetens"]):
-            boost += OVERVIEW_SECTION_BOOST
-        if is_overview and any(term in title_lower for term in ["kravtyp", "modell"]):
-            boost += OVERVIEW_SECTION_BOOST
-        if is_overview and section.startswith("4."):
-            boost -= DETAIL_SECTION_PENALTY
-
-    if "planering" in query_terms and "checklista_arbetsomraden.pdf" in source_lower:
-        if any(term in title_lower for term in ["modell", "systembyte", "kompetens"]):
-            boost += 2.5
 
     if "acceptanstest" in query_terms:
         if document["document_family"] == "acceptanstest":
@@ -490,8 +490,35 @@ def _query_intent_boost(query: str, query_terms: set[str], document: dict) -> fl
         boost += FAMILY_BOOST
         if section.startswith("4."):
             boost -= DETAIL_SECTION_PENALTY
+    if "arbetsomrade" in query_terms:
+        if is_definition and "arbetsomrad" not in title_lower and "arbetsomrad" not in source_lower:
+            boost -= 6.0
+
+    if "projektorganisation" in query_terms:
+        if is_definition and "projektorganisation" not in title_lower and "projektorganisation" not in source_lower:
+            boost -= 5.0
+
+    if "projektbibliotek" in query_terms:
+        if is_definition and "projektbibliotek" not in title_lower and "projektbibliotek" not in source_lower:
+            boost -= 5.0
+
+    if is_definition and _section_depth(section) >= 2 and not (document["title_tokens"] & query_terms):
+        boost -= 1.5
 
     return boost
+
+
+def _section_depth(section: str) -> int:
+    if not section:
+        return 99
+    return section.count(".")
+
+
+def _topical_query_terms(query_terms: set[str]) -> set[str]:
+    return {
+        term for term in query_terms
+        if term not in GENERIC_QUERY_TOKENS
+    }
 
 
 def _score_document(query: str, query_terms: list[str], document: dict, index: dict) -> dict:
@@ -505,7 +532,7 @@ def _score_document(query: str, query_terms: list[str], document: dict, index: d
     ):
         definition_boost = DEFINITION_TITLE_BOOST
 
-    domain_boost = _domain_boost(set(query_terms), document)
+    domain_boost = _generic_pattern_boost(query, set(query_terms), document)
     intent_boost = _query_intent_boost(query, set(query_terms), document)
     total = bm25 + title_overlap + definition_boost + domain_boost + intent_boost
 
@@ -550,6 +577,120 @@ def _prune_scored_results(scored: list[dict], top_k: int) -> list[dict]:
     return pruned[:top_k]
 
 
+def _rerank_candidates(query: str, scored: list[dict]) -> list[dict]:
+    if len(scored) < 2:
+        return scored
+
+    lexical_sorted = sorted(scored, key=lambda item: item["score"], reverse=True)
+    rerank_pool = lexical_sorted[:RERANK_POOL_SIZE]
+    tail = lexical_sorted[RERANK_POOL_SIZE:]
+
+    lexical_scores = [item["score"] for item in rerank_pool]
+    lexical_min = min(lexical_scores)
+    lexical_max = max(lexical_scores)
+    lexical_span = lexical_max - lexical_min
+
+    similarities = _candidate_similarities(query, rerank_pool)
+    sim_min = min(similarities) if similarities else 0.0
+    sim_max = max(similarities) if similarities else 0.0
+    sim_span = sim_max - sim_min
+
+    reranked = []
+    for item, similarity in zip(rerank_pool, similarities):
+        lexical_norm = 1.0 if lexical_span == 0 else (item["score"] - lexical_min) / lexical_span
+        similarity_norm = 1.0 if sim_span == 0 else (similarity - sim_min) / sim_span
+        combined = (
+            lexical_norm * RERANK_LEXICAL_WEIGHT
+            + similarity_norm * RERANK_SIMILARITY_WEIGHT
+        )
+        updated = dict(item)
+        updated["rerank_similarity"] = round(similarity, 4)
+        updated["rerank_score"] = round(combined, 4)
+        reranked.append(updated)
+
+    reranked.sort(key=lambda item: (item["rerank_score"], item["score"]), reverse=True)
+    return reranked + tail
+
+
+def _candidate_similarities(query: str, scored: list[dict]) -> list[float]:
+    query_vector = _char_tfidf_vector(_rerank_text(query))
+    document_vectors = [
+        _char_tfidf_vector(_rerank_text_for_chunk(item["chunk"]))
+        for item in scored
+    ]
+
+    texts = [_rerank_text(query)] + [_rerank_text_for_chunk(item["chunk"]) for item in scored]
+    doc_freq = Counter()
+    for text in texts:
+        for gram in set(_char_ngrams(text)):
+            doc_freq[gram] += 1
+
+    doc_count = len(texts)
+    query_weighted = _apply_idf(query_vector, doc_freq, doc_count)
+    query_norm = _vector_norm(query_weighted)
+    if query_norm == 0:
+        return [0.0 for _ in scored]
+
+    similarities = []
+    for vector in document_vectors:
+        weighted = _apply_idf(vector, doc_freq, doc_count)
+        norm = _vector_norm(weighted)
+        if norm == 0:
+            similarities.append(0.0)
+            continue
+        similarities.append(_dot_product(query_weighted, weighted) / (query_norm * norm))
+
+    return similarities
+
+
+def _rerank_text(text: str) -> str:
+    folded = _ascii_fold(text.lower())
+    return re.sub(r"\s+", " ", folded).strip()
+
+
+def _rerank_text_for_chunk(chunk: dict) -> str:
+    title = chunk.get("title", "") or ""
+    source = Path(chunk.get("source", "") or "").stem.replace("_", " ")
+    text = chunk.get("text", "") or ""
+    # Duplicate title to make high-level document semantics matter more than long body text.
+    return _rerank_text(f"{title} {title} {source} {text}")
+
+
+def _char_tfidf_vector(text: str) -> Counter:
+    return Counter(_char_ngrams(text))
+
+
+def _char_ngrams(text: str) -> list[str]:
+    compact = f" {text} "
+    grams = []
+    for size in (3, 4, 5):
+        if len(compact) < size:
+            continue
+        for index in range(len(compact) - size + 1):
+            gram = compact[index:index + size]
+            if gram.strip():
+                grams.append(gram)
+    return grams
+
+
+def _apply_idf(vector: Counter, doc_freq: Counter, doc_count: int) -> dict[str, float]:
+    weighted = {}
+    for gram, count in vector.items():
+        idf = _idf(gram, doc_freq, doc_count)
+        weighted[gram] = count * idf
+    return weighted
+
+
+def _vector_norm(vector: dict[str, float]) -> float:
+    return math.sqrt(sum(value * value for value in vector.values()))
+
+
+def _dot_product(left: dict[str, float], right: dict[str, float]) -> float:
+    if len(left) > len(right):
+        left, right = right, left
+    return sum(value * right.get(key, 0.0) for key, value in left.items())
+
+
 def search(query: str, top_k: int = 5):
     index = _build_index()
     print(f"🔍 Search: laddade {index['doc_count']} chunkar")
@@ -570,7 +711,7 @@ def search(query: str, top_k: int = 5):
             continue
         scored.append({"score": score, "chunk": document["chunk"]})
 
-    scored.sort(key=lambda item: item["score"], reverse=True)
+    scored = _rerank_candidates(query, scored)
     pruned = _prune_scored_results(scored, top_k)
     return [(item["score"], item["chunk"]) for item in pruned]
 
@@ -597,7 +738,7 @@ def explain_search(query: str, top_k: int = 5) -> dict:
             }
         )
 
-    scored.sort(key=lambda item: item["score"], reverse=True)
+    scored = _rerank_candidates(query, scored)
     top = _prune_scored_results(scored, top_k)
 
     return {

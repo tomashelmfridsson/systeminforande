@@ -691,6 +691,17 @@ label.container.show_textbox_border {
     margin-top: 0 !important;
 }
 
+.answer-box .faq-example-label {
+    margin: 0.35rem 0 0.6rem !important;
+    font-size: 1.08rem !important;
+    line-height: 1.4 !important;
+    font-weight: 700 !important;
+}
+
+.answer-box .faq-example-label strong {
+    font-weight: 700 !important;
+}
+
 .answer-note {
     margin-top: 8px !important;
     font-size: 13px !important;
