@@ -120,6 +120,35 @@
             ],
             "Kravmallen hittar du överst i \"Mall för införandekrav\"": "https://www.systeminforande.se/checklistor-och-mallar-till-verktyget-1"
           }
+        },
+        {
+          "id": "checklista",
+          "question": "Finns det en checklista för införandekrav?",
+          "answer": {
+            "Beskrivning": "Det finns en checkklista för införandekrav. Checklistan är ett stöd för att säkerställa att samtliga områden för införandekrav beaktas."
+          }
+        },
+        {
+          "id": "stodmaterial",
+          "question": "Vilket stödmaterial finns för att arbeta med införandekrav?",
+          "answer": {
+            "Beskrivning": "Som stöd för arbetet med införandekrav finns material som hjälper till att strukturera och beskriva kraven per kravområde.",
+            "Tabell": [
+              {
+                "Stödmaterial": "Kravmallen",
+                "Beskrivning": "Mallen är tänkt att vara ett stöd till att införandekraven beaktas."
+              },
+              {
+                "Stödmaterial": "Arbetsgång",
+                "Beskrivning": "Visar en arbetsgång för att arbeta fram införandekraven per kravområde."
+              },
+              {
+                "Stödmaterial": "Kravområden",
+                "Beskrivning": "Ger en översikt samt en bild per kravområde."
+              }
+            ],
+            "Mer om checklistor och mallar": "https://www.systeminforande.se/checklistor-och-mallar-till-verktyget-1"
+          }
         }
       ]
     },

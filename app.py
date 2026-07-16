@@ -5,7 +5,6 @@ import time
 import uuid
 import threading
 from typing import Any
-from urllib.parse import quote
 from pathlib import Path
 from fastapi import HTTPException, Request as FastAPIRequest
 import gradio as gr
@@ -13,12 +12,15 @@ import requests
 
 from rag.extractive import build_extractive_reasoning
 from rag.prompts import rag_prompt
+from rag.source_links import (
+    build_sources_md,
+    format_source_url,
+    serialize_homepage_links,
+)
 from rag.search import explain_search, search
 from llm.reasoning import generate_reasoning, generate_reasoning_from_prompt
 DATA_DIR = "rag/data"
 CHUNKS_FILE = os.path.join(DATA_DIR, "chunks.json")
-GITHUB_PAGES_BASE_URL = "https://tomashelmfridsson.github.io/systeminforande"
-GITHUB_PAGES_PDF_BASE_URL = f"{GITHUB_PAGES_BASE_URL}/pdfs"
 HEADER_IMAGE_URL = (
     "https://raw.githubusercontent.com/"
     "tomashelmfridsson/systeminforande/main/brain.jpg"
@@ -390,6 +392,7 @@ def answer_question(message, doc_id=None, debug_mode=False, llm_model=None) -> d
         "route": None,
         "answer_markdown": "",
         "sources": [],
+        "homepage_links": [],
         "retrieval": None,
         "timing_ms": 0,
     }
@@ -658,21 +661,6 @@ def format_llm_error(exc: Exception) -> str:
     return f"Resonemang kunde inte genereras just nu. Tekniskt fel: {message}"
 
 
-def build_sources_md(results) -> str:
-    used_sources = {}
-    for _, chunk in results:
-        used_sources[chunk["source"]] = chunk
-
-    if not used_sources:
-        return ""
-
-    sources_lines = ["\n\n---\n\n### Källor"]
-    for chunk in used_sources.values():
-        sources_lines.append(f"- {format_source_link(chunk)}")
-
-    return "\n".join(sources_lines)
-
-
 def _strip_answer_metadata(answer: str) -> str:
     text = (answer or "").strip()
     if not text:
@@ -748,41 +736,6 @@ def format_pages(pages):
 
     return "s. " + ", ".join(str(p) for p in pages)
     
-def format_source_link(chunk: dict) -> str:
-    source = chunk.get("source", "Okänd källa")
-    source_type = chunk.get("source_type")
-
-    if source_type == "pdf":
-        encoded_source = quote(source)
-        return (
-            f"📄 "
-            f"[{source}]("
-            f"{GITHUB_PAGES_PDF_BASE_URL}/{encoded_source}"
-            f")"
-        )
-
-    if source_type == "web":
-        return f"🌐 [{source}]({source})"
-
-    return source
-
-
-def format_source_url(chunk: dict) -> str | None:
-    source = chunk.get("source")
-    source_type = chunk.get("source_type")
-
-    if not source:
-        return None
-
-    if source_type == "pdf":
-        return f"{GITHUB_PAGES_PDF_BASE_URL}/{quote(source)}"
-
-    if source_type == "web":
-        return source
-
-    return None
-
-
 def serialize_chunk(chunk: dict, score: float | None = None) -> dict[str, Any]:
     payload = {
         "source": chunk.get("source"),
@@ -937,6 +890,7 @@ def build_rag_response(query: str, debug: bool, llm_model: str | None) -> dict[s
     structured_answer = build_extractive_reasoning(query, chunks)
     llm_prompt = rag_prompt(query, chunks)
     sources_md = build_sources_md(results)
+    homepage_links = serialize_homepage_links(results)
 
     llm_answer = safe_generate_reasoning_from_prompt_with_model(llm_prompt, llm_model)
     llm_debug_md = ""
@@ -986,12 +940,14 @@ def build_rag_response(query: str, debug: bool, llm_model: str | None) -> dict[s
         "route": "rag",
         "answer_markdown": final_llm_answer,
         "sources": serialize_results(results),
+        "homepage_links": homepage_links,
         "retrieval": {
             "query": query,
             "query_terms": search_debug["query_terms"],
             "expanded_query_terms": search_debug["expanded_query_terms"],
             "intent": search_debug["intent"],
             "top_results": serialize_results(results),
+            "homepage_links": homepage_links,
             "relevance_supported": True,
             "relevance_reason": "",
             "confidence": confidence,
