@@ -125,7 +125,7 @@
           "id": "checklista",
           "question": "Finns det en checklista för införandekrav?",
           "answer": {
-            "Beskrivning": "Det finns en checkklista för införandekrav. Checklistan är ett stöd för att säkerställa att samtliga områden för införandekrav beaktas."
+            "Beskrivning": "Det finns en checkklista för införandekrav. Checklistan är ett stöd för att säkerställa att samtliga områden för införandekrav beaktas. Checklistan för Införandekrav hittar du [här](https://tomashelmfridsson.github.io/systeminforande/pdfs/Arbetsomraden_checklista.pdf)"
           }
         },
         {
@@ -244,6 +244,13 @@
               }
             ],
             "Läs mer om \"Arbetsområden\" under Verktyget - Hjälpdokument": "https://www.systeminforande.se/verktyg"
+          }
+        },
+        {
+          "id": "checklista_arbetsomraden",
+          "question": "Finns det en checklista för arbetsområden?",
+          "answer": {
+            "Beskrivning": "Det finns en checkklista för arbetsområden. Checklistan är ett stöd för att säkerställa att samtliga arbetsområden vid implementering beaktas. Checklistan för Arbetsområden hittar du [här](https://tomashelmfridsson.github.io/systeminforande/pdfs/Arbetsomraden_checklista.pdf)"
           }
         },
         {
