@@ -7,6 +7,8 @@ import re
 from collections import Counter
 from pathlib import Path
 
+from rag.grounding import filter_allowed_chunks
+
 
 DATA_DIR = "rag/data"
 CHUNKS_FILE = os.path.join(DATA_DIR, "chunks.json")
@@ -313,7 +315,7 @@ def _build_index():
     if _INDEX_CACHE is not None:
         return _INDEX_CACHE
 
-    chunks = load_chunks()
+    chunks = filter_allowed_chunks(load_chunks())
     documents = []
     doc_freq = Counter()
     total_length = 0

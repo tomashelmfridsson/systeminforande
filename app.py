@@ -11,6 +11,7 @@ import gradio as gr
 import requests
 
 from rag.extractive import build_extractive_reasoning
+from rag.grounding import filter_allowed_results, grounded_answer_or_fallback
 from rag.prompts import rag_prompt
 from rag.source_links import (
     build_sources_md,
@@ -835,10 +836,10 @@ def _has_relevant_rag_support(search_debug: dict) -> tuple[bool, str]:
 
 
 def build_rag_response(query: str, debug: bool, llm_model: str | None) -> dict[str, Any]:
-    results = search(query, top_k=5)
+    results = filter_allowed_results(search(query, top_k=5))
 
     if not results:
-        no_data = "Det finns inte tillräckligt underlag i materialet för att besvara frågan."
+        no_data = grounded_answer_or_fallback("")
         return {
             "route": "rag",
             "answer_markdown": no_data,
@@ -850,8 +851,9 @@ def build_rag_response(query: str, debug: bool, llm_model: str | None) -> dict[s
                 "intent": "general",
                 "top_results": [],
                 "relevance_supported": False,
-                "relevance_reason": "Inga tydliga träffar hittades i materialet.",
+                "relevance_reason": "Inga godkända PDF-/hemsideutdrag hittades i materialet.",
                 "confidence": 0,
+                "llm_status": "LLM-syntes används inte i det användarvända RAG-svaret.",
             },
         }
 
@@ -859,9 +861,18 @@ def build_rag_response(query: str, debug: bool, llm_model: str | None) -> dict[s
     confidence = round(sum(scores) / len(scores), 2)
 
     search_debug = explain_search(query, top_k=5)
+    allowed_result_ids = {
+        chunk.get("id") or f"{chunk.get('source')}::{chunk.get('title')}::{chunk.get('section')}"
+        for _, chunk in results
+    }
+    search_debug["top_results"] = [
+        item for item in search_debug["top_results"]
+        if (item["chunk"].get("id") or f"{item['chunk'].get('source')}::{item['chunk'].get('title')}::{item['chunk'].get('section')}") in allowed_result_ids
+    ]
+
     is_relevant, relevance_reason = _has_relevant_rag_support(search_debug)
     if not is_relevant:
-        no_data = "Frågan verkar inte ha relevant stöd i det tillgängliga källmaterialet."
+        no_data = grounded_answer_or_fallback("")
         if debug:
             no_data += (
                 "\n\n---\n\n### Debug\n"
@@ -883,26 +894,28 @@ def build_rag_response(query: str, debug: bool, llm_model: str | None) -> dict[s
                 "relevance_supported": False,
                 "relevance_reason": relevance_reason,
                 "confidence": confidence,
+                "llm_status": "LLM-syntes används inte i det användarvända RAG-svaret.",
             },
         }
 
     chunks = [chunk for _, chunk in results]
-    structured_answer = build_extractive_reasoning(query, chunks)
-    llm_prompt = rag_prompt(query, chunks)
+    structured_answer = grounded_answer_or_fallback(build_extractive_reasoning(query, chunks))
     sources_md = build_sources_md(results)
     homepage_links = serialize_homepage_links(results)
 
-    llm_answer = safe_generate_reasoning_from_prompt_with_model(llm_prompt, llm_model)
     llm_debug_md = ""
+    llm_answer = ""
     if debug:
+        llm_prompt = rag_prompt(query, chunks)
+        llm_answer = safe_generate_reasoning_from_prompt_with_model(llm_prompt, llm_model)
         llm_debug_lines = [
             "\n\n---\n\n### Debug",
             f"**Confidence:** {confidence}",
             f"**Frågetyp:** {translate_intent(search_debug['intent'])}",
             f"**Query-termer:** `{', '.join(search_debug['query_terms'])}`",
-            f"**Diagnos:** {diagnose_retrieval(llm_answer, search_debug)}",
-            f"**LLM-status:** {diagnose_llm_status(llm_answer)}",
-            ""
+            f"**Diagnos:** {diagnose_retrieval(structured_answer, search_debug)}",
+            "**LLM-status:** LLM-syntes kördes endast för debug-jämförelse; användarsvaret bygger på extraherade PDF-/hemsideutdrag.",
+            "",
         ]
 
         for item in search_debug["top_results"]:
@@ -927,9 +940,15 @@ def build_rag_response(query: str, debug: bool, llm_model: str | None) -> dict[s
             )
             llm_debug_lines.append(block)
 
+        if llm_answer:
+            llm_debug_lines.extend([
+                "**LLM-jämförelse (ej använd i svaret):**",
+                llm_answer,
+            ])
+
         llm_debug_md = "\n".join(llm_debug_lines)
 
-    final_answer = _select_reasoning_answer(llm_answer, structured_answer)
+    final_answer = structured_answer
 
     final_llm_answer = (
         final_answer
@@ -952,7 +971,7 @@ def build_rag_response(query: str, debug: bool, llm_model: str | None) -> dict[s
             "relevance_reason": "",
             "confidence": confidence,
             "diagnosis": diagnose_retrieval(final_answer, search_debug),
-            "llm_status": diagnose_llm_status(llm_answer),
+            "llm_status": "LLM-syntes används inte i det användarvända RAG-svaret.",
         },
     }
 
