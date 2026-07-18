@@ -46,3 +46,11 @@ def test_real_acceptance_test_results_collect_related_homepage_links():
     homepage_urls = {link["url"] for link in collect_homepage_links(results)}
 
     assert "https://www.systeminforande.se/verktyg" in homepage_urls or "https://www.systeminforande.se/checklistor-och-mallar-till-verktyget-1" in homepage_urls
+
+
+def test_work_model_query_adds_arbetsmodell_related_link_from_project_steering_chunk():
+    results = search("Finns det en arbetsmodell för införande av system", top_k=5)
+
+    homepage_urls = {link["url"] for link in collect_homepage_links(results)}
+
+    assert "https://www.systeminforande.se/arbetsmodell" in homepage_urls

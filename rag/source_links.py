@@ -30,8 +30,20 @@ _HOMEPAGE_LINKS = {
 }
 
 
+def _ascii_fold(text: str) -> str:
+    return (
+        text.replace("å", "a")
+        .replace("ä", "a")
+        .replace("ö", "o")
+        .replace("Å", "A")
+        .replace("Ä", "A")
+        .replace("Ö", "O")
+    )
+
+
 def _homepage_keys_for_source(chunk: dict[str, Any]) -> list[str]:
     source = (chunk.get("source") or "").strip().lower()
+    title = _ascii_fold((chunk.get("title") or "").strip().lower())
     if not source:
         return []
 
@@ -46,6 +58,11 @@ def _homepage_keys_for_source(chunk: dict[str, Any]) -> list[str]:
         keys.extend(["implementering", "verktyg"])
 
     if source.startswith("verktyget_och_systeminforandet"):
+        keys.append("arbetsmodell")
+
+    if source.startswith("verktyget_projektstyrning") and (
+        "projektstyrningsmodell" in title or "arbetsmodell" in title
+    ):
         keys.append("arbetsmodell")
 
     if source.startswith("verktyget_"):
