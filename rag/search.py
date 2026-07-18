@@ -17,7 +17,7 @@ STOPWORDS = {
     "för", "från", "med", "till", "om", "i", "på", "av", "en", "ett", "vid",
     "utifrån", "finns", "används", "ingår", "vilka", "vilken", "då", "har",
     "eller", "utan", "också", "samt", "bara", "inte", "under", "över", "efter",
-    "bör", "sätt", "vilket",
+    "bör", "sätt", "vilket", "upp",
 }
 CANONICAL_TERM_MAP = {
     "arbetsomrade": "arbetsomrade",
@@ -44,6 +44,29 @@ CANONICAL_TERM_MAP = {
     "verifiering": "verifiering",
     "testplan": "testplan",
     "testpla": "testplan",
+    "uppsattning": "systemuppsattning",
+    "systemuppsattning": "systemuppsattning",
+    "systemuppsattningen": "systemuppsattning",
+    "satta": "systemuppsattning",
+    "sattas": "systemuppsattning",
+    "satt": "systemuppsattning",
+    "korbar": "korbar",
+    "installera": "installera",
+    "installeras": "installera",
+    "konfigurera": "konfigurera",
+    "konfigureras": "konfigurera",
+    "parametrar": "parametrar",
+    "svarstider": "svarstid",
+    "bearbetningstider": "bearbetningstid",
+    "korningstid": "bearbetningstid",
+    "korningstider": "bearbetningstid",
+    "systemsamband": "systemsamband",
+    "forvaltningsoverlamnande": "forvaltningsoverlamnande",
+    "overlamning": "overlamning",
+    "driftsattning": "driftsattning",
+    "driftsatta": "driftsattning",
+    "driftsattas": "driftsattning",
+    "driftsatts": "driftsattning",
 }
 QUERY_SYNONYMS = {
     "arbetsmodell": {
@@ -99,6 +122,59 @@ QUERY_SYNONYMS = {
         "konvertering",
         "acceptanstest",
     },
+    "systemuppsattning": {
+        "installera",
+        "konfigurera",
+        "parametrar",
+        "korbar",
+        "kringsystem",
+        "it-miljo",
+    },
+    "applikation": {
+        "systemuppsattning",
+        "installera",
+        "konfigurera",
+    },
+    "svarstid": {
+        "bearbetningstid",
+        "korningstid",
+        "acceptanstest",
+        "prestanda",
+    },
+    "bearbetningstid": {
+        "svarstid",
+        "korningstid",
+        "acceptanstest",
+        "prestanda",
+    },
+    "samband": {
+        "systemsamband",
+        "kopplingar",
+        "omgivande",
+    },
+    "systemsamband": {
+        "kopplingar",
+        "omgivande",
+        "kringsystem",
+        "overgang",
+        "systemavveckling",
+    },
+    "forvaltning": {
+        "forvaltningsoverlamnande",
+        "forvaltningsobjekt",
+        "mottagare",
+    },
+    "overlamning": {
+        "forvaltningsoverlamnande",
+        "forvaltningsobjekt",
+        "mottagare",
+    },
+    "driftsattning": {
+        "driftstart",
+        "driftrutiner",
+        "provdrift",
+        "driftorganisation",
+    },
 }
 TITLE_BOOST = 1.8
 SOURCE_BOOST = 2.2
@@ -128,7 +204,8 @@ LIBRARY_TOKENS = {"projektbibliotek", "dokument", "filer", "historik", "forvaltn
 GENERIC_QUERY_TOKENS = {
     "planering", "uppfoljning", "genomforande", "strategi", "verifiering", "modell",
     "process", "checklista", "mall", "ansvar", "roller", "dokument", "lagras",
-    "inforande", "implementering", "projektstyrning",
+    "inforande", "implementering", "projektstyrning", "krav", "systemet", "kolla",
+    "uppfyll", "finnas", "manga", "behov",
 }
 
 _CHUNKS_CACHE = None
@@ -523,6 +600,73 @@ def _topical_query_terms(query_terms: set[str]) -> set[str]:
     }
 
 
+def _topicality_adjustment(query_terms: list[str], document: dict) -> float:
+    topical_terms = _topical_query_terms(set(query_terms))
+    if not topical_terms:
+        return 0.0
+
+    document_terms = set(document["token_counts"]) | document["title_tokens"] | document["source_tokens"]
+    matched = topical_terms & document_terms
+    if not matched:
+        return -4.0
+
+    coverage = len(matched) / len(topical_terms)
+    adjustment = coverage * 4.0
+    if len(topical_terms) >= 2 and len(matched) < 2:
+        adjustment -= 1.5
+    return adjustment
+
+
+def _split_query_clauses(query: str) -> list[str]:
+    if not query.strip():
+        return []
+
+    raw_parts = re.split(r"\?+|\n+", query)
+    clauses = []
+    seen = set()
+    for part in raw_parts:
+        cleaned = re.sub(r"\s+", " ", part).strip(" .:-")
+        if not cleaned:
+            continue
+        if len(_tokenize(cleaned)) < 2:
+            continue
+        key = cleaned.lower()
+        if key not in seen:
+            clauses.append(cleaned)
+            seen.add(key)
+    return clauses
+
+
+def _chunk_identity(chunk: dict) -> tuple:
+    return (
+        chunk.get("source", ""),
+        chunk.get("title", ""),
+        chunk.get("section", ""),
+        tuple(chunk.get("pages") or []),
+        chunk.get("text", ""),
+    )
+
+
+def _search_single(query: str, top_k: int, index: dict) -> list[tuple[float, dict]]:
+    original_query_terms = _tokenize(query)
+    if not original_query_terms:
+        return []
+    query_terms = _expand_query_with_vocabulary(original_query_terms, index["vocabulary"])
+
+    scored = []
+    for document in index["documents"]:
+        score = _score_document(query, query_terms, document, index)["total"]
+        if score <= 0:
+            continue
+        if not _has_retrieval_support(original_query_terms, query_terms, document):
+            continue
+        scored.append({"score": score, "chunk": document["chunk"]})
+
+    scored = _rerank_candidates(query, scored)
+    pruned = _prune_scored_results(scored, top_k)
+    return [(item["score"], item["chunk"]) for item in pruned]
+
+
 def _score_document(query: str, query_terms: list[str], document: dict, index: dict) -> dict:
     bm25 = _bm25_score(query_terms, document, index)
     title_overlap = len(set(query_terms) & document["title_tokens"]) * TITLE_BOOST
@@ -536,7 +680,8 @@ def _score_document(query: str, query_terms: list[str], document: dict, index: d
 
     domain_boost = _generic_pattern_boost(query, set(query_terms), document)
     intent_boost = _query_intent_boost(query, set(query_terms), document)
-    total = bm25 + title_overlap + definition_boost + domain_boost + intent_boost
+    topicality_adjustment = _topicality_adjustment(query_terms, document)
+    total = bm25 + title_overlap + definition_boost + domain_boost + intent_boost + topicality_adjustment
 
     return {
         "bm25": round(bm25, 4),
@@ -544,6 +689,7 @@ def _score_document(query: str, query_terms: list[str], document: dict, index: d
         "definition_boost": round(definition_boost, 4),
         "domain_boost": round(domain_boost, 4),
         "intent_boost": round(intent_boost, 4),
+        "topicality_adjustment": round(topicality_adjustment, 4),
         "total": round(total, 4),
     }
 
@@ -699,23 +845,47 @@ def search(query: str, top_k: int = 5):
     if not index["documents"]:
         return []
 
-    original_query_terms = _tokenize(query)
-    if not original_query_terms:
-        return []
-    query_terms = _expand_query_with_vocabulary(original_query_terms, index["vocabulary"])
+    overall_results = _search_single(query, max(top_k, 5), index)
+    clauses = _split_query_clauses(query)
+    if len(clauses) < 2:
+        return overall_results[:top_k]
 
-    scored = []
-    for document in index["documents"]:
-        score = _score_document(query, query_terms, document, index)["total"]
-        if score <= 0:
-            continue
-        if not _has_retrieval_support(original_query_terms, query_terms, document):
-            continue
-        scored.append({"score": score, "chunk": document["chunk"]})
+    aggregated = {}
+    for set_index, results in enumerate([overall_results] + [_search_single(clause, 2, index) for clause in clauses]):
+        for rank, (score, chunk) in enumerate(results):
+            key = _chunk_identity(chunk)
+            entry = aggregated.setdefault(key, {"score": score, "hits": 0, "chunk": chunk})
+            entry["score"] = max(entry["score"], score + max(0.0, 1.0 - rank * 0.15) + (0.6 if set_index > 0 else 0.0))
+            entry["hits"] += 1
 
-    scored = _rerank_candidates(query, scored)
-    pruned = _prune_scored_results(scored, top_k)
-    return [(item["score"], item["chunk"]) for item in pruned]
+    merged = []
+    for entry in aggregated.values():
+        merged.append((entry["score"] + (entry["hits"] - 1) * 1.1, entry["chunk"]))
+
+    merged.sort(key=lambda item: item[0], reverse=True)
+
+    seeded = []
+    seen = set()
+    for clause in clauses:
+        for score, chunk in _search_single(clause, 2, index):
+            key = _chunk_identity(chunk)
+            if key in seen:
+                continue
+            seeded.append((score, chunk))
+            seen.add(key)
+            break
+            
+    final_results = seeded[:top_k]
+    for score, chunk in merged:
+        key = _chunk_identity(chunk)
+        if key in seen:
+            continue
+        final_results.append((score, chunk))
+        seen.add(key)
+        if len(final_results) >= top_k:
+            break
+
+    return final_results
 
 
 def explain_search(query: str, top_k: int = 5) -> dict:

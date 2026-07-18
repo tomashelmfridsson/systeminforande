@@ -10,7 +10,6 @@ from fastapi import HTTPException, Request as FastAPIRequest
 import gradio as gr
 import requests
 
-from rag.extractive import build_extractive_reasoning
 from rag.grounding import filter_allowed_results, grounded_answer_or_fallback
 from rag.prompts import rag_prompt
 from rag.source_links import (
@@ -18,6 +17,7 @@ from rag.source_links import (
     format_source_url,
     serialize_homepage_links,
 )
+from rag.synthesis import build_final_grounded_answer
 from rag.search import explain_search, search
 from llm.reasoning import generate_reasoning, generate_reasoning_from_prompt
 DATA_DIR = "rag/data"
@@ -29,6 +29,7 @@ HEADER_IMAGE_URL = (
 DEPLOY_REVISION_FILE = "deploy_revision.txt"
 LOG_DIR = Path(os.getenv("SYSTEMINFORANDE_LOG_DIR", "/data/logs"))
 ENABLE_USAGE_LOGGING = os.getenv("SYSTEMINFORANDE_ENABLE_LOGGING", "true").strip().lower() not in {"0", "false", "no"}
+ENABLE_LLM_SYNTHESIS = os.getenv("SYSTEMINFORANDE_ENABLE_LLM_SYNTHESIS", "false").strip().lower() in {"1", "true", "yes", "on"}
 _LOG_WRITE_LOCK = threading.Lock()
 EMBED_RESIZE_JS = """
 () => {
@@ -899,7 +900,15 @@ def build_rag_response(query: str, debug: bool, llm_model: str | None) -> dict[s
         }
 
     chunks = [chunk for _, chunk in results]
-    structured_answer = grounded_answer_or_fallback(build_extractive_reasoning(query, chunks))
+    synthesis_result = build_final_grounded_answer(
+        query,
+        chunks,
+        enable_synthesis=ENABLE_LLM_SYNTHESIS,
+        llm_model=llm_model,
+        llm_rewrite=safe_generate_reasoning_from_prompt_with_model,
+    )
+    structured_answer = str(synthesis_result["extractive_answer"])
+    final_answer = str(synthesis_result["final_answer"])
     sources_md = build_sources_md(results)
     homepage_links = serialize_homepage_links(results)
 
@@ -948,8 +957,6 @@ def build_rag_response(query: str, debug: bool, llm_model: str | None) -> dict[s
 
         llm_debug_md = "\n".join(llm_debug_lines)
 
-    final_answer = structured_answer
-
     final_llm_answer = (
         final_answer
         + sources_md
@@ -971,7 +978,9 @@ def build_rag_response(query: str, debug: bool, llm_model: str | None) -> dict[s
             "relevance_reason": "",
             "confidence": confidence,
             "diagnosis": diagnose_retrieval(final_answer, search_debug),
-            "llm_status": "LLM-syntes används inte i det användarvända RAG-svaret.",
+            "llm_status": str(synthesis_result["llm_status"]),
+            "llm_synthesis_enabled": ENABLE_LLM_SYNTHESIS,
+            "llm_synthesis_used": bool(synthesis_result["synthesis_used"]),
         },
     }
 

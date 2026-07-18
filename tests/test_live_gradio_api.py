@@ -6,7 +6,8 @@ from pathlib import Path
 
 import pytest
 import requests
-from gradio_client import Client
+
+Client = pytest.importorskip("gradio_client").Client
 
 
 BASE_URL = os.getenv("SYSTEMINFORANDE_BASE_URL", "https://helmfridsson-systeminforande.hf.space").rstrip("/")
