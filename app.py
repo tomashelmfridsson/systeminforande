@@ -28,7 +28,7 @@ from rag.synthesis import (
     resolve_synthesis_settings,
 )
 from rag.search import explain_search, search
-from llm.reasoning import generate_reasoning, generate_reasoning_from_prompt
+from llm.reasoning import generate_reasoning, generate_reasoning_from_prompt, generate_reasoning_from_prompt_with_usage
 DATA_DIR = "rag/data"
 CHUNKS_FILE = os.path.join(DATA_DIR, "chunks.json")
 HEADER_IMAGE_URL = (
@@ -402,13 +402,14 @@ def answer_question(message, doc_id=None, debug_mode=False, llm_model=None, enab
     raw_message = message or ""
     message = raw_message.strip()
     resolved_llm_model = resolve_llm_model(llm_model, request, default_model=DEFAULT_LLM_MODEL)
+    resolved_enable_synthesis = False if enable_synthesis is None else bool(enable_synthesis)
 
     base_response = {
         "question": raw_message,
         "normalized_question": message,
         "doc_id": doc_id,
         "debug_mode": bool(debug_mode),
-        "enable_synthesis": enable_synthesis,
+        "enable_synthesis": resolved_enable_synthesis,
         "llm_model": resolved_llm_model,
         "route": None,
         "answer_markdown": "",
@@ -416,6 +417,7 @@ def answer_question(message, doc_id=None, debug_mode=False, llm_model=None, enab
         "homepage_links": [],
         "retrieval": None,
         "timing_ms": 0,
+        "llm_usage": summarize_llm_usage([], resolved_llm_model),
     }
 
     if not message:
@@ -446,14 +448,20 @@ def answer_question(message, doc_id=None, debug_mode=False, llm_model=None, enab
                         "retrieval": {
                             "query": f"{doc['title']} {message}",
                             "top_results": serialize_results(source_results),
+                            "llm_status": "LLM-syntes används inte för fördefinierade FAQ-svar.",
+                            "llm_synthesis_enabled": False,
+                            "llm_synthesis_model": resolved_llm_model,
+                            "llm_usage": summarize_llm_usage([], resolved_llm_model),
                         },
                     }
                 )
                 base_response["timing_ms"] = round((time.perf_counter() - started_at) * 1000, 2)
                 return base_response
 
-    rag_response = build_rag_response(message, debug_mode, resolved_llm_model, enable_synthesis)
+    rag_response = build_rag_response(message, debug_mode, resolved_llm_model, resolved_enable_synthesis)
     base_response.update(rag_response)
+    retrieval = rag_response.get("retrieval") or {}
+    base_response["llm_usage"] = rag_response.get("llm_usage") or retrieval.get("llm_usage") or summarize_llm_usage([], resolved_llm_model)
     base_response["timing_ms"] = round((time.perf_counter() - started_at) * 1000, 2)
     return base_response
 
@@ -481,6 +489,7 @@ def submit(message, doc_id, debug_mode, llm_model, request: gr.Request | None = 
         sources=response.get("sources"),
         metadata={
             "debug_mode": bool(debug_mode),
+            "llm_usage": response.get("llm_usage"),
         },
     )
     yield response["answer_markdown"]
@@ -660,6 +669,83 @@ def safe_generate_reasoning_from_prompt_with_model(prompt: str, model: str | Non
         return generate_reasoning_from_prompt(prompt, model=model)
     except Exception as exc:
         print(f"LLM-fel i generate_reasoning_from_prompt: {exc}")
+        return format_llm_error(exc)
+
+
+def _llm_usage_call_record(
+    *,
+    purpose: str,
+    model: str | None,
+    usage: dict[str, int | None] | None = None,
+    status: str,
+    error: str | None = None,
+) -> dict[str, Any]:
+    usage = usage or {}
+    return {
+        "purpose": purpose,
+        "provider": "huggingface_hub.InferenceClient.chat_completion",
+        "model": model,
+        "prompt_tokens": usage.get("prompt_tokens"),
+        "completion_tokens": usage.get("completion_tokens"),
+        "total_tokens": usage.get("total_tokens"),
+        "missing": not any(usage.get(key) is not None for key in ("prompt_tokens", "completion_tokens", "total_tokens")),
+        "status": status,
+        "error": error,
+    }
+
+
+def _sum_usage_field(records: list[dict[str, Any]], field: str) -> int | None:
+    values = [record.get(field) for record in records]
+    ints = [value for value in values if isinstance(value, int)]
+    if not ints:
+        return None
+    if len(ints) != len(values):
+        return None
+    return sum(ints)
+
+
+def summarize_llm_usage(records: list[dict[str, Any]] | None, model: str | None) -> dict[str, Any]:
+    records = records or []
+    return {
+        "provider": "huggingface_hub.InferenceClient.chat_completion",
+        "model": model,
+        "prompt_tokens": _sum_usage_field(records, "prompt_tokens"),
+        "completion_tokens": _sum_usage_field(records, "completion_tokens"),
+        "total_tokens": _sum_usage_field(records, "total_tokens"),
+        "calls": len(records),
+        "missing": not records or any(record.get("missing") for record in records),
+        "calls_detail": records,
+    }
+
+
+def safe_generate_reasoning_from_prompt_with_usage_records(
+    prompt: str,
+    model: str | None,
+    *,
+    purpose: str,
+    usage_records: list[dict[str, Any]],
+) -> str:
+    try:
+        result = generate_reasoning_from_prompt_with_usage(prompt, model=model)
+        usage_records.append(
+            _llm_usage_call_record(
+                purpose=purpose,
+                model=model,
+                usage=result.usage,
+                status="ok",
+            )
+        )
+        return result.text
+    except Exception as exc:
+        print(f"LLM-fel i generate_reasoning_from_prompt: {exc}")
+        usage_records.append(
+            _llm_usage_call_record(
+                purpose=purpose,
+                model=model,
+                status="error",
+                error=str(exc),
+            )
+        )
         return format_llm_error(exc)
 
 
@@ -863,6 +949,7 @@ def build_rag_response(query: str, debug: bool, llm_model: str | None, enable_sy
     )
     resolved_llm_model = synthesis_settings["model"]
     synthesis_enabled = bool(synthesis_settings["enabled"])
+    llm_usage_records: list[dict[str, Any]] = []
 
     results = filter_allowed_results(search(query, top_k=5))
 
@@ -936,7 +1023,12 @@ def build_rag_response(query: str, debug: bool, llm_model: str | None, enable_sy
         chunks,
         enable_synthesis=synthesis_enabled,
         llm_model=resolved_llm_model,
-        llm_rewrite=safe_generate_reasoning_from_prompt_with_model,
+        llm_rewrite=lambda prompt, model: safe_generate_reasoning_from_prompt_with_usage_records(
+            prompt,
+            model,
+            purpose="synthesis",
+            usage_records=llm_usage_records,
+        ),
     )
     structured_answer = str(synthesis_result["extractive_answer"])
     final_answer = str(synthesis_result["final_answer"])
@@ -947,7 +1039,12 @@ def build_rag_response(query: str, debug: bool, llm_model: str | None, enable_sy
     llm_answer = ""
     if debug:
         llm_prompt = rag_prompt(query, chunks)
-        llm_answer = safe_generate_reasoning_from_prompt_with_model(llm_prompt, resolved_llm_model)
+        llm_answer = safe_generate_reasoning_from_prompt_with_usage_records(
+            llm_prompt,
+            resolved_llm_model,
+            purpose="debug_comparison",
+            usage_records=llm_usage_records,
+        )
         llm_debug_lines = [
             "\n\n---\n\n### Debug",
             f"**Confidence:** {confidence}",
@@ -993,6 +1090,7 @@ def build_rag_response(query: str, debug: bool, llm_model: str | None, enable_sy
         + sources_md
         + llm_debug_md
     )
+    llm_usage = summarize_llm_usage(llm_usage_records, resolved_llm_model)
     return {
         "route": "rag",
         "llm_model": resolved_llm_model,
@@ -1000,6 +1098,7 @@ def build_rag_response(query: str, debug: bool, llm_model: str | None, enable_sy
         "answer_markdown": final_llm_answer,
         "sources": serialize_results(results),
         "homepage_links": homepage_links,
+        "llm_usage": llm_usage,
         "retrieval": {
             "query": query,
             "query_terms": search_debug["query_terms"],
@@ -1016,6 +1115,7 @@ def build_rag_response(query: str, debug: bool, llm_model: str | None, enable_sy
             "llm_synthesis_used": bool(synthesis_result["synthesis_used"]),
             "llm_synthesis_model": resolved_llm_model,
             "llm_synthesis_enabled_source": synthesis_settings["enabled_source"],
+            "llm_usage": llm_usage,
         },
     }
 
@@ -1315,7 +1415,11 @@ def api_ask(payload: dict[str, Any], request: FastAPIRequest):
         llm_model=response.get("llm_model"),
         timing_ms=response.get("timing_ms"),
         sources=response.get("sources"),
-        metadata={"debug_mode": debug_mode, "enable_synthesis": enable_synthesis},
+        metadata={
+            "debug_mode": debug_mode,
+            "enable_synthesis": enable_synthesis,
+            "llm_usage": response.get("llm_usage"),
+        },
     )
     return response
 

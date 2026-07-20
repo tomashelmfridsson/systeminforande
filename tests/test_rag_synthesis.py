@@ -1,10 +1,12 @@
 from pathlib import Path
+from types import SimpleNamespace
 import sys
 
 import pytest
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
+from llm.reasoning import extract_hf_usage
 from rag.grounding import INSUFFICIENT_EVIDENCE_ANSWER
 from rag.synthesis import (
     DEFAULT_SYNTHESIS_MODEL,
@@ -144,3 +146,80 @@ def test_resolve_synthesis_settings_supports_per_request_override(monkeypatch):
     assert settings["model"] == "zai-org/GLM-5.2"
     assert settings["requested_model"] == "zai-org/GLM-5.2"
     assert settings["enabled_source"] == "override"
+
+
+def test_extract_hf_usage_reads_huggingface_usage_fields_defensively():
+    response = SimpleNamespace(
+        usage=SimpleNamespace(
+            prompt_tokens="12",
+            completion_tokens=5,
+            total_tokens=17,
+        )
+    )
+
+    assert extract_hf_usage(response) == {
+        "prompt_tokens": 12,
+        "completion_tokens": 5,
+        "total_tokens": 17,
+    }
+
+
+def test_extract_hf_usage_tolerates_missing_usage():
+    assert extract_hf_usage(SimpleNamespace()) == {
+        "prompt_tokens": None,
+        "completion_tokens": None,
+        "total_tokens": None,
+    }
+
+
+def test_huggingface_provider_call_returns_usage_when_present(monkeypatch):
+    from llm import reasoning
+
+    class FakeClient:
+        def chat_completion(self, **kwargs):
+            return SimpleNamespace(
+                choices=[SimpleNamespace(message={"content": "Källbundet svar"})],
+                usage=SimpleNamespace(
+                    prompt_tokens=13,
+                    completion_tokens=8,
+                    total_tokens=21,
+                ),
+            )
+
+    monkeypatch.setattr(reasoning, "get_llm_client", lambda model=None: FakeClient())
+
+    result = reasoning.generate_reasoning_from_prompt_with_usage(
+        "Svara bara utifrån källmaterialet.",
+        model="Qwen/Qwen3-32B",
+    )
+
+    assert result.text == "Källbundet svar"
+    assert result.usage == {
+        "prompt_tokens": 13,
+        "completion_tokens": 8,
+        "total_tokens": 21,
+    }
+
+
+def test_huggingface_provider_call_does_not_fail_when_usage_is_missing(monkeypatch):
+    from llm import reasoning
+
+    class FakeClient:
+        def chat_completion(self, **kwargs):
+            return SimpleNamespace(
+                choices=[SimpleNamespace(message={"content": "Svar utan usage-metadata"})]
+            )
+
+    monkeypatch.setattr(reasoning, "get_llm_client", lambda model=None: FakeClient())
+
+    result = reasoning.generate_reasoning_from_prompt_with_usage(
+        "Svara bara utifrån källmaterialet.",
+        model="Qwen/Qwen3-32B",
+    )
+
+    assert result.text == "Svar utan usage-metadata"
+    assert result.usage == {
+        "prompt_tokens": None,
+        "completion_tokens": None,
+        "total_tokens": None,
+    }

@@ -1,7 +1,54 @@
+from __future__ import annotations
+
+from dataclasses import dataclass
+from typing import Any
+
 from llm.client import get_llm_client
 from llm.prompts import base_llm_instructions, reasoning_prompt
 
-def _call_llm(prompt: str, model: str | None = None) -> str:
+
+@dataclass(frozen=True)
+class LLMCallResult:
+    text: str
+    usage: dict[str, int | None]
+
+
+def _safe_int(value: Any) -> int | None:
+    if value is None:
+        return None
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        return None
+
+
+def _get_usage_value(usage: Any, key: str) -> Any:
+    value = getattr(usage, key, None)
+    if value is not None:
+        return value
+    try:
+        return usage.get(key)
+    except AttributeError:
+        return None
+
+
+def extract_hf_usage(response: Any) -> dict[str, int | None]:
+    usage = getattr(response, "usage", None)
+    if not usage:
+        return {
+            "prompt_tokens": None,
+            "completion_tokens": None,
+            "total_tokens": None,
+        }
+
+    return {
+        "prompt_tokens": _safe_int(_get_usage_value(usage, "prompt_tokens")),
+        "completion_tokens": _safe_int(_get_usage_value(usage, "completion_tokens")),
+        "total_tokens": _safe_int(_get_usage_value(usage, "total_tokens")),
+    }
+
+
+def _call_llm_with_usage(prompt: str, model: str | None = None) -> LLMCallResult:
     client = get_llm_client(model=model)
     response = client.chat_completion(
         messages=[
@@ -18,7 +65,14 @@ def _call_llm(prompt: str, model: str | None = None) -> str:
         temperature=0.2
     )
 
-    return response.choices[0].message["content"]
+    return LLMCallResult(
+        text=response.choices[0].message["content"],
+        usage=extract_hf_usage(response),
+    )
+
+
+def _call_llm(prompt: str, model: str | None = None) -> str:
+    return _call_llm_with_usage(prompt, model=model).text
 
 # =========================
 # FÖRDEFINIERADE FRÅGOR
@@ -54,6 +108,13 @@ def generate_reasoning_from_prompt(prompt: str, model: str | None = None) -> str
     Genererar resonemang från färdig prompt (RAG).
     """
     return _call_llm(prompt, model=model)
+
+
+def generate_reasoning_from_prompt_with_usage(prompt: str, model: str | None = None) -> LLMCallResult:
+    """
+    Genererar resonemang från färdig prompt (RAG) och behåller tokenanvändning.
+    """
+    return _call_llm_with_usage(prompt, model=model)
 
 
 # =========================

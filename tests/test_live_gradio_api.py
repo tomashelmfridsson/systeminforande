@@ -1,11 +1,14 @@
+import importlib
 import json
 import os
 import re
+import sys
 import time
 from pathlib import Path
 
 import pytest
 import requests
+from fastapi.testclient import TestClient
 
 Client = pytest.importorskip("gradio_client").Client
 
@@ -60,6 +63,194 @@ def _has_narrative_answer(answer_markdown: str) -> bool:
 
     words = re.findall(r"[A-Za-zÅÄÖåäö0-9]+", body)
     return len(words) >= 8
+
+
+def _load_local_app_without_launch(monkeypatch):
+    import gradio as gr
+
+    def _noop_launch(self, *args, **kwargs):
+        return None
+
+    monkeypatch.setattr(gr.Blocks, "launch", _noop_launch)
+    sys.modules.pop("app", None)
+    return importlib.import_module("app")
+
+
+def _jsonl_records(log_dir: Path) -> list[dict]:
+    records = []
+    for path in sorted(log_dir.glob("*.jsonl")):
+        with path.open(encoding="utf-8") as handle:
+            records.extend(json.loads(line) for line in handle if line.strip())
+    return records
+
+
+def test_local_api_ask_honors_explicit_llm_model_and_returns_structured_metadata(monkeypatch):
+    app_module = _load_local_app_without_launch(monkeypatch)
+    client = TestClient(app_module.demo.app)
+
+    response = client.post(
+        "/api/ask",
+        json={
+            "question": "Hur testar man ett nytt system?",
+            "enable_synthesis": False,
+            "llm_model": "Qwen/Qwen3-32B",
+        },
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["llm_model"] == "Qwen/Qwen3-32B"
+    assert payload["enable_synthesis"] is False
+    assert payload["retrieval"]["llm_synthesis_model"] == "Qwen/Qwen3-32B"
+    assert payload["retrieval"]["llm_synthesis_enabled"] is False
+    assert payload["retrieval"]["llm_status"]
+
+
+def test_local_api_ask_defaults_synthesis_off_when_not_explicitly_enabled(monkeypatch):
+    monkeypatch.setenv("SYSTEMINFORANDE_ENABLE_LLM_SYNTHESIS", "true")
+    app_module = _load_local_app_without_launch(monkeypatch)
+    client = TestClient(app_module.demo.app)
+
+    response = client.post(
+        "/api/ask",
+        json={
+            "question": "Hur testar man ett nytt system?",
+            "llm_model": "Qwen/Qwen3-32B",
+        },
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["enable_synthesis"] is False
+    assert payload["retrieval"]["llm_synthesis_enabled"] is False
+
+
+def test_local_api_ask_accepts_query_param_model_alias_when_body_model_missing(monkeypatch):
+    app_module = _load_local_app_without_launch(monkeypatch)
+    client = TestClient(app_module.demo.app)
+
+    response = client.post(
+        "/api/ask?LLM=Qwen/Qwen3-32B",
+        json={
+            "question": "Hur testar man ett nytt system?",
+            "enable_synthesis": False,
+        },
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["llm_model"] == "Qwen/Qwen3-32B"
+    assert payload["retrieval"]["llm_synthesis_model"] == "Qwen/Qwen3-32B"
+
+
+def test_usage_log_record_includes_huggingface_token_fields_when_present(monkeypatch, tmp_path):
+    monkeypatch.setenv("SYSTEMINFORANDE_LOG_DIR", str(tmp_path / "logs"))
+    monkeypatch.setenv("SYSTEMINFORANDE_ENABLE_LOGGING", "true")
+    app_module = _load_local_app_without_launch(monkeypatch)
+    llm_usage = app_module.summarize_llm_usage(
+        [
+            app_module._llm_usage_call_record(
+                purpose="synthesis",
+                model="Qwen/Qwen3-32B",
+                usage={
+                    "prompt_tokens": 13,
+                    "completion_tokens": 8,
+                    "total_tokens": 21,
+                },
+                status="ok",
+            )
+        ],
+        "Qwen/Qwen3-32B",
+    )
+
+    app_module.log_usage_event(
+        "api_question",
+        question="Hur testar man ett nytt system?",
+        answer="Med acceptanstest och verifiering.",
+        route="rag",
+        llm_model="Qwen/Qwen3-32B",
+        metadata={"llm_usage": llm_usage},
+    )
+
+    records = [
+        record
+        for record in _jsonl_records(tmp_path / "logs")
+        if record["event_type"] == "api_question"
+    ]
+    assert len(records) == 1
+    logged_usage = records[0]["metadata"]["llm_usage"]
+    assert logged_usage["provider"] == "huggingface_hub.InferenceClient.chat_completion"
+    assert logged_usage["model"] == "Qwen/Qwen3-32B"
+    assert logged_usage["prompt_tokens"] == 13
+    assert logged_usage["completion_tokens"] == 8
+    assert logged_usage["total_tokens"] == 21
+    assert logged_usage["calls"] == 1
+    assert logged_usage["missing"] is False
+    assert logged_usage["calls_detail"] == [
+        {
+            "purpose": "synthesis",
+            "provider": "huggingface_hub.InferenceClient.chat_completion",
+            "model": "Qwen/Qwen3-32B",
+            "prompt_tokens": 13,
+            "completion_tokens": 8,
+            "total_tokens": 21,
+            "missing": False,
+            "status": "ok",
+            "error": None,
+        }
+    ]
+
+
+def test_usage_log_record_tolerates_absent_and_partially_missing_usage(monkeypatch, tmp_path):
+    monkeypatch.setenv("SYSTEMINFORANDE_LOG_DIR", str(tmp_path / "logs"))
+    monkeypatch.setenv("SYSTEMINFORANDE_ENABLE_LOGGING", "true")
+    app_module = _load_local_app_without_launch(monkeypatch)
+    llm_usage = app_module.summarize_llm_usage(
+        [
+            app_module._llm_usage_call_record(
+                purpose="synthesis",
+                model="Qwen/Qwen3-32B",
+                usage={
+                    "prompt_tokens": 10,
+                    "completion_tokens": None,
+                    "total_tokens": None,
+                },
+                status="ok",
+            ),
+            app_module._llm_usage_call_record(
+                purpose="debug_comparison",
+                model="Qwen/Qwen3-32B",
+                usage=None,
+                status="ok",
+            ),
+        ],
+        "Qwen/Qwen3-32B",
+    )
+
+    app_module.log_usage_event(
+        "api_question",
+        question="Hur testar man ett nytt system?",
+        answer="Med acceptanstest och verifiering.",
+        route="rag",
+        llm_model="Qwen/Qwen3-32B",
+        metadata={"llm_usage": llm_usage},
+    )
+
+    records = [
+        record
+        for record in _jsonl_records(tmp_path / "logs")
+        if record["event_type"] == "api_question"
+    ]
+    assert len(records) == 1
+    logged_usage = records[0]["metadata"]["llm_usage"]
+    assert logged_usage["calls"] == 2
+    assert logged_usage["prompt_tokens"] is None
+    assert logged_usage["completion_tokens"] is None
+    assert logged_usage["total_tokens"] is None
+    assert logged_usage["missing"] is True
+    assert logged_usage["calls_detail"][0]["prompt_tokens"] == 10
+    assert logged_usage["calls_detail"][0]["completion_tokens"] is None
+    assert logged_usage["calls_detail"][1]["missing"] is True
 
 
 @pytest.mark.live_api
