@@ -1,5 +1,6 @@
 from rag.extractive import build_extractive_reasoning
 from rag.search import search
+from rag.source_links import build_sources_md
 
 
 def _answer_for(question: str) -> str:
@@ -12,7 +13,9 @@ def test_requirement_checklist_question_answers_yes_from_local_chunks():
     answer = _answer_for("Finns det en checklista för införandekrav")
 
     assert "ja" in answer
-    assert "inforandekrav_checklista.pdf" in answer
+    assert "checklista" in answer
+    assert "bedömningen bygger" not in answer
+    assert "s. " not in answer
 
 
 def test_work_area_definition_mentions_grouping_and_examples():
@@ -95,3 +98,21 @@ def test_work_areas_are_used_for_planning_structure_and_followup():
     answer = _answer_for("Hur används arbetsområden i planeringen?")
 
     assert any(keyword in answer for keyword in ["planeringen", "strukturera", "ansvar", "uppföljning"])
+
+
+def test_performance_answer_uses_flowing_body_without_inline_source_references():
+    question = "Hur kolla att svarstider och bearbetningstider uppfyller ställda krav?"
+    results = search(question, top_k=5)
+    chunks = [chunk for _, chunk in results]
+
+    answer = build_extractive_reasoning(question, chunks).lower()
+    sources_md = build_sources_md(results)
+
+    assert answer.startswith("för att kontrollera att svarstider och bearbetningstider")
+    assert "acceptanstest" in answer
+    assert "leveransgodkännande" in answer
+    assert "bedömningen bygger" not in answer
+    assert ".pdf" not in answer
+    assert "s. " not in answer
+    assert "### Källor" in sources_md
+    assert ".pdf" in sources_md

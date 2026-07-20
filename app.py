@@ -8,6 +8,7 @@ from typing import Any
 from pathlib import Path
 from fastapi import HTTPException, Request as FastAPIRequest
 import gradio as gr
+from gradio.routes import App as GradioApp
 import requests
 
 from rag.grounding import filter_allowed_results, grounded_answer_or_fallback
@@ -95,6 +96,7 @@ def log_startup_version(version: str) -> None:
 
 
 DEPLOY_REVISION = load_deploy_revision()
+API_APP = GradioApp()
 
 
 def _ensure_log_dir() -> bool:
@@ -1366,17 +1368,17 @@ with gr.Blocks() as demo:
     )
 
 
-@demo.app.get("/health")
+@API_APP.get("/health")
 def health():
     return {"status": "ok", "revision": DEPLOY_REVISION}
 
 
-@demo.app.get("/ready")
+@API_APP.get("/ready")
 def ready():
     return {"status": "ok", "revision": DEPLOY_REVISION}
 
 
-@demo.app.post("/api/ask")
+@API_APP.post("/api/ask")
 def api_ask(payload: dict[str, Any], request: FastAPIRequest):
     question = payload.get("question")
     if not isinstance(question, str) or not question.strip():
@@ -1431,4 +1433,12 @@ with open("style.css", encoding="utf-8") as f:
     css = f.read()
 
 log_startup_version(DEPLOY_REVISION)
-demo.launch(theme=None,css=css, ssr_mode=False)
+
+
+def launch_demo(**kwargs):
+    launch_kwargs = {"theme": None, "css": css, "ssr_mode": False, "_app": API_APP}
+    launch_kwargs.update(kwargs)
+    return demo.launch(**launch_kwargs)
+
+
+launch_demo()

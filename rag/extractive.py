@@ -17,12 +17,12 @@ BAD_TITLE_PATTERNS = (
 )
 
 LEAD_PATTERNS = [
-    (re.compile(r"\bvad är\b", re.I), "Materialet beskriver detta som"),
-    (re.compile(r"\bvad innebär\b", re.I), "Materialet beskriver detta som"),
-    (re.compile(r"\bvad är syftet\b", re.I), "Syftet beskrivs i materialet som att"),
-    (re.compile(r"\bvilka\b", re.I), "Materialet lyfter särskilt fram att"),
-    (re.compile(r"\bhur\b", re.I), "Materialet visar att"),
-    (re.compile(r"\bnär\b", re.I), "Materialet anger att"),
+    (re.compile(r"\bvad är\b", re.I), "Kort sagt handlar det om följande."),
+    (re.compile(r"\bvad innebär\b", re.I), "Kort sagt innebär det följande."),
+    (re.compile(r"\bvad är syftet\b", re.I), "Syftet kan sammanfattas så här."),
+    (re.compile(r"\bvilka\b", re.I), "De delar som framträder tydligast är följande."),
+    (re.compile(r"\bhur\b", re.I), "Det centrala är följande."),
+    (re.compile(r"\bnär\b", re.I), "Tids- eller beslutsfrågan behöver läsas så här."),
 ]
 
 
@@ -248,9 +248,10 @@ def _build_performance_reasoning(query: str, chunks: list) -> str:
         return ""
 
     return (
-        "Materialet visar att detta kontrolleras inom acceptanstest och leveransgodkännande. "
-        "Svarstider och körningstider ska vara testade med godkänt resultat, och man ska verifiera att de är acceptabla "
-        "innan systemet godkänns. "
+        "För att kontrollera att svarstider och bearbetningstider uppfyller kraven behöver de ingå "
+        "i acceptanstestet och verifieras innan leveransgodkännande. Det innebär att svarstider och "
+        "körningstider ska vara testade med godkänt resultat och bedömas som acceptabla innan systemet "
+        "godkänns. "
         + _build_closing(performance_chunks)
     ).strip()
 
@@ -504,37 +505,19 @@ def _collect_evidence(query: str, chunks: list, limit: int) -> list[str]:
 
 
 def _build_intro(query: str, chunks: list) -> str:
-    lead = "Materialet visar att"
+    lead = "Det centrala i underlaget är följande."
     for pattern, replacement in LEAD_PATTERNS:
         if pattern.search(query):
             lead = replacement
             break
-
-    title = _best_title(chunks)
-    if title:
-        return f"{lead} detta framgår framför allt av avsnittet \"{title}\"."
-    return f"{lead}"
+    return lead
 
 
 def _build_closing(chunks: list) -> str:
-    references = _build_source_references(chunks)
-    if references:
-        if len(references) == 1:
-            return f"Bedömningen bygger främst på {references[0]}."
-        if len(references) == 2:
-            return f"Bedömningen bygger främst på {references[0]} och {references[1]}."
-        return (
-            "Bedömningen bygger främst på "
-            + ", ".join(references[:-1])
-            + f" och {references[-1]}."
-        )
-
-    pages = sorted({page for chunk in chunks for page in (chunk.get("pages") or [])})
-    if not pages:
-        return ""
-    if len(pages) == 1:
-        return f"Bedömningen bygger på underlag från sida {pages[0]}."
-    return f"Bedömningen bygger på underlag från sidorna {pages[0]}-{pages[-1]}."
+    # Source transparency is rendered separately in the Källor/Debug sections.
+    # Keep the answer body focused on grounded prose rather than repeating
+    # document names or page references inline.
+    return ""
 
 
 def _build_source_references(chunks: list, max_sources: int = 2) -> list[str]:

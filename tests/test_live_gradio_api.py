@@ -86,7 +86,7 @@ def _jsonl_records(log_dir: Path) -> list[dict]:
 
 def test_local_api_ask_honors_explicit_llm_model_and_returns_structured_metadata(monkeypatch):
     app_module = _load_local_app_without_launch(monkeypatch)
-    client = TestClient(app_module.demo.app)
+    client = TestClient(app_module.API_APP)
 
     response = client.post(
         "/api/ask",
@@ -109,7 +109,7 @@ def test_local_api_ask_honors_explicit_llm_model_and_returns_structured_metadata
 def test_local_api_ask_defaults_synthesis_off_when_not_explicitly_enabled(monkeypatch):
     monkeypatch.setenv("SYSTEMINFORANDE_ENABLE_LLM_SYNTHESIS", "true")
     app_module = _load_local_app_without_launch(monkeypatch)
-    client = TestClient(app_module.demo.app)
+    client = TestClient(app_module.API_APP)
 
     response = client.post(
         "/api/ask",
@@ -127,7 +127,7 @@ def test_local_api_ask_defaults_synthesis_off_when_not_explicitly_enabled(monkey
 
 def test_local_api_ask_accepts_query_param_model_alias_when_body_model_missing(monkeypatch):
     app_module = _load_local_app_without_launch(monkeypatch)
-    client = TestClient(app_module.demo.app)
+    client = TestClient(app_module.API_APP)
 
     response = client.post(
         "/api/ask?LLM=Qwen/Qwen3-32B",
@@ -141,6 +141,71 @@ def test_local_api_ask_accepts_query_param_model_alias_when_body_model_missing(m
     payload = response.json()
     assert payload["llm_model"] == "Qwen/Qwen3-32B"
     assert payload["retrieval"]["llm_synthesis_model"] == "Qwen/Qwen3-32B"
+
+
+def test_local_api_ask_honors_enable_synthesis_true_without_env_flag(monkeypatch):
+    app_module = _load_local_app_without_launch(monkeypatch)
+
+    def _fake_final_grounded_answer(query, chunks, *, enable_synthesis, llm_model, llm_rewrite):
+        return {
+            "extractive_answer": "Extraktivt svar från källmaterialet.",
+            "final_answer": "Omskrivet källbundet svar från källmaterialet.",
+            "synthesis_enabled": enable_synthesis,
+            "synthesis_used": True,
+            "llm_model": llm_model,
+            "llm_status": "rewrite_applied",
+            "synthesis_prompt": "",
+        }
+
+    monkeypatch.setattr(app_module, "build_final_grounded_answer", _fake_final_grounded_answer)
+    client = TestClient(app_module.API_APP)
+
+    response = client.post(
+        "/api/ask",
+        json={
+            "question": "Hur testar man ett nytt system?",
+            "enable_synthesis": True,
+            "llm_model": "mistralai/Mistral-Small-4-119B-2603",
+        },
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["enable_synthesis"] is True
+    assert payload["llm_model"] == "mistralai/Mistral-Small-4-119B-2603"
+    assert payload["retrieval"]["llm_synthesis_enabled"] is True
+    assert payload["retrieval"]["llm_synthesis_used"] is True
+    assert payload["retrieval"]["llm_synthesis_model"] == "mistralai/Mistral-Small-4-119B-2603"
+
+
+def test_local_launch_mounts_custom_api_app(monkeypatch):
+    launched_kwargs = []
+
+    import gradio as gr
+
+    def _capture_launch(self, *args, **kwargs):
+        launched_kwargs.append(kwargs)
+        return None
+
+    monkeypatch.setattr(gr.Blocks, "launch", _capture_launch)
+    sys.modules.pop("app", None)
+    app_module = importlib.import_module("app")
+
+    assert launched_kwargs
+    assert launched_kwargs[-1]["_app"] is app_module.API_APP
+
+
+def test_local_health_and_ready_routes_are_on_mounted_api_app(monkeypatch):
+    app_module = _load_local_app_without_launch(monkeypatch)
+    client = TestClient(app_module.API_APP)
+
+    health_response = client.get("/health")
+    ready_response = client.get("/ready")
+
+    assert health_response.status_code == 200
+    assert ready_response.status_code == 200
+    assert health_response.json()["status"] == "ok"
+    assert ready_response.json()["status"] == "ok"
 
 
 def test_usage_log_record_includes_huggingface_token_fields_when_present(monkeypatch, tmp_path):

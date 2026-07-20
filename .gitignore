@@ -6,3 +6,4 @@ tests/
 tools/
 docs/
 minimal_app.py
+logs/

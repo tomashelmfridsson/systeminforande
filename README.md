@@ -27,7 +27,25 @@ Experimentell grounded LLM-syntes för fria RAG-frågor styrs med:
 - `SYSTEMINFORANDE_ENABLE_LLM_SYNTHESIS=true` för att slå på omskrivningssteget efter extraktivt svar.
 - `SYSTEMINFORANDE_LLM_SYNTHESIS_MODEL=openai/gpt-oss-120b` eller `SYSTEMINFORANDE_LLM_SYNTHESIS_MODEL=zai-org/GLM-5.2` för att välja värdmodell när syntesen är aktiverad.
 
-API-flödet stöder även per-anrop-override via `/api/ask` med JSON-fälten `enable_synthesis` (bool) och `llm_model` (str), så att samma deploy kan testas med syntes av/på och med olika modeller utan kodändring.
+API-flödet stöder även per-anrop-override via `/api/ask` med JSON-fälten `question` (str), `debug_mode` (bool), `enable_synthesis` (bool), `llm_model` (str) och `doc_id` (str), så att samma deploy kan testas med syntes av/på och med olika modeller utan kodändring. Den deployade kontroll-ytan ska även svara `200` på `/health` och `/ready`.
+
+Obs: Gradio-endpointen `/submit` räcker för manuell chatbot-testning, men den är inte samma sak som den strukturerade utvärderingsytan. Live-jämförelser som behöver styra `enable_synthesis` per anrop och läsa metadata som `llm_model`, `retrieval.llm_synthesis_used` och `retrieval.llm_synthesis_model` ska använda `/api/ask` när den är deployad.
+
+## Live-jämförelse för svaga RAG-prompter
+
+När den deployade Hugging Face-appen exponerar `/api/ask` kan de sju svaga RAG-prompterna köras reproducerbart med syntes av och på:
+
+```bash
+python tools/run_live_weak_prompt_synthesis_compare.py --load-env .env
+```
+
+Skriptet skriver en maskinläsbar `report.json`, en granskningsvänlig `report.md` och fullständiga svar per case under `tests/results/live_weak_prompt_synthesis_compare_<timestamp>/`. Det jämför baseline med `enable_synthesis=false` mot `enable_synthesis=true` för exakt dessa modell-id:n: `openai/gpt-oss-120b`, `Qwen/Qwen3-32B`, `google/gemma-4-31B-it` och `mistralai/Mistral-Small-4-119B-2603`. Det laddar `.env` utan att hårdkoda hemligheter och redovisar `llm_status`, om syntes faktiskt användes, fallback/gating-orsak, tokenmetadata när den finns och svarslatens.
+
+För att även verifiera query-parametervägen kan samma körning skicka modellvalet både i JSON och som `?LLM=<model>`:
+
+```bash
+python tools/run_live_weak_prompt_synthesis_compare.py --load-env .env --send-model-as-query-param
+```
 
 ## Hugging Face-tokenförbrukning i loggar
 
