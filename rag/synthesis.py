@@ -67,13 +67,19 @@ def build_synthesis_prompt(query: str, chunks: list[dict], fallback_answer: str 
     return (
         f"{rag_prompt(query, chunks)}\n\n"
         "Svara självständigt utifrån källunderlaget nedan. Använd inte ett förbyggt bassvar som struktur.\n"
+        "Identifiera vad användaren faktiskt frågar efter innan du skriver, och välj bara de delar av underlaget som svarar på just den frågan.\n"
         "Resonemanget ska vara fritt formulerat, naturligt och utvecklat, men varje sakpåstående måste kunna stödjas av källunderlaget.\n"
+        "Behandla PDF-metadata som icke-faktuell: författarnamn, dokumenttitlar, dokumentmallar, versionsrader, copyright, sidhuvuden, sidfötter och sid-/etikettrader får inte bli svarsinnehåll.\n"
+        "Håll dig till frågans fokus, till exempel skillnaden mellan planering, organisering, tekniska krav, ansvar och arbetsmodell.\n"
+        "Text som 'Nedanstående figur', 'Nedanstående bild' eller 'Tabellen nedan' räcker inte som sakstöd om den faktiska informationen bara finns i figuren, bilden eller tabellen och inte finns i textutdraget.\n"
         "Om underlaget är smalt får du resonera om vad som faktiskt går att belägga och vad som inte går att belägga.\n"
+        "Börja med ett direkt svar. Utveckla därefter vad svaret betyder, varför de belagda punkterna spelar roll och hur de hänger ihop.\n"
+        "För frågor om det finns en arbetsmodell: stanna inte vid 'ja' om underlaget stödjer mer, utan beskriv modellens delar och hur de hänger ihop.\n"
         "Använd normalt 4 till 8 meningar på svenska när frågan är avgränsad. För breda fria frågor, till exempel om hinder, faser eller flera sammanhängande områden, använd normalt 6 till 10 meningar när källunderlaget räcker.\n"
         "Förklara vad punkterna innebär, varför de spelar roll för införandet och hur de hänger ihop med varandra, utan att lägga till generiska råd som inte finns i källorna.\n"
         "Skriv i flytande svensk prosa och undvik punktlista om frågan inte ber om det.\n"
         "Skriv inga dokument- eller sidreferenser inne i resonemanget; källor redovisas separat utanför LLM-svaret.\n"
-        "Undvik mallfraser som 'Frågan verkar beröra', 'Materialet visar att', 'Materialet anger att' och 'de hämtade utdragen'.\n\n"
+        "Undvik mallfraser som 'Frågan verkar beröra', 'Materialet visar att', 'Materialet anger att' och 'de hämtade utdragen'. Undvik också motfrågor och mekaniska svarsmallar.\n\n"
         f"Fråga:\n{query}\n\n"
         f"Fallback-svar om LLM-svaret inte blir källbundet:\n{fallback_answer}\n\n"
         f"Källunderlag:\n{source_context}"
@@ -144,6 +150,8 @@ def _passes_grounding_check(candidate: str, chunks: list[dict], extractive_answe
         return False
     if _has_disallowed_template_phrase(text):
         return False
+    if _has_disallowed_metadata_phrase(text):
+        return False
 
     support_tokens = _content_tokens(extractive_answer)
     support_tokens.update(_content_tokens(query))
@@ -181,6 +189,20 @@ def _has_disallowed_template_phrase(text: str) -> bool:
             "materialet beskriver att",
             "de hämtade utdragen",
             "frågan verkar beröra",
+        )
+    )
+
+
+def _has_disallowed_metadata_phrase(text: str) -> bool:
+    lowered = (text or "").lower()
+    return any(
+        phrase in lowered
+        for phrase in (
+            "hans johansson",
+            "© citrus",
+            "citrus i stockholm",
+            "citrus projektstyrning",
+            "version 1",
         )
     )
 

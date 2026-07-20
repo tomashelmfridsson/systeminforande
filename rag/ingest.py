@@ -35,6 +35,18 @@ HEADER_FOOTER_LINES = {
     "utskriftsdatum",
 }
 
+DOCUMENT_METADATA_RE = re.compile(
+    r"^(författare|author|utfärdare|dokumentägare|dokumentansvarig|godkänd av|"
+    r"version|version nr|versionsnummer|copyright)\b",
+    re.I,
+)
+PAGE_NUMBER_RE = re.compile(
+    r"^(sida|sid\.?|page)\s*\d+\s*(?:/|av|of)?\s*\d*$|^\d+\s*(?:/|av|of)\s*\d+$",
+    re.I,
+)
+DATE_ONLY_RE = re.compile(r"^\d{4}[-/.]\d{1,2}[-/.]\d{1,2}$|^\d{1,2}[-/.]\d{1,2}[-/.]\d{2,4}$")
+REPEATED_LINE_MIN_PAGES = 3
+
 WEB_MIN_CHUNK_LENGTH = 180
 WEB_TARGET_CHUNK_LENGTH = 900
 
@@ -81,10 +93,100 @@ def is_noise_line(line: str) -> bool:
     if re.fullmatch(r"\d{4}-\d{2}-\d{2}", lowered):
         return True
 
+    if DATE_ONLY_RE.fullmatch(lowered):
+        return True
+
+    if PAGE_NUMBER_RE.fullmatch(line.strip()):
+        return True
+
+    if "©" in line or "copyright" in lowered:
+        return True
+
+    if DOCUMENT_METADATA_RE.match(line.strip()):
+        return True
+
+    if re.fullmatch(r"[\W_]+", line.strip()):
+        return True
+
+    words = re.findall(r"[A-Za-zÅÄÖåäö]+", line)
+    if len(line.strip()) >= 12 and words:
+        short_words = [word for word in words if len(word) <= 2]
+        if len(short_words) / len(words) >= 0.65:
+            return True
+
     if TOC_RE.match(line):
         return True
 
     return False
+
+
+def _normalize_repeated_line_key(line: str) -> str:
+    return re.sub(r"\s+", " ", line.strip().lower())
+
+
+def _repeated_line_keys(pages):
+    page_hits = {}
+
+    for _, text in pages:
+        seen_on_page = set()
+        for line in text.splitlines():
+            stripped = line.strip()
+            if not stripped:
+                continue
+            key = _normalize_repeated_line_key(stripped)
+            if not key or len(key) > 90:
+                continue
+            seen_on_page.add(key)
+
+        for key in seen_on_page:
+            page_hits[key] = page_hits.get(key, 0) + 1
+
+    return {
+        key for key, count in page_hits.items()
+        if count >= REPEATED_LINE_MIN_PAGES
+    }
+
+
+def _is_repeated_header_footer_line(line: str, repeated_keys: set[str]) -> bool:
+    stripped = line.strip()
+    if not stripped:
+        return False
+    key = _normalize_repeated_line_key(stripped)
+    if key not in repeated_keys:
+        return False
+    if len(stripped) <= 90:
+        return True
+    return False
+
+
+def _clean_pages_for_chunking(pages):
+    repeated_keys = _repeated_line_keys(pages)
+    cleaned_pages = []
+
+    for page_no, text in pages:
+        cleaned_lines = []
+        raw_lines = text.splitlines()
+        previous_nonempty = ""
+        for line in raw_lines:
+            stripped = line.strip()
+            if not stripped:
+                cleaned_lines.append("")
+                continue
+            if is_noise_line(stripped):
+                previous_nonempty = stripped
+                continue
+            is_numbered_title_continuation = bool(SECTION_NUMBER_ONLY_RE.match(previous_nonempty))
+            if (
+                _is_repeated_header_footer_line(stripped, repeated_keys)
+                and not is_numbered_title_continuation
+            ):
+                previous_nonempty = stripped
+                continue
+            cleaned_lines.append(stripped)
+            previous_nonempty = stripped
+        cleaned_pages.append((page_no, "\n".join(cleaned_lines)))
+
+    return cleaned_pages
 
 
 def is_heading_title_candidate(line: str) -> bool:
@@ -216,6 +318,7 @@ def _is_useful_web_chunk(text):
 # =========================
 
 def chunk_by_headings(pages, source_name, source_type, source_ref):
+    pages = _clean_pages_for_chunking(pages)
     chunks = []
 
     current = {

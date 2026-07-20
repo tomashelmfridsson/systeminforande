@@ -47,6 +47,8 @@ Syftet med dokumentet är inte bara att beskriva slutresultatet, utan att förkl
 21. Sammanfattning
 22. När vi upptäckte att RAG:en inte höll måttet
 23. RAGAS, loggar och live modelljämförelse
+24. Promptstyrd svarskvalitet utan att släppa källgrundningen
+25. Manuell granskning, metadatahygien och nästa live-mätning
 
 ## 1. Målbild
 
@@ -1377,4 +1379,76 @@ Den här fasen gav några tydliga rekommendationer för fortsatt RAG-arbete:
 8. Behandla saknad tokenusage och debugfel som observability-problem. De måste dokumenteras, inte döljas.
 9. Låt grounded synthesis vara valfri tills den konsekvent visar bättre direkta svar utan att minska källtroheten. Första modellen att fortsätta testa är `openai/gpt-oss-120b`, men valet ska avgöras av ny live-evidens via `/api/ask`, inte av modellnamn eller katalogrykte.
 
+## 24. Promptstyrd svarskvalitet utan att släppa källgrundningen
+
+Nästa lärdom var att svarskvalitet inte bör lösas genom allt fler hårdkodade domänregler i ingest. Ingest ska framför allt göra generisk texthygien: ta bort brus, metadata, återkommande sidhuvuden och tomma figurreferenser, men inte bestämma hur ett verksamhetssvar ska resonera. Den delen hör hemma i syntesen och i LLM-prompten.
+
+Vi skärpte därför promptkontraktet för grounded synthesis. Prompten instruerar nu modellen att först identifiera vad användaren faktiskt frågar efter, hålla sig inom den ramen och börja med ett direkt svar. Därefter ska svaret utveckla vad de belagda punkterna betyder, varför de spelar roll och hur de hänger ihop.
+
+Samtidigt blev gränsen för källgrundning tydligare:
+
+- PDF-metadata, dokumenttitlar, författarnamn, versioner, copyright, sidhuvuden och sidfötter är inte faktainnehåll.
+- Om texten bara säger att en figur, bild eller tabell visar något får modellen inte inferera sakuppgifter från den saknade bilden eller tabellen.
+- Om underlaget är smalt ska svaret säga det, inte fylla luckor med generisk konsultkunskap.
+- Källor och sidor ska fortsätta ligga separat i källsektionen, inte inne i resonemangsprosan.
+
+Det här är särskilt viktigt för frågor som låter enkla men egentligen kräver utveckling, till exempel `Finns det en arbetsmodell för att införa system?`. Ett bra svar ska inte stanna vid `ja` om källorna faktiskt beskriver modellen. Det ska också förklara de stödda delarna, som process, etapper, cykler, planering, godkännande och uppföljning.
+
+Lärdomen är att prompten ska bära kvalitetsprinciperna medan kodens kontroller fungerar som skyddsräcken. Modellen får gärna skriva mer professionellt och sammanhängande, men bara inom det underlag som retrievalen faktiskt ger och som groundingkontrollen accepterar.
+
 Den samlade lärdomen är att RAG-kvalitet inte är en enda poäng. Den uppstår i skärningen mellan rätt kontext, troget svar, direkt relevans, observerbar metadata, rimlig latens och kontrollerad modellgenerering. När alla dessa delar mäts i den deployade miljön blir förbättringsarbetet mycket mer konkret.
+
+## 25. Manuell granskning, metadatahygien och nästa live-mätning
+
+Tomas manuella genomgång av frågorna Q01-Q07 gav en viktig korrigering av hur vi bedömer kvalitet. Flera svar kunde se relevanta ut vid första läsning, men ändå vara svaga i faithfulness: de svarade på ungefär rätt ämne, men lutade sig för mycket mot metadata, rubriker, boilerplate eller allmänna slutsatser som inte var tydligt belagda i PDF:erna eller på hemsidan. Därför räcker det inte att ett svar känns hjälpsamt. Det måste också gå att se vilket faktiskt källinnehåll som bär påståendet.
+
+### Metadata får inte bli fakta
+
+En konkret felkälla var metadata leakage. Författarnamn, dokumentboilerplate, copyright-rader, versionsnummer, sidhuvuden, sidfötter och liknande återkommande rader kan få hög retrievalträff utan att vara sakuppgifter om systeminförande. Om sådant material får följa med in i chunkarna kan modellen börja behandla det som svarsfakta.
+
+Den lärdomen ledde till en tydligare ansvarsfördelning:
+
+- ingest ska göra generisk texthygien och ta bort uppenbart brus
+- ingest ska inte hårdkoda svar på Q01-Q07 eller fatta domänspecifika beslut om vad ett verksamhetssvar ska säga
+- prompten och syntesen ska bära policyn för hur källmaterialet får användas
+
+Det är en viktig skillnad. Att rensa bort metadata, headers och footers är corpus-hygien. Att säga hur arbetsmodeller, acceptanstest eller införandekrav ska förklaras är svarspolicy och hör hemma i prompten, syntesen och regressionstesterna.
+
+### Prompten ska bära källpolicyn
+
+Efter granskningen skärptes promptstrategin. Modellen ska inte bara skriva snyggare prosa, utan följa ett tydligt källkontrakt:
+
+- identifiera användarens faktiska fråga och håll svaret fokuserat på den
+- behandla metadata som icke-faktuellt stöd
+- dra inte slutsatser från en saknad figur, bild eller tabell bara för att texten hänvisar till den
+- säg när underlaget är tunt eller bara indirekt
+- skriv utvecklade resonemang när källorna stödjer det, men håll resonemanget inom källornas gränser
+- låt källor och sidinformation ligga separat från den löpande svarstexten
+
+Detta är mellanläget vi vill åt: svaret ska vara mer professionellt och utvecklat än en mekanisk extractive sammanställning, men inte friare än källorna tillåter.
+
+### Regressionerna ska fånga feltypen, inte hela facitsvar
+
+Q01-Q07-kommentarerna ska leva vidare som regressionstester, men inte som hårdkodade fullständiga svar. Testerna ska i stället låsa de failure modes som granskningen faktiskt hittade:
+
+- metadata får inte dominera eller läcka in som sakpåstående
+- figur- eller tabellhänvisningar utan faktisk figurtext räcker inte som bevis
+- svaret ska hålla frågefokus och inte glida över i allmän metodkunskap
+- underlaget ska beskrivas som tunt när det bara ger svagt stöd
+- svaret ska kunna utveckla stödda begrepp, exempelvis arbetsmodell, process, etapper och uppföljning, utan att hitta på mer än källorna säger
+
+På så sätt blir testerna robusta mot förbättrad formulering. De kontrollerar vad svaret måste undvika och vilka stödpunkter som måste finnas, men kräver inte att modellen skriver exakt samma meningar varje gång.
+
+### Ny mätning måste göras i deployad HF-miljö
+
+Efter metadatahygien, ombyggt chunkindex och promptförstärkning är nästa nödvändiga steg att köra om den deployade Hugging Face-utvärderingen. Lokal pytest visar att kodens kontrakt håller, men den avgörande frågan är hur den publika chatboten svarar när samma RAGAS-/HF-frågedataset körs mot live-gränssnittet.
+
+Den nya körningen ska jämföras mot tidigare baselines, inte bara läsas isolerat. Särskilt viktigt är att jämföra:
+
+- faithfulness och source-grounding före och efter metadatahygienen
+- answer relevance för Q01-Q07-frågorna
+- hur ofta svaren behöver säga att underlaget är tunt
+- om de LLM-skrivna svaren blivit mer utvecklade utan att tappa källtrohet
+- om chunkantal, källträffar och modell-/synthesismetadata visar att rätt deploy faktiskt testades
+
+Den praktiska slutsatsen är att RAG-förbättringen inte är färdig när lokala tester passerar. Den är färdig först när samma frågor har körts mot den deployade HF-chatboten och resultatet har jämförts med tidigare RAGAS-baselines.

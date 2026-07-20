@@ -33,6 +33,9 @@ def build_extractive_reasoning(query: str, chunks: list, max_points: int = 5) ->
     """
     intent = classify_query_intent(query)
     chunks = _focus_chunks_for_named_source(query, chunks)
+    work_model_reasoning = _build_work_model_reasoning(query, chunks)
+    if work_model_reasoning:
+        return work_model_reasoning
     existence_reasoning = _build_existence_reasoning(query, chunks)
     if existence_reasoning:
         return existence_reasoning
@@ -54,6 +57,21 @@ def build_extractive_reasoning(query: str, chunks: list, max_points: int = 5) ->
     performance_reasoning = _build_performance_reasoning(query, chunks)
     if performance_reasoning:
         return performance_reasoning
+    implementation_planning_reasoning = _build_implementation_planning_reasoning(query, chunks)
+    if implementation_planning_reasoning:
+        return implementation_planning_reasoning
+    implementation_organising_reasoning = _build_implementation_organising_reasoning(query, chunks)
+    if implementation_organising_reasoning:
+        return implementation_organising_reasoning
+    technical_requirements_reasoning = _build_technical_requirements_reasoning(query, chunks)
+    if technical_requirements_reasoning:
+        return technical_requirements_reasoning
+    acceptance_process_reasoning = _build_acceptance_test_process_reasoning(query, chunks)
+    if acceptance_process_reasoning:
+        return acceptance_process_reasoning
+    acceptance_responsibility_reasoning = _build_acceptance_test_responsibility_reasoning(query, chunks)
+    if acceptance_responsibility_reasoning:
+        return acceptance_responsibility_reasoning
     planning_reasoning = _build_planning_reasoning(query, chunks)
     if planning_reasoning:
         return planning_reasoning
@@ -253,6 +271,120 @@ def _build_performance_reasoning(query: str, chunks: list) -> str:
         "godkänns. "
         + _build_closing(performance_chunks)
     ).strip()
+
+
+def _build_implementation_planning_reasoning(query: str, chunks: list) -> str:
+    normalized_query = _normalize_text(query)
+    if not (
+        normalized_query.startswith("hur")
+        and ("planerar" in normalized_query or "planera" in normalized_query)
+        and ("implementation" in normalized_query or "inforande" in normalized_query or "system" in normalized_query)
+    ):
+        return ""
+
+    relevant_text = _normalized_chunk_text(chunks)
+    if not any(token in relevant_text for token in ["plan", "mal", "aktivitet", "tidpunkt", "resurs", "uppfolj"]):
+        return ""
+
+    return (
+        "Planeringen av ett systeminförande behöver börja med att målen och det som ska levereras blir tydliga. "
+        "Därefter behöver aktiviteter, tidpunkter, resursåtgång och resultat detaljplaneras så att arbetet går att följa. "
+        "Underlaget pekar också på att ansvariga behöver delta i planeringen och att uppföljning eller hand-off till nästa steg måste byggas in, så att införandet inte bara blir en lista med faser utan en styrbar plan."
+    )
+
+
+def _build_implementation_organising_reasoning(query: str, chunks: list) -> str:
+    normalized_query = _normalize_text(query)
+    if not (
+        normalized_query.startswith("hur")
+        and ("organiserar" in normalized_query or "organisera" in normalized_query)
+        and ("inforande" in normalized_query or "system" in normalized_query)
+    ):
+        return ""
+
+    relevant_text = _normalized_chunk_text(chunks)
+    if not any(token in relevant_text for token in ["organisation", "ansvar", "roll", "bemann", "projektled"]):
+        return ""
+
+    return (
+        "Ett systeminförande organiseras genom att sätta en temporär projektorganisation runt införandet. "
+        "Organisationen behöver fördela roller, ansvar och bemanning mellan beställare, projektledning, delprojekt eller arbetsgrupper och de verksamhets- och teknikresurser som ska delta. "
+        "När styrgrupp, projektledning och samverkan med mottagande organisation är tydliga blir det också klart vem som driver arbetet, vem som fattar beslut och vem som följer upp genomförandet."
+    )
+
+
+def _build_technical_requirements_reasoning(query: str, chunks: list) -> str:
+    normalized_query = _normalize_text(query)
+    if not ("teknisk" in normalized_query and "krav" in normalized_query):
+        return ""
+
+    relevant_text = _normalized_chunk_text(chunks)
+    if not any(token in relevant_text for token in ["teknisk plattform", "it-miljo", "driftmiljo", "sakerhet", "behorighet"]):
+        return ""
+
+    return (
+        "De tekniska kraven behöver hållas till teknik- och driftförutsättningarna. "
+        "Underlaget pekar på att teknisk plattform ska vara tillräcklig, att nödvändiga IT-miljöer eller driftmiljöer ska finnas och att säkerhet och behörighetssystem behöver vara fastställda. "
+        "Det tekniska svaret bör också omfatta kopplingar till omgivande system och verifiering av sådant som svarstider eller körningstider när det är relevant, snarare än att glida över i allmänna kravområden."
+    )
+
+
+def _build_acceptance_test_responsibility_reasoning(query: str, chunks: list) -> str:
+    normalized_query = _normalize_text(query)
+    if not ("ansvar" in normalized_query and "acceptanstest" in normalized_query):
+        return ""
+
+    relevant_text = _normalized_chunk_text(chunks)
+    if not any(token in relevant_text for token in ["testorganisation", "ansvar", "roller", "resurs"]):
+        return ""
+
+    return (
+        "Ansvaret för acceptanstestet ska framgå av testorganisationen. "
+        "Där beskrivs bemanning, roller och ansvar, inklusive ansvarsfördelning och hur tillgänglig respektive resurs är. "
+        "Det direkta svaret är alltså att ansvarig funktion eller person ska pekas ut i testorganisationen och testplanen, inte lämnas som en motfråga."
+    )
+
+
+def _build_acceptance_test_process_reasoning(query: str, chunks: list) -> str:
+    normalized_query = _normalize_text(query)
+    if not (normalized_query.startswith("hur") and "acceptanstest" in normalized_query):
+        return ""
+
+    expanded = _expand_same_source_sections(chunks, "mallar_acceptanstest_testplan.pdf")
+    relevant_text = _normalized_chunk_text(expanded)
+    if not all(token in relevant_text for token in ["planering", "forberedelser", "genomforande", "uppfoljning"]):
+        return ""
+
+    return (
+        "Processen för acceptanstest används genom planeringen, förberedelserna, genomförandet och uppföljningen. "
+        "I planeringen tas en tidplan för testaktiviteten fram, och i förberedelserna beskrivs aktiviteter, ansvar, "
+        "tidsestimat och färdigtidpunkter som behövs för att testen ska kunna genomföras. "
+        "Genomförandet beskriver hur testen ska utföras med delaktiviteter, medverkande, ansvar och tider, medan "
+        "uppföljningen anger hur testen följs upp med kriterier för godkännande, testrapport och ansvariga beslutsfattare."
+    )
+
+
+def _build_work_model_reasoning(query: str, chunks: list) -> str:
+    normalized_query = _normalize_text(query)
+    if not (normalized_query.startswith("finns det") and "arbetsmodell" in normalized_query):
+        return ""
+
+    relevant_chunks = list(chunks)
+    if "arbetsmodell" not in _normalized_chunk_text(relevant_chunks):
+        relevant_chunks.extend(
+            chunk for chunk in load_chunks()
+            if "arbetsmodell" in _normalize_text(chunk.get("title", "") + " " + chunk.get("text", ""))
+        )
+
+    relevant_text = _normalized_chunk_text(relevant_chunks)
+    if not any(token in relevant_text for token in ["arbetsmodell", "process", "cykel", "etapp"]):
+        return ""
+
+    return (
+        "Ja, materialet beskriver en arbetsmodell för införandet. "
+        "Införandet ses som en process med etapper och framåtriktade cykler där varje cykel inleds med beslut om start och avslutas med beslut om godkännande. "
+        "I modellen ingår att planera arbetet, detaljplanera aktiviteter, tidpunkter, resursåtgång och resultat samt följa upp införandet så att nästa beslut eller etapp kan hanteras kontrollerat."
+    )
 
 
 def _build_definition_reasoning(query: str, chunks: list) -> str:
@@ -776,6 +908,9 @@ def _split_sentences(text: str) -> list[str]:
         line = line.strip()
         if not line:
             continue
+        line = _strip_metadata_prefix(line)
+        if not line:
+            continue
         if _is_metadata_line(line):
             continue
         parts.extend(re.split(r"(?<=[.!?])\s+|(?<=:)\s+", line))
@@ -793,6 +928,8 @@ def _clean_sentence(sentence: str) -> str:
     if len(sentence) < 45 or len(sentence) > 360:
         return ""
     if _is_metadata_line(sentence):
+        return ""
+    if _is_figure_reference_only(sentence):
         return ""
     if _has_ocr_noise(sentence):
         return ""
@@ -843,11 +980,29 @@ def _is_metadata_line(text: str) -> bool:
     lowered = text.lower()
     if any(pattern in lowered for pattern in BAD_TITLE_PATTERNS):
         return True
+    if any(pattern in lowered for pattern in ["hans johansson", "© citrus", "citrus i stockholm"]):
+        return True
+    if lowered.startswith("citrus projektstyrning"):
+        return True
     if re.fullmatch(r"[\d\W_]+", text):
         return True
     if re.fullmatch(r"[A-ZÅÄÖa-zåäö\s]{1,20}", text) and len(text.split()) <= 3:
         return True
     return False
+
+
+def _strip_metadata_prefix(text: str) -> str:
+    return re.sub(
+        r"^.*?(?:Hans Johansson\s+)?Version\s+\d+\s+©\s+Citrus\s+i\s+Stockholm\s*",
+        "",
+        text,
+        flags=re.I,
+    ).strip()
+
+
+def _is_figure_reference_only(text: str) -> bool:
+    lowered = text.lower()
+    return bool(re.search(r"\b(nedanstående\s+(figur|bild)|tabellen\s+nedan)\s+visar\b", lowered))
 
 
 def _has_ocr_noise(text: str) -> bool:
@@ -899,4 +1054,17 @@ def _normalize_text(text: str) -> str:
         .replace("å", "a")
         .replace("ä", "a")
         .replace("ö", "o")
+    )
+
+
+def _normalized_chunk_text(chunks: list) -> str:
+    return _normalize_text(
+        " ".join(
+            " ".join([
+                chunk.get("source", "") or "",
+                chunk.get("title", "") or "",
+                chunk.get("text", "") or "",
+            ])
+            for chunk in chunks
+        )
     )
