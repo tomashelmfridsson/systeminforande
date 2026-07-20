@@ -1,3 +1,4 @@
+import inspect
 import json
 import os
 import re
@@ -1436,9 +1437,48 @@ log_startup_version(DEPLOY_REVISION)
 
 
 def launch_demo(**kwargs):
-    launch_kwargs = {"theme": None, "css": css, "ssr_mode": False, "_app": API_APP}
+    launch_kwargs = {"theme": None, "css": css, "ssr_mode": False}
     launch_kwargs.update(kwargs)
-    return demo.launch(**launch_kwargs)
+
+    # Newer Gradio versions accept a private `_app` hook that lets us attach
+    # custom FastAPI routes (/health, /ready, /api/ask) to the same ASGI app.
+    # Some Hugging Face runtimes install a Gradio build where Blocks.launch()
+    # does not expose that hook, so guard it at runtime instead of passing an
+    # unsupported keyword and crashing during startup.
+    launch_params = inspect.signature(demo.launch).parameters
+    if "_app" in launch_params:
+        launch_kwargs["_app"] = API_APP
+        return demo.launch(**launch_kwargs)
+
+    if not hasattr(gr, "mount_gradio_app"):
+        # Last-resort compatibility path: the UI still launches, but custom
+        # FastAPI routes will not be mounted on very old Gradio versions.
+        return demo.launch(**launch_kwargs)
+
+    server_name = launch_kwargs.pop(
+        "server_name",
+        os.getenv("GRADIO_SERVER_NAME") or "0.0.0.0",
+    )
+    server_port = int(
+        launch_kwargs.pop(
+            "server_port",
+            os.getenv("GRADIO_SERVER_PORT") or os.getenv("PORT") or "7860",
+        )
+    )
+    mount_params = inspect.signature(gr.mount_gradio_app).parameters
+    mount_kwargs = {key: value for key, value in launch_kwargs.items() if key in mount_params}
+    gr.mount_gradio_app(
+        API_APP,
+        demo,
+        path="/",
+        server_name=server_name,
+        server_port=server_port,
+        **mount_kwargs,
+    )
+
+    import uvicorn
+
+    return uvicorn.run(API_APP, host=server_name, port=server_port)
 
 
 launch_demo()
