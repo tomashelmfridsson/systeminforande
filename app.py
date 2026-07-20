@@ -11,13 +11,22 @@ import gradio as gr
 import requests
 
 from rag.grounding import filter_allowed_results, grounded_answer_or_fallback
+from rag.model_selection import (
+    build_model_choices,
+    requested_llm_model_from_request,
+    resolve_llm_model,
+)
 from rag.prompts import rag_prompt
 from rag.source_links import (
     build_sources_md,
     format_source_url,
     serialize_homepage_links,
 )
-from rag.synthesis import build_final_grounded_answer
+from rag.synthesis import (
+    DEFAULT_SYNTHESIS_MODEL,
+    build_final_grounded_answer,
+    resolve_synthesis_settings,
+)
 from rag.search import explain_search, search
 from llm.reasoning import generate_reasoning, generate_reasoning_from_prompt
 DATA_DIR = "rag/data"
@@ -27,9 +36,10 @@ HEADER_IMAGE_URL = (
     "tomashelmfridsson/systeminforande/main/brain.jpg"
 )
 DEPLOY_REVISION_FILE = "deploy_revision.txt"
+DEPLOY_REVISION_SOURCE = DEPLOY_REVISION_FILE
+DEPLOY_REVISION_FALLBACK = "local"
 LOG_DIR = Path(os.getenv("SYSTEMINFORANDE_LOG_DIR", "/data/logs"))
 ENABLE_USAGE_LOGGING = os.getenv("SYSTEMINFORANDE_ENABLE_LOGGING", "true").strip().lower() not in {"0", "false", "no"}
-ENABLE_LLM_SYNTHESIS = os.getenv("SYSTEMINFORANDE_ENABLE_LLM_SYNTHESIS", "false").strip().lower() in {"1", "true", "yes", "on"}
 _LOG_WRITE_LOCK = threading.Lock()
 EMBED_RESIZE_JS = """
 () => {
@@ -72,9 +82,16 @@ EMBED_RESIZE_JS = """
 def load_deploy_revision() -> str:
     try:
         with open(DEPLOY_REVISION_FILE, encoding="utf-8") as revision_file:
-            return revision_file.read().strip() or "local"
+            return revision_file.read().strip() or DEPLOY_REVISION_FALLBACK
     except OSError:
-        return "local"
+        return DEPLOY_REVISION_FALLBACK
+
+
+def log_startup_version(version: str) -> None:
+    print(
+        f"[startup] app_version={version} version_source={DEPLOY_REVISION_SOURCE} fallback={DEPLOY_REVISION_FALLBACK}",
+        flush=True,
+    )
 
 
 DEPLOY_REVISION = load_deploy_revision()
@@ -208,17 +225,17 @@ FALLBACK_LLM_MODELS = [
     {
         "id": "openai/gpt-oss-120b",
         "label": "OpenAI gpt-oss 120B",
-        "description": "Tidigare standardmodell med stabilare svar i denna miljö.",
+        "description": "Standardmodell för experimentell källbunden syntes.",
+    },
+    {
+        "id": "zai-org/GLM-5.2",
+        "label": "GLM 5.2",
+        "description": "Alternativ modell för experimentell källbunden syntes.",
     },
     {
         "id": "zai-org/GLM-4.5",
         "label": "GLM 4.5",
         "description": "Alternativ i samma modellfamilj som 5.2 men mer försiktig att prova.",
-    },
-    {
-        "id": "zai-org/GLM-5.2",
-        "label": "GLM 5.2",
-        "description": "Nyare modell som för närvarande inte är förstahandsval här.",
     },
     {
         "id": "deepseek-ai/DeepSeek-R1",
@@ -324,7 +341,7 @@ def load_llm_model_options() -> list[tuple[str, str]]:
 
 
 LLM_MODEL_OPTIONS = load_llm_model_options()
-PREFERRED_LLM_MODEL = "openai/gpt-oss-120b"
+PREFERRED_LLM_MODEL = DEFAULT_SYNTHESIS_MODEL
 DEFAULT_LLM_MODEL = (
     PREFERRED_LLM_MODEL
     if any(choice[1] == PREFERRED_LLM_MODEL for choice in LLM_MODEL_OPTIONS)
@@ -380,17 +397,19 @@ def select_and_submit(message: str, doc_id, debug_mode, llm_model, request: gr.R
         yield answer
 
 
-def answer_question(message, doc_id=None, debug_mode=False, llm_model=None) -> dict[str, Any]:
+def answer_question(message, doc_id=None, debug_mode=False, llm_model=None, enable_synthesis: bool | None = None, request: Any = None) -> dict[str, Any]:
     started_at = time.perf_counter()
     raw_message = message or ""
     message = raw_message.strip()
+    resolved_llm_model = resolve_llm_model(llm_model, request, default_model=DEFAULT_LLM_MODEL)
 
     base_response = {
         "question": raw_message,
         "normalized_question": message,
         "doc_id": doc_id,
         "debug_mode": bool(debug_mode),
-        "llm_model": llm_model,
+        "enable_synthesis": enable_synthesis,
+        "llm_model": resolved_llm_model,
         "route": None,
         "answer_markdown": "",
         "sources": [],
@@ -433,7 +452,7 @@ def answer_question(message, doc_id=None, debug_mode=False, llm_model=None) -> d
                 base_response["timing_ms"] = round((time.perf_counter() - started_at) * 1000, 2)
                 return base_response
 
-    rag_response = build_rag_response(message, debug_mode, llm_model)
+    rag_response = build_rag_response(message, debug_mode, resolved_llm_model, enable_synthesis)
     base_response.update(rag_response)
     base_response["timing_ms"] = round((time.perf_counter() - started_at) * 1000, 2)
     return base_response
@@ -446,7 +465,7 @@ def submit(message, doc_id, debug_mode, llm_model, request: gr.Request | None = 
     - Annars → RAG över PDF-material
     """
 
-    response = answer_question(message, doc_id, debug_mode, llm_model)
+    response = answer_question(message, doc_id, debug_mode, llm_model, request=request)
     doc = DOC_INDEX.get(doc_id) if doc_id else None
     event_type = "faq_question" if doc_id else "chat_question"
     log_usage_event(
@@ -836,7 +855,15 @@ def _has_relevant_rag_support(search_debug: dict) -> tuple[bool, str]:
     return True, ""
 
 
-def build_rag_response(query: str, debug: bool, llm_model: str | None) -> dict[str, Any]:
+def build_rag_response(query: str, debug: bool, llm_model: str | None, enable_synthesis: bool | None = None) -> dict[str, Any]:
+    synthesis_settings = resolve_synthesis_settings(
+        enable_synthesis=enable_synthesis,
+        llm_model=llm_model,
+        default_model=DEFAULT_LLM_MODEL,
+    )
+    resolved_llm_model = synthesis_settings["model"]
+    synthesis_enabled = bool(synthesis_settings["enabled"])
+
     results = filter_allowed_results(search(query, top_k=5))
 
     if not results:
@@ -855,6 +882,8 @@ def build_rag_response(query: str, debug: bool, llm_model: str | None) -> dict[s
                 "relevance_reason": "Inga godkända PDF-/hemsideutdrag hittades i materialet.",
                 "confidence": 0,
                 "llm_status": "LLM-syntes används inte i det användarvända RAG-svaret.",
+                "llm_synthesis_enabled": False,
+                "llm_synthesis_model": resolved_llm_model,
             },
         }
 
@@ -896,6 +925,8 @@ def build_rag_response(query: str, debug: bool, llm_model: str | None) -> dict[s
                 "relevance_reason": relevance_reason,
                 "confidence": confidence,
                 "llm_status": "LLM-syntes används inte i det användarvända RAG-svaret.",
+                "llm_synthesis_enabled": False,
+                "llm_synthesis_model": resolved_llm_model,
             },
         }
 
@@ -903,8 +934,8 @@ def build_rag_response(query: str, debug: bool, llm_model: str | None) -> dict[s
     synthesis_result = build_final_grounded_answer(
         query,
         chunks,
-        enable_synthesis=ENABLE_LLM_SYNTHESIS,
-        llm_model=llm_model,
+        enable_synthesis=synthesis_enabled,
+        llm_model=resolved_llm_model,
         llm_rewrite=safe_generate_reasoning_from_prompt_with_model,
     )
     structured_answer = str(synthesis_result["extractive_answer"])
@@ -916,7 +947,7 @@ def build_rag_response(query: str, debug: bool, llm_model: str | None) -> dict[s
     llm_answer = ""
     if debug:
         llm_prompt = rag_prompt(query, chunks)
-        llm_answer = safe_generate_reasoning_from_prompt_with_model(llm_prompt, llm_model)
+        llm_answer = safe_generate_reasoning_from_prompt_with_model(llm_prompt, resolved_llm_model)
         llm_debug_lines = [
             "\n\n---\n\n### Debug",
             f"**Confidence:** {confidence}",
@@ -964,6 +995,8 @@ def build_rag_response(query: str, debug: bool, llm_model: str | None) -> dict[s
     )
     return {
         "route": "rag",
+        "llm_model": resolved_llm_model,
+        "enable_synthesis": synthesis_enabled,
         "answer_markdown": final_llm_answer,
         "sources": serialize_results(results),
         "homepage_links": homepage_links,
@@ -979,8 +1012,10 @@ def build_rag_response(query: str, debug: bool, llm_model: str | None) -> dict[s
             "confidence": confidence,
             "diagnosis": diagnose_retrieval(final_answer, search_debug),
             "llm_status": str(synthesis_result["llm_status"]),
-            "llm_synthesis_enabled": ENABLE_LLM_SYNTHESIS,
+            "llm_synthesis_enabled": synthesis_enabled,
             "llm_synthesis_used": bool(synthesis_result["synthesis_used"]),
+            "llm_synthesis_model": resolved_llm_model,
+            "llm_synthesis_enabled_source": synthesis_settings["enabled_source"],
         },
     }
 
@@ -1069,6 +1104,17 @@ def build_predefined_debug_md(question: str, reasoning: str, source_results, llm
         )
 
     return "\n".join(debug_lines)
+
+
+def apply_request_model_selection(request: gr.Request | None = None):
+    requested_model = requested_llm_model_from_request(request)
+    if not requested_model:
+        return gr.update()
+
+    return gr.update(
+        value=requested_model,
+        choices=build_model_choices(LLM_MODEL_OPTIONS, requested_model),
+    )
     
 # =====================================================
 # UI
@@ -1149,6 +1195,7 @@ with gr.Blocks() as demo:
                 value=DEFAULT_LLM_MODEL,
                 interactive=True,
                 visible=False,
+                allow_custom_value=True,
             )
 
             gr.Markdown("<h3>Svar</h3>")
@@ -1212,6 +1259,11 @@ with gr.Blocks() as demo:
         outputs=None,
         js=EMBED_RESIZE_JS,
     )
+    demo.load(
+        fn=apply_request_model_selection,
+        inputs=None,
+        outputs=[llm_model],
+    )
 
 
 @demo.app.get("/health")
@@ -1239,11 +1291,17 @@ def api_ask(payload: dict[str, Any], request: FastAPIRequest):
     if llm_model is not None and not isinstance(llm_model, str):
         raise HTTPException(status_code=400, detail="llm_model måste vara en sträng om det anges")
 
+    enable_synthesis = payload.get("enable_synthesis")
+    if enable_synthesis is not None and not isinstance(enable_synthesis, bool):
+        raise HTTPException(status_code=400, detail="enable_synthesis måste vara en bool om det anges")
+
     response = answer_question(
         message=question,
         doc_id=doc_id,
         debug_mode=debug_mode,
         llm_model=llm_model,
+        enable_synthesis=enable_synthesis,
+        request=request,
     )
     doc = DOC_INDEX.get(doc_id) if doc_id else None
     log_usage_event(
@@ -1257,7 +1315,7 @@ def api_ask(payload: dict[str, Any], request: FastAPIRequest):
         llm_model=response.get("llm_model"),
         timing_ms=response.get("timing_ms"),
         sources=response.get("sources"),
-        metadata={"debug_mode": debug_mode},
+        metadata={"debug_mode": debug_mode, "enable_synthesis": enable_synthesis},
     )
     return response
 
@@ -1268,5 +1326,5 @@ def api_ask(payload: dict[str, Any], request: FastAPIRequest):
 with open("style.css", encoding="utf-8") as f:
     css = f.read()
 
-print("Deploy revision:", DEPLOY_REVISION)
+log_startup_version(DEPLOY_REVISION)
 demo.launch(theme=None,css=css, ssr_mode=False)

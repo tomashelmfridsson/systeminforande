@@ -2,3 +2,7 @@ __pycache__/
 *.py[cod]
 .env
 .venv/
+tests/
+tools/
+docs/
+minimal_app.py

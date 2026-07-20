@@ -1,13 +1,21 @@
 from __future__ import annotations
 
+import os
 import re
-from typing import Callable
+from typing import Any, Callable
 
 from rag.extractive import build_extractive_reasoning
 from rag.grounding import INSUFFICIENT_EVIDENCE_ANSWER, grounded_answer_or_fallback
 from rag.prompts import rag_prompt
 
 LLMRewriteFn = Callable[[str, str | None], str]
+SYNTHESIS_FEATURE_FLAG_ENV = "SYSTEMINFORANDE_ENABLE_LLM_SYNTHESIS"
+SYNTHESIS_MODEL_ENV = "SYSTEMINFORANDE_LLM_SYNTHESIS_MODEL"
+DEFAULT_SYNTHESIS_MODEL = "openai/gpt-oss-120b"
+SUPPORTED_EXPERIMENT_MODELS = (
+    "openai/gpt-oss-120b",
+    "zai-org/GLM-5.2",
+)
 
 _STOPWORDS = {
     "och", "att", "det", "som", "för", "med", "den", "detta", "eller", "inte", "kan",
@@ -15,6 +23,35 @@ _STOPWORDS = {
     "finns", "utifrån", "materialet", "visar", "beskriver", "frågan", "underlaget", "samt",
     "genom", "det", "de", "ett", "en", "har", "sin", "sitt", "sina", "denna", "dessa",
 }
+
+
+def _parse_feature_flag(value: str | bool | None) -> bool:
+    if isinstance(value, bool):
+        return value
+    return str(value or "").strip().lower() in {"1", "true", "yes", "on"}
+
+
+def resolve_synthesis_settings(
+    *,
+    enable_synthesis: bool | None = None,
+    llm_model: str | None = None,
+    default_model: str | None = None,
+) -> dict[str, Any]:
+    env_enabled = _parse_feature_flag(os.getenv(SYNTHESIS_FEATURE_FLAG_ENV, "false"))
+    resolved_enabled = env_enabled if enable_synthesis is None else bool(enable_synthesis)
+
+    requested_model = (llm_model or "").strip()
+    env_model = os.getenv(SYNTHESIS_MODEL_ENV, "").strip()
+    fallback_model = (default_model or DEFAULT_SYNTHESIS_MODEL).strip() or DEFAULT_SYNTHESIS_MODEL
+    resolved_model = requested_model or env_model or fallback_model
+
+    return {
+        "enabled": resolved_enabled,
+        "model": resolved_model,
+        "requested_model": requested_model or None,
+        "env_default_model": env_model or None,
+        "enabled_source": "override" if enable_synthesis is not None else "environment",
+    }
 
 
 def build_synthesis_prompt(query: str, chunks: list[dict], extractive_answer: str) -> str:
