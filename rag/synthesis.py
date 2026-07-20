@@ -69,8 +69,11 @@ def build_synthesis_prompt(query: str, chunks: list[dict], fallback_answer: str 
         "Svara självständigt utifrån källunderlaget nedan. Använd inte ett förbyggt bassvar som struktur.\n"
         "Resonemanget ska vara fritt formulerat, naturligt och utvecklat, men varje sakpåstående måste kunna stödjas av källunderlaget.\n"
         "Om underlaget är smalt får du resonera om vad som faktiskt går att belägga och vad som inte går att belägga.\n"
-        "Använd normalt 4 till 8 meningar på svenska när underlaget räcker och undvik punktlista om frågan inte ber om det.\n"
-        "Undvik mallfraser som 'Materialet visar att', 'Materialet anger att' och 'de hämtade utdragen'.\n\n"
+        "Använd normalt 4 till 8 meningar på svenska när frågan är avgränsad. För breda fria frågor, till exempel om hinder, faser eller flera sammanhängande områden, använd normalt 6 till 10 meningar när källunderlaget räcker.\n"
+        "Förklara vad punkterna innebär, varför de spelar roll för införandet och hur de hänger ihop med varandra, utan att lägga till generiska råd som inte finns i källorna.\n"
+        "Skriv i flytande svensk prosa och undvik punktlista om frågan inte ber om det.\n"
+        "Skriv inga dokument- eller sidreferenser inne i resonemanget; källor redovisas separat utanför LLM-svaret.\n"
+        "Undvik mallfraser som 'Frågan verkar beröra', 'Materialet visar att', 'Materialet anger att' och 'de hämtade utdragen'.\n\n"
         f"Fråga:\n{query}\n\n"
         f"Fallback-svar om LLM-svaret inte blir källbundet:\n{fallback_answer}\n\n"
         f"Källunderlag:\n{source_context}"
@@ -116,7 +119,7 @@ def build_final_grounded_answer(
         result["llm_status"] = "fallback_to_extractive_due_to_empty_rewrite"
         return result
 
-    if not _passes_grounding_check(rewritten_answer, chunks, extractive_answer):
+    if not _passes_grounding_check(rewritten_answer, chunks, extractive_answer, query):
         result["llm_status"] = "fallback_to_extractive_due_to_grounding_check"
         return result
 
@@ -135,7 +138,7 @@ def _normalize_extractive_answer(answer: str | None) -> str:
     return text
 
 
-def _passes_grounding_check(candidate: str, chunks: list[dict], extractive_answer: str) -> bool:
+def _passes_grounding_check(candidate: str, chunks: list[dict], extractive_answer: str, query: str = "") -> bool:
     text = _strip_metadata(candidate)
     if len(text) < 40:
         return False
@@ -143,6 +146,7 @@ def _passes_grounding_check(candidate: str, chunks: list[dict], extractive_answe
         return False
 
     support_tokens = _content_tokens(extractive_answer)
+    support_tokens.update(_content_tokens(query))
     for chunk in chunks:
         support_tokens.update(_content_tokens(chunk.get("source", "")))
         support_tokens.update(_content_tokens(chunk.get("title", "")))
@@ -153,7 +157,7 @@ def _passes_grounding_check(candidate: str, chunks: list[dict], extractive_answe
         return False
 
     overlap = candidate_tokens & support_tokens
-    if len(overlap) / max(len(candidate_tokens), 1) < 0.45:
+    if len(overlap) / max(len(candidate_tokens), 1) < 0.28:
         return False
 
     for sentence in _split_sentences(text):
@@ -161,7 +165,7 @@ def _passes_grounding_check(candidate: str, chunks: list[dict], extractive_answe
         if not sentence_tokens:
             continue
         supported = sentence_tokens & support_tokens
-        if len(supported) < min(3, len(sentence_tokens)) and len(supported) / max(len(sentence_tokens), 1) < 0.5:
+        if len(supported) < min(2, len(sentence_tokens)) and len(supported) / max(len(sentence_tokens), 1) < 0.30:
             return False
 
     return True
@@ -176,6 +180,7 @@ def _has_disallowed_template_phrase(text: str) -> bool:
             "materialet anger att",
             "materialet beskriver att",
             "de hämtade utdragen",
+            "frågan verkar beröra",
         )
     )
 

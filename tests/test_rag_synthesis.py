@@ -11,6 +11,7 @@ from rag.grounding import INSUFFICIENT_EVIDENCE_ANSWER
 from rag.synthesis import (
     DEFAULT_SYNTHESIS_MODEL,
     SUPPORTED_EXPERIMENT_MODELS,
+    build_synthesis_prompt,
     build_final_grounded_answer,
     resolve_synthesis_settings,
 )
@@ -29,6 +30,92 @@ CHUNKS = [
         "pages": [1],
     }
 ]
+
+OBSTACLE_CHUNKS = [
+    {
+        "source": "Arbetsomraden_checklista.pdf",
+        "source_type": "pdf",
+        "title": "Arbetsområden vid systeminförande",
+        "text": (
+            "Checklistan delar upp systeminförande i arbetsområden som acceptanstest, utbildning "
+            "och information, IT-miljöer, konvertering och laddning samt driftsättning. "
+            "Arbetsområdena används för att hålla ihop aktiviteter, ansvar och uppföljning."
+        ),
+        "pages": [1],
+    },
+    {
+        "source": "Systemfaser.pdf",
+        "source_type": "pdf",
+        "title": "Systemfaser",
+        "text": (
+            "Införandet behöver planeras genom förberedelser, genomförande och uppföljning. "
+            "Varje fas kräver att beroenden mellan verksamhet, teknik och drift hanteras så att "
+            "systemet kan användas i den skarpa verksamheten."
+        ),
+        "pages": [2],
+    },
+]
+
+
+def test_synthesis_prompt_asks_for_fuller_source_grounded_obstacle_reasoning():
+    prompt = build_synthesis_prompt(
+        "Vilka hinder finns i systeminförande?",
+        OBSTACLE_CHUNKS,
+        "Frågan verkar beröra flera återkommande områden eller delar.",
+    )
+    prompt_lower = prompt.lower()
+
+    assert "6 till 10 meningar" in prompt
+    assert "hinder" in prompt_lower
+    assert "förklara vad punkterna innebär" in prompt_lower
+    assert "varför de spelar roll" in prompt_lower
+    assert "hur de hänger ihop" in prompt_lower
+    assert "inga dokument- eller sidreferenser" in prompt_lower
+    assert "frågan verkar beröra" in prompt_lower
+    assert "undvik" in prompt_lower
+
+
+def test_synthesis_stage_rejects_fragan_verkar_template_phrase():
+    def llm_rewrite(prompt: str, model: str | None = None) -> str:
+        return (
+            "Frågan verkar beröra flera återkommande områden eller delar. De hinder som framträder "
+            "tydligast är acceptanstest, utbildning och information, IT-miljöer, konvertering och "
+            "laddning samt driftsättning. Arbetsområdena används för aktiviteter, ansvar och uppföljning. "
+            "Införandet behöver planeras genom förberedelser, genomförande och uppföljning."
+        )
+
+    result = build_final_grounded_answer(
+        "Vilka hinder finns i systeminförande?",
+        OBSTACLE_CHUNKS,
+        enable_synthesis=True,
+        llm_rewrite=llm_rewrite,
+    )
+
+    assert result["synthesis_used"] is False
+    assert result["final_answer"] == result["extractive_answer"]
+    assert result["llm_status"] == "fallback_to_extractive_due_to_grounding_check"
+
+
+def test_synthesis_stage_accepts_fuller_source_bound_obstacle_reasoning():
+    rewritten = (
+        "Ett systeminförande kan hindras av att flera arbetsområden måste fungera samtidigt, inte av en enda isolerad aktivitet. "
+        "Underlaget pekar på acceptanstest, utbildning och information, IT-miljöer, konvertering och laddning samt driftsättning. "
+        "Det betyder att hinder kan uppstå när ansvar, aktiviteter eller uppföljning inom dessa områden inte hålls ihop. "
+        "Acceptanstest och utbildning påverkar verksamhetens möjlighet att börja använda systemet på ett kontrollerat sätt. "
+        "IT-miljöer, konvertering och driftsättning är samtidigt tekniska och praktiska förutsättningar för att lösningen ska fungera i skarp drift. "
+        "Faserna i införandet gör också att beroenden mellan verksamhet, teknik och drift behöver planeras, genomföras och följas upp i rätt ordning. "
+        "Hindren ska därför förstås som samordnings- och genomförandeproblem inom de arbetsområden som källorna räknar upp."
+    )
+
+    result = build_final_grounded_answer(
+        "Vilka hinder finns i systeminförande?",
+        OBSTACLE_CHUNKS,
+        enable_synthesis=True,
+        llm_rewrite=lambda prompt, model=None: rewritten,
+    )
+
+    assert result["synthesis_used"] is True
+    assert result["final_answer"] == rewritten
 
 
 def test_synthesis_stage_is_off_by_default():

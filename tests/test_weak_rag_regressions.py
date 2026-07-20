@@ -94,3 +94,12 @@ def test_response_time_answer_should_not_return_broken_fragment_dump():
     assert "•" not in answer
     assert "tillfredställande i." not in answer_lower
     assert "tekniska." not in answer_lower
+
+
+def test_system_implementation_obstacles_answer_should_not_use_template_intro():
+    answer = _answer_for("Vilka hinder finns i systeminförande?")
+    answer_lower = answer.lower()
+
+    assert "systeminförande" in answer_lower
+    assert "frågan verkar beröra" not in answer_lower
+    assert "de som framträder tydligast här" not in answer_lower

@@ -459,10 +459,10 @@ def _build_list_reasoning(query: str, chunks: list) -> str:
     titles = _extract_section_titles(chunks)
     if titles:
         return (
-            "Frågan verkar beröra flera återkommande områden eller delar. "
-            + "De som framträder tydligast här är "
+            "Det källorna säkert ger stöd för är att systeminförandet behöver förstås genom flera sammanhängande delar. "
+            "De mest relevanta delarna i träffarna är "
             + _join_list(titles[:6])
-            + ". "
+            + ". Det pekar på att svaret inte bara handlar om ett enskilt hinder, utan om hur områden och faser behöver hållas ihop i införandet. "
             + _build_closing(chunks)
         ).strip()
 
