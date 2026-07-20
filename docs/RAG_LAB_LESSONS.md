@@ -46,6 +46,7 @@ Syftet med dokumentet är inte bara att beskriva slutresultatet, utan att förkl
 20. Nästa rimliga förbättringar
 21. Sammanfattning
 22. När vi upptäckte att RAG:en inte höll måttet
+23. RAGAS, loggar och live modelljämförelse
 
 ## 1. Målbild
 
@@ -1246,3 +1247,134 @@ Det räcker alltså inte alltid med:
 - syfte
 
 Vissa frågor kräver i stället ett svar om funktion i arbetssättet. Det är en egen kunskapstyp, och den blev tydlig just i frågorna om arbetsområden och planering.
+
+## 23. RAGAS, loggar och live modelljämförelse
+
+Efter de första retrieval- och syntesförbättringarna behövde vi ett bättre sätt att bedöma kvalitet än att bara läsa enstaka svar och känna efter om de lät bra. Det ledde till nästa fas i labben: RAGAS-inspirerad utvärdering, analys av verkliga frågor från produktionsloggar, striktare källgrundning och live jämförelse av modellval på Hugging Face.
+
+Den viktigaste förändringen var synsättet. Vi började behandla chatboten som ett system som måste kunna mätas fråga för fråga, mot samma deployade HF-gränssnitt som användaren faktiskt möter. Lokala tester är fortfarande viktiga, men de räcker inte för att avgöra hur den driftsatta RAG-lösningen beter sig.
+
+### RAGAS-tänkandet vi införde
+
+Vi använde RAGAS och RAGAS-liknande mått som ett praktiskt språk för att prata om kvalitet:
+
+- `faithfulness`: håller svaret sig till det hämtade underlaget?
+- `answer relevance`: svarar systemet faktiskt på frågan?
+- `context precision`: är den hämtade kontexten fokuserad och relevant?
+- `context recall`: hämtas tillräckligt underlag för att kunna svara?
+
+Detta gjorde felsökningen mer konkret. Ett svar kan vara språkligt snyggt men ändå dåligt om det inte är troget källorna. Ett annat svar kan vara korrekt i sak men svagt om det inte svarar direkt på användarens fråga. RAGAS-tänkandet hjälpte oss därför att skilja på flera olika fel:
+
+- retrieval hittar fel eller för lite material
+- svaret bygger på rätt material men täcker inte frågan
+- svaret låter rimligt men lägger till process- eller livscykelpåståenden som inte finns i PDF:erna eller på hemsidan
+- källorna är relevanta men syntesen blir för fragmenterad eller mekanisk
+
+### Fast 30-frågedataset mot live HF
+
+Vi definierade därefter ett fast dataset med 30 frågor i `tests/data/ragas_hf_evaluation_dataset_30_questions.json`. Syftet var att kunna köra samma frågor återkommande mot den publika Hugging Face-chatboten och jämföra resultat över tid.
+
+Det var en viktig skillnad mot lokala smoke tests. Den här lösningen måste fungera i den deployade miljön, med samma Gradio-/REST-gränssnitt, samma modellrouting och samma loggning som produktionen. Därför byggdes även stödskript runt datasetet:
+
+- `tools/validate_ragas_hf_evaluation_dataset.py`
+- `tools/run_ragas_hf_capture.py`
+- `tools/score_ragas_hf_capture_local.py`
+- `tools/score_ragas_hf_capture_official.py`
+
+Tidiga baseline-artefakter, till exempel `tests/results/hf_interface_baseline_rag_evaluation_2026-07-18.md`, visade tydligt varför detta behövdes. Av 30 frågor var 10 godkända, 6 underkända och 14 behövde granskning. Många svar var källgrundade men ofullständiga, indirekta eller för mekaniska. Det är just den typen av nyans som försvinner om man bara frågar "fungerar chatboten?".
+
+### Produktionsloggarna blev en felkatalog
+
+Nästa lärdom var att verkliga chatloggar är mer värdefulla än påhittade demofrågor. Genom att läsa produktions- och HF-loggar hittade vi svaga frågor och återkommande felmönster, till exempel sammansatta frågor, antalfrågor, kontrollfrågor och frågor där användaren förväntade sig ett direkt verksamhetssvar.
+
+Loggarna hjälpte oss också att förstå vilken version som faktiskt hade svarat. När loggarna började innehålla revisionsinformation kunde vi skilja mellan svar från olika deployer, till exempel `5a2c740...` och `4c377b4...`. Det var praktiskt viktigt: annars riskerar man att felsöka ett svar från en gammal deploy och dra fel slutsats om den nuvarande koden.
+
+En närliggande detalj är att olika gränssnitt loggar olika frågetyper. Nuvarande Gradio `/submit` loggar exempelvis `chat_question`, medan REST `/api/ask` loggar `api_question`. Det är inte bara en teknisk detalj, utan påverkar hur man läser loggar och jämför körningar.
+
+### Striktare, men ibland mer formelbundna, svar
+
+När vi började granska svaren hårdare blev det tydligt att prosa som låter flytande inte automatiskt är bättre. Flera LLM-liknande svar riskerade att lägga till allmänna rekommendationer om livscykel, ansvar, process eller best practice som inte gick att spåra till PDF:erna eller hemsidan.
+
+Därför förbättrade vi och syntetiserade om svar så att de blev mer källbundna. Standardvägen blev mer försiktig och mer extractive/model-free. Det minskade risken för hallucinationer, men hade en tydlig baksida: svaren kunde kännas hårdkodade och börja med återkommande fraser som `Materialet visar att ...`.
+
+Det är en verklig tradeoff:
+
+- den extractive vägen i `rag/extractive.py` är snabb, transparent och tryggare mot källorna
+- särskilda mallar och specialbyggare ger bättre kontroll för kända frågetyper
+- men för många mallfraser gör att svaren känns mindre syntetiska och mindre resonerande
+
+Den senare stilförbättringen var därför inte att gå tillbaka till fri LLM-prosa, utan att hitta ett bättre mellanläge: mer naturliga, sammanhängande svar som fortfarande bara säger sådant som stöds av underlaget. Ett konkret exempel är frågan om svarstider. Ett bättre svar säger direkt att svarstider och körningstider behöver ingå i acceptanstest och vara verifierade före leveransgodkännande, medan källor och sidinformation visas separat i källsektionen i stället för att avbryta resonemanget i varje mening.
+
+### Mer debug- och källtransparens
+
+För att kunna bedöma kvalitet behövde vi mer synlig evidens. Därför lade vi till och använde metadata som visar:
+
+- källor och sidor
+- retrievalpoäng
+- retrievaldiagnos
+- query terms
+- relaterade hemsidelänkar
+- modellval och syntesstatus
+- versions-/revisionsinformation
+
+Det gjorde det möjligt att bedöma svaret med två frågor samtidigt:
+
+1. Är svaret bra för användaren?
+2. Finns det faktiskt underlag i retrievalen för det svaret?
+
+Den andra frågan är avgörande. I RAG räcker det inte att sluttexten låter rimlig; man måste kunna se varför systemet vågade säga den.
+
+### Tokenförbrukning och ofullständiga providerdata
+
+Vi lade också till tokenförbrukningsloggning från Hugging Face där den finns tillgänglig. Det är viktigt för att kunna jämföra modeller praktiskt, inte bara kvalitativt. En modell som ger marginellt bättre text men kräver mycket mer tid eller tokens kan vara fel val för en enkel publik chatbot.
+
+Samtidigt visade arbetet att tokenusage inte alltid finns. Vissa providers eller modellvägar returnerar tomma usagefält, och vissa debug-jämförelser kan ge tekniska fel trots att den extractive användarvägen fungerar. Det betyder att utvärderingen måste dokumentera både lyckade och saknade mätvärden. Saknad tokenusage ska inte tolkas som noll kostnad, utan som saknad observability.
+
+### Modellväljare och live jämförelse
+
+Nästa steg var att införa live modellval via `llm_model` och testa flera kandidater:
+
+- `openai/gpt-oss-120b`
+- `Qwen/Qwen3-32B`
+- `google/gemma-4-31B-it`
+- `mistralai/Mistral-Small-4-119B-2603`
+
+Här lärde vi oss en viktig gränssnittsläxa. Gradio `/submit` fungerade för manuella och modellvalda smoke tests, men det räckte inte för strikt utvärdering av syntes på/av. Den vägen kunde ta emot `llm_model`, men exponerade inte alltid `enable_synthesis`, använd modell, tokenusage eller strukturerad `llm_status` på ett tillräckligt maskinläsbart sätt.
+
+Därför behövdes en separat kontrollsyta för utvärdering:
+
+- `POST /api/ask`
+- `GET /health`
+- `GET /ready`
+- per request: `enable_synthesis` och `llm_model`
+- strukturerade metadatafält för retrieval, syntes, modell och diagnos
+
+Detta är skillnaden mellan tre vägar som annars lätt blandas ihop:
+
+- extractive/model-free svarsväg: användarsvaret byggs utan extern LLM och är standard/fallback
+- debug-only LLM comparison: LLM kan köras för jämförelse, men användarsvaret förblir extractive
+- faktisk synthesis rewrite: LLM skriver om användarsvaret, men bara när `enable_synthesis` är på och groundingkontrollerna accepterar resultatet
+
+### Artefakter från modelljämförelsen
+
+Den första Gradio-baserade modellvalscapturen finns i `tests/results/live_gradio_model_selection_capture_20260720T093725Z/`. Den körde de fyra modell-ID:na mot både 7 svaga frågor och 30-frågedatasetet. Resultatet var nyttigt men begränsat: alla användarsvar var identiska mellan modellerna, vilket visade att den vägen inte bevisade att vald modell faktiskt påverkade svaret.
+
+Den sammanfattande rapporten `tests/results/grounded_synthesis_model_selection_report_20260720.md` drog därför en försiktig slutsats: behåll grounded synthesis avstängd som default, exponera den bara som valfri/debug tills den deployade kontrollsidan kan bevisa vald modell och faktisk syntesanvändning, och testa `openai/gpt-oss-120b` först när kontrollsidan är på plats. Skälet var inte att OpenAI-modellen bevisats bäst i användarsvaret, utan att tidigare debug-evidens visade användbar syntestext med rimligare latens än Qwen och Gemma, medan Mistral hade tekniska debugfel.
+
+Efter att `/api/ask`, `/health` och `/ready` fixades och verifierades live kunde vi köra en striktare svagfrågejämförelse i `tests/results/live_weak_prompt_synthesis_compare_20260720T103404Z/`. Där svarade live `/api/ask` med strukturerad metadata, 7/7 baselines och 28/28 syntesvarianter fångades, och 13 rewrites applicerades. Samtidigt föll 15 syntesförsök tillbaka till extractive på grund av groundingkontroll. Det är precis den typ av beteende vi vill se i en försiktig RAG: modellen får förbättra språket när underlaget håller, men inte skriva över svaret när kontrollen säger nej.
+
+### Vad vi lärde oss / praktiska slutsatser
+
+Den här fasen gav några tydliga rekommendationer för fortsatt RAG-arbete:
+
+1. Kör utvärdering mot den deployade HF-chatboten, inte bara lokalt. Lokala tester visar kodens intention, men live-tester visar användarens verkliga system.
+2. Använd ett fast frågedataset. Annars går det inte att veta om en förbättring faktiskt förbättrade samma problem eller bara råkade se bra ut på nya exempel.
+3. Bedöm svar med grounding och retrievalevidens, inte bara prose fluency. Ett välformulerat men ogrundat svar är sämre än ett torrare svar som håller sig till källorna.
+4. Logga version/revision i varje svar eller körning. Annars blir det för lätt att blanda ihop gamla och nya deployer.
+5. Håll källhänvisningar och debugevidens synliga, men låt själva svarstexten vara mer naturlig. Källor bör ligga i `Källor` och debugmetadata, inte avbryta varje resonemangsmening.
+6. Skilj tydligt mellan extractive svar, debug-only LLM-jämförelse och faktisk synthesis rewrite. De har olika risk, kostnad och evidenskrav.
+7. Gör `enable_synthesis` och `llm_model` styrbara per request. Annars går det inte att göra rättvisa modelljämförelser.
+8. Behandla saknad tokenusage och debugfel som observability-problem. De måste dokumenteras, inte döljas.
+9. Låt grounded synthesis vara valfri tills den konsekvent visar bättre direkta svar utan att minska källtroheten. Första modellen att fortsätta testa är `openai/gpt-oss-120b`, men valet ska avgöras av ny live-evidens via `/api/ask`, inte av modellnamn eller katalogrykte.
+
+Den samlade lärdomen är att RAG-kvalitet inte är en enda poäng. Den uppstår i skärningen mellan rätt kontext, troget svar, direkt relevans, observerbar metadata, rimlig latens och kontrollerad modellgenerering. När alla dessa delar mäts i den deployade miljön blir förbättringsarbetet mycket mer konkret.

@@ -37,7 +37,7 @@ def resolve_synthesis_settings(
     llm_model: str | None = None,
     default_model: str | None = None,
 ) -> dict[str, Any]:
-    env_enabled = _parse_feature_flag(os.getenv(SYNTHESIS_FEATURE_FLAG_ENV, "false"))
+    env_enabled = _parse_feature_flag(os.getenv(SYNTHESIS_FEATURE_FLAG_ENV, "true"))
     resolved_enabled = env_enabled if enable_synthesis is None else bool(enable_synthesis)
 
     requested_model = (llm_model or "").strip()
@@ -54,7 +54,7 @@ def resolve_synthesis_settings(
     }
 
 
-def build_synthesis_prompt(query: str, chunks: list[dict], extractive_answer: str) -> str:
+def build_synthesis_prompt(query: str, chunks: list[dict], fallback_answer: str = "") -> str:
     source_context = "\n\n".join(
         (
             f"KÄLLA: {chunk.get('source', '')}\n"
@@ -66,13 +66,13 @@ def build_synthesis_prompt(query: str, chunks: list[dict], extractive_answer: st
 
     return (
         f"{rag_prompt(query, chunks)}\n\n"
-        "Nu finns redan ett extraktivt, källtroget bassvar.\n"
-        "Skriv om svaret så att det blir mer sammanhängande och lättläst, men utan att lägga till nya fakta.\n"
-        "Behåll alla viktiga delar som stöds av underlaget.\n"
-        "Om bassvaret redan säger att underlaget inte räcker ska du bevara den försiktigheten.\n"
-        "Använd 2 till 5 meningar på svenska och undvik punktlista.\n\n"
+        "Svara självständigt utifrån källunderlaget nedan. Använd inte ett förbyggt bassvar som struktur.\n"
+        "Resonemanget ska vara fritt formulerat, naturligt och utvecklat, men varje sakpåstående måste kunna stödjas av källunderlaget.\n"
+        "Om underlaget är smalt får du resonera om vad som faktiskt går att belägga och vad som inte går att belägga.\n"
+        "Använd normalt 4 till 8 meningar på svenska när underlaget räcker och undvik punktlista om frågan inte ber om det.\n"
+        "Undvik mallfraser som 'Materialet visar att', 'Materialet anger att' och 'de hämtade utdragen'.\n\n"
         f"Fråga:\n{query}\n\n"
-        f"Bassvar:\n{extractive_answer}\n\n"
+        f"Fallback-svar om LLM-svaret inte blir källbundet:\n{fallback_answer}\n\n"
         f"Källunderlag:\n{source_context}"
     )
 
@@ -139,6 +139,8 @@ def _passes_grounding_check(candidate: str, chunks: list[dict], extractive_answe
     text = _strip_metadata(candidate)
     if len(text) < 40:
         return False
+    if _has_disallowed_template_phrase(text):
+        return False
 
     support_tokens = _content_tokens(extractive_answer)
     for chunk in chunks:
@@ -163,6 +165,19 @@ def _passes_grounding_check(candidate: str, chunks: list[dict], extractive_answe
             return False
 
     return True
+
+
+def _has_disallowed_template_phrase(text: str) -> bool:
+    lowered = (text or "").lower()
+    return any(
+        phrase in lowered
+        for phrase in (
+            "materialet visar att",
+            "materialet anger att",
+            "materialet beskriver att",
+            "de hämtade utdragen",
+        )
+    )
 
 
 def _strip_metadata(answer: str) -> str:

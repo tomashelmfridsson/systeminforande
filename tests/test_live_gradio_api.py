@@ -106,9 +106,22 @@ def test_local_api_ask_honors_explicit_llm_model_and_returns_structured_metadata
     assert payload["retrieval"]["llm_status"]
 
 
-def test_local_api_ask_defaults_synthesis_off_when_not_explicitly_enabled(monkeypatch):
-    monkeypatch.setenv("SYSTEMINFORANDE_ENABLE_LLM_SYNTHESIS", "true")
+def test_local_api_ask_uses_synthesis_by_default_when_not_explicitly_disabled(monkeypatch):
+    monkeypatch.delenv("SYSTEMINFORANDE_ENABLE_LLM_SYNTHESIS", raising=False)
     app_module = _load_local_app_without_launch(monkeypatch)
+
+    def _fake_final_grounded_answer(query, chunks, *, enable_synthesis, llm_model, llm_rewrite):
+        return {
+            "extractive_answer": "Extraktivt svar från källmaterialet.",
+            "final_answer": "Naturligt LLM-omskrivet svar från källmaterialet.",
+            "synthesis_enabled": enable_synthesis,
+            "synthesis_used": True,
+            "llm_model": llm_model,
+            "llm_status": "rewrite_applied",
+            "synthesis_prompt": "",
+        }
+
+    monkeypatch.setattr(app_module, "build_final_grounded_answer", _fake_final_grounded_answer)
     client = TestClient(app_module.API_APP)
 
     response = client.post(
@@ -121,8 +134,10 @@ def test_local_api_ask_defaults_synthesis_off_when_not_explicitly_enabled(monkey
 
     assert response.status_code == 200
     payload = response.json()
-    assert payload["enable_synthesis"] is False
-    assert payload["retrieval"]["llm_synthesis_enabled"] is False
+    assert payload["enable_synthesis"] is True
+    assert payload["retrieval"]["llm_synthesis_enabled"] is True
+    assert payload["retrieval"]["llm_synthesis_used"] is True
+    assert payload["answer_markdown"].startswith("Naturligt LLM-omskrivet svar")
 
 
 def test_local_api_ask_accepts_query_param_model_alias_when_body_model_missing(monkeypatch):

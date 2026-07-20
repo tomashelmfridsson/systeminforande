@@ -405,7 +405,13 @@ def answer_question(message, doc_id=None, debug_mode=False, llm_model=None, enab
     raw_message = message or ""
     message = raw_message.strip()
     resolved_llm_model = resolve_llm_model(llm_model, request, default_model=DEFAULT_LLM_MODEL)
-    resolved_enable_synthesis = False if enable_synthesis is None else bool(enable_synthesis)
+    resolved_enable_synthesis = bool(
+        resolve_synthesis_settings(
+            enable_synthesis=enable_synthesis,
+            llm_model=resolved_llm_model,
+            default_model=DEFAULT_LLM_MODEL,
+        )["enabled"]
+    )
 
     base_response = {
         "question": raw_message,

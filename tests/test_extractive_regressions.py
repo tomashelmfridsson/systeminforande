@@ -65,7 +65,8 @@ def test_decision_points_purpose_answer_mentions_control_and_steering():
 def test_go_live_timing_answer_is_honest_about_missing_exact_date():
     answer = _answer_for("När ska driftsättning ske?")
 
-    assert "inte ett exakt datum" in answer
+    assert "inte" in answer
+    assert "exakt datum" in answer
     assert "fastställas" in answer
     assert "driftsättningen" in answer
 
@@ -81,15 +82,20 @@ def test_delivery_approval_timing_answer_mentions_planned_but_not_exact_time():
 def test_stage_question_is_honest_about_missing_full_stage_list():
     answer = _answer_for("Vilka etapper finns det")
 
-    assert "etappindelat" in answer
+    assert "etapper" in answer
     assert "inte" in answer
-    assert "räcker" in answer
+    assert any(marker in answer for marker in ["behövs tydligare underlag", "räcker"])
+    assert "materialet visar" not in answer
+    assert "de hämtade utdragen räcker inte för att lista varje enskild etapp" not in answer
+    assert "mål" in answer
+    assert "resultat" in answer
+    assert "uppföljning" in answer
 
 
 def test_requirement_areas_question_lists_multiple_requirement_areas():
     answer = _answer_for("Vilka kravområden ingår i införandekrav?")
 
-    assert "införandekrav delas in i flera kravområden" in answer
+    assert "införandekraven delas in i flera kravområden" in answer
     assert any(keyword in answer for keyword in ["övergripande krav", "arbetsrutiner", "systemsamband"])
     assert "acceptanstest" in answer
 

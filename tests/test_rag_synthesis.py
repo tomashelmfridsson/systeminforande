@@ -49,11 +49,16 @@ def test_synthesis_stage_can_replace_extractive_answer_when_feature_flag_is_enab
     def llm_rewrite(prompt: str, model: str | None = None) -> str:
         assert "Utbildningsstrategi" in prompt
         assert model == model_name
+        assert "4 till 8 meningar" in prompt
+        assert "Svara självständigt" in prompt
+        assert "Använd inte ett förbyggt bassvar som struktur" in prompt
+        assert "Fallback-svar om LLM-svaret inte blir källbundet" in prompt
+        assert "Bassvar:" not in prompt
         return (
-            "Materialet visar att utbildningsstrategin bör beskriva syftet och huvudresultatet, "
-            "vilka målgrupper som omfattas, vilket utbildningsinnehåll och vilka utbildningsmål som gäller, "
-            "samt ett grovt uppskattat utbildningsbehov. Den bör också ta upp bakgrund, förutsättningar "
-            "och hur utbildningen ska genomföras."
+            "En utbildningsstrategi behöver göra det tydligt varför dokumentet finns och vilket huvudresultat "
+            "strategin ska leda till. Den ska också beskriva vilka målgrupper som omfattas, vilket innehåll "
+            "utbildningarna har och vilka mål utbildningen ska uppfylla. Utifrån underlaget behöver strategin dessutom "
+            "ta upp ett grovt uppskattat utbildningsbehov, bakgrund, förutsättningar och hur utbildningen ska genomföras."
         )
 
     result = build_final_grounded_answer(
@@ -89,6 +94,26 @@ def test_synthesis_stage_falls_back_to_extractive_answer_when_rewrite_is_unsuppo
     assert result["llm_status"] == "fallback_to_extractive_due_to_grounding_check"
 
 
+def test_synthesis_stage_rejects_formulaic_template_phrases():
+    def llm_rewrite(prompt: str, model: str | None = None) -> str:
+        return (
+            "Materialet visar att utbildningsstrategin bör beskriva syfte, huvudresultat, målgrupper, "
+            "utbildningarnas innehåll, utbildningsmål och utbildningsbehov. Den bör också beskriva "
+            "bakgrund, förutsättningar och genomförande."
+        )
+
+    result = build_final_grounded_answer(
+        "Vad ska en utbildningsstrategi innehålla",
+        CHUNKS,
+        enable_synthesis=True,
+        llm_rewrite=llm_rewrite,
+    )
+
+    assert result["synthesis_used"] is False
+    assert result["final_answer"] == result["extractive_answer"]
+    assert result["llm_status"] == "fallback_to_extractive_due_to_grounding_check"
+
+
 def test_synthesis_stage_does_not_call_llm_when_extractive_path_has_insufficient_evidence():
     called = False
 
@@ -110,13 +135,13 @@ def test_synthesis_stage_does_not_call_llm_when_extractive_path_has_insufficient
     assert called is False
 
 
-def test_resolve_synthesis_settings_is_disabled_by_default(monkeypatch):
+def test_resolve_synthesis_settings_uses_llm_synthesis_by_default(monkeypatch):
     monkeypatch.delenv("SYSTEMINFORANDE_ENABLE_LLM_SYNTHESIS", raising=False)
     monkeypatch.delenv("SYSTEMINFORANDE_LLM_SYNTHESIS_MODEL", raising=False)
 
     settings = resolve_synthesis_settings()
 
-    assert settings["enabled"] is False
+    assert settings["enabled"] is True
     assert settings["model"] == DEFAULT_SYNTHESIS_MODEL
     assert SUPPORTED_EXPERIMENT_MODELS == ("openai/gpt-oss-120b", "zai-org/GLM-5.2")
 

@@ -26,7 +26,7 @@ LEAD_PATTERNS = [
 ]
 
 
-def build_extractive_reasoning(query: str, chunks: list, max_points: int = 3) -> str:
+def build_extractive_reasoning(query: str, chunks: list, max_points: int = 5) -> str:
     """
     Bygger ett kort resonemang i egna ord utifrån toppchunkar.
     Om underlaget är för brusigt returneras ett försiktigt fallback-svar.
@@ -160,7 +160,7 @@ def _build_multi_question_reasoning(query: str, chunks: list) -> str:
         return ""
 
     return (
-        "Materialet pekar på flera kompletterande delar: "
+        "Frågan behöver besvaras genom flera delar som hänger ihop: "
         + _join_list(snippets[:4])
         + ". "
         + _build_closing(chunks)
@@ -180,9 +180,9 @@ def _build_training_strategy_reasoning(query: str, chunks: list) -> str:
         return ""
 
     return (
-        "Materialet visar att en utbildningsstrategi bör beskriva syftet med dokumentet och utbildningsstrategins "
-        "huvudresultat samt definiera målgrupper, utbildningarnas innehåll, utbildningsmål och ett grovt uppskattat "
-        "utbildningsbehov. Den bör också beskriva bakgrund, förutsättningar och hur utbildningen ska genomföras. "
+        "En utbildningsstrategi behöver beskriva varför dokumentet finns och vilket huvudresultat strategin ska ge. "
+        "Den ska också ringa in målgrupperna, utbildningarnas innehåll, utbildningsmålen och ett grovt uppskattat "
+        "utbildningsbehov, tillsammans med bakgrund, förutsättningar och genomförande. "
         + _build_closing(strategy_chunks)
     ).strip()
 
@@ -207,9 +207,9 @@ def _build_system_setup_reasoning(query: str, chunks: list) -> str:
         return ""
 
     return (
-        "Materialet visar att systemet sätts upp genom att först klargöra hur verksamheten ska använda systemets funktioner "
-        "och därefter göra systemet körbart i IT-miljön. Det omfattar att installera systemet och kringsystem, lägga in "
-        "parametrar och stödinformation samt ta fram en checklista för systemuppsättningen. "
+        "Systemet behöver först kopplas till hur verksamheten ska använda funktionerna och därefter göras körbart "
+        "i IT-miljön. I det arbetet ingår installation av system och kringsystem, parametrar, stödinformation "
+        "och en checklista för systemuppsättningen. "
         + _build_closing(setup_chunks)
     ).strip()
 
@@ -227,10 +227,9 @@ def _build_system_relationship_reasoning(query: str, chunks: list) -> str:
         return ""
 
     return (
-        "Materialet visar att sambanden med omgivande system behöver beskrivas och verifieras. "
-        "Det innebär att ha en översiktlig beskrivning av kopplingar till interna och externa intressenter, "
-        "testa och följa upp samtliga kopplingar samt säkerställa vid skarp drift att kopplingarna fungerar korrekt. "
-        "Det framgår också att konsekvenserna för omgivande system behöver beskrivas när befintligt system avvecklas. "
+        "Sambanden med omgivande system behöver både beskrivas och verifieras. Det handlar om att visa kopplingar "
+        "till interna och externa intressenter, testa och följa upp kopplingarna och säkerställa vid skarp drift "
+        "att de fungerar. Om ett befintligt system avvecklas behöver konsekvenserna för omgivande system också beskrivas. "
         + _build_closing(relationship_chunks)
     ).strip()
 
@@ -339,7 +338,7 @@ def _build_process_reasoning(query: str, chunks: list) -> str:
         phase_texts.append(f"I {label} {summary}.")
 
     return (
-        "Materialet beskriver processen som flera sammanhängande steg. "
+        "Processen hänger ihop över flera steg. "
         + " ".join(phase_texts)
         + " "
         + _build_closing(chunks)
@@ -353,8 +352,8 @@ def _build_planning_reasoning(query: str, chunks: list) -> str:
 
     if any("arbetsomrad" in _normalize_text(chunk.get("title", "") + " " + chunk.get("text", "")) for chunk in chunks):
         return (
-            "Materialet visar att arbetsområden används för att strukturera planeringen av införandet. "
-            "Genom att dela upp arbetet i arbetsområden blir det lättare att planera aktiviteter, "
+            "Arbetsområden används för att göra planeringen av införandet mer hanterbar. "
+            "När arbetet delas upp i arbetsområden blir det lättare att planera aktiviteter, "
             "fördela ansvar och följa upp genomförandet på ett ordnat sätt. Arbetsområdena fungerar "
             "därmed som en ram för både planering och uppföljning under införandet. "
             + _build_closing(chunks)
@@ -392,17 +391,17 @@ def _build_timing_or_decision_reasoning(query: str, chunks: list) -> str:
 
     if "driftsattning" in normalized_query:
         return (
-            "Materialet anger inte ett exakt datum för driftsättningen i de hämtade utdragen. "
-            "I stället framgår att man behöver beskriva hur och när driftsättningen ska genomföras "
+            "Det går inte att se något exakt datum för driftsättningen i de hämtade utdragen. "
+            "Det som går att belägga är att man behöver beskriva hur och när driftsättningen ska genomföras "
             "och att tidpunkterna ska fastställas i planeringen för omläggningen och driftstarten. "
             + _build_closing(chunks)
         ).strip()
 
     if "leveransgodkannande" in normalized_query:
         return (
-            "Materialet anger att beslut om leveransgodkännande ska kopplas till fastställda kriterier, "
-            "utsedda beslutsfattare och en planerad beslutstidpunkt, men de hämtade utdragen anger inte "
-            "någon konkret tidpunkt. Det som framgår är alltså att detta ska specificeras i projektets "
+            "Beslut om leveransgodkännande ska kopplas till fastställda kriterier, utsedda beslutsfattare "
+            "och en planerad beslutstidpunkt, men de hämtade utdragen ger inte någon konkret tidpunkt. "
+            "Det behöver alltså specificeras i projektets "
             "besluts- och testunderlag. "
             + _build_closing(chunks)
         ).strip()
@@ -417,8 +416,8 @@ def _build_list_reasoning(query: str, chunks: list) -> str:
         stages = _extract_stage_names(chunks)
         if stages:
             return (
-                "Materialet visar att införandet delas in i flera etapper. "
-                + "De etapper som tydligast framgår är "
+                "Införandet delas upp i flera etapper. "
+                + "De etapper som går att se tydligast här är "
                 + _join_list(stages)
                 + ". "
                 + _build_closing(chunks)
@@ -426,9 +425,12 @@ def _build_list_reasoning(query: str, chunks: list) -> str:
         titles = _extract_section_titles(chunks)
         if any("etapp" in title for title in titles):
             return (
-                "Materialet visar att införandet är etappindelat, men de hämtade utdragen räcker inte "
-                "för att lista varje enskild etapp med namn eller innehåll. Däremot framgår att "
-                "etappindelningen används för att strukturera mål, resultat och uppföljning i införandet. "
+                "Införandet verkar vara tänkt att delas upp i etapper. Det går däremot inte att säkert namnge "
+                "varje etapp eller beskriva innehållet i dem utifrån träffarna här. Det säkra svaret är att "
+                "etapperna används för att hålla ihop mål, resultat och uppföljning under införandet. Med andra ord "
+                "är etappindelningen ett sätt att göra införandet styrbart över tid, snarare än bara en lista med "
+                "separata steg. För en fullständig etappindelning behövs tydligare underlag som faktiskt räknar upp "
+                "etapperna och beskriver vad varje etapp innehåller. "
                 + _build_closing(chunks)
             ).strip()
 
@@ -436,8 +438,8 @@ def _build_list_reasoning(query: str, chunks: list) -> str:
         competencies = _extract_competency_groups(chunks)
         if competencies:
             return (
-                "Materialet visar att ett lyckat systeminförande kräver flera olika kompetenser. "
-                + "De kompetensområden som tydligast lyfts fram är "
+                "Ett systeminförande behöver flera typer av kompetens för att fungera. "
+                + "De kompetensområden som tydligast lyfts fram här är "
                 + _join_list(competencies)
                 + ". "
                 + _build_closing(chunks)
@@ -447,8 +449,8 @@ def _build_list_reasoning(query: str, chunks: list) -> str:
         areas = _extract_requirement_areas(_expand_same_source_sections(chunks, "inforandekrav_checklista.pdf"))
         if areas:
             return (
-                "Materialet visar att införandekrav delas in i flera kravområden som tillsammans "
-                "täcker hela införandet. Exempel på sådana områden är "
+                "Införandekraven delas in i flera kravområden som tillsammans täcker olika delar av införandet. "
+                "Exempel på sådana områden är "
                 + _join_list(areas[:8])
                 + ". "
                 + _build_closing(chunks)
@@ -457,8 +459,8 @@ def _build_list_reasoning(query: str, chunks: list) -> str:
     titles = _extract_section_titles(chunks)
     if titles:
         return (
-            "Materialet visar att frågan besvaras genom flera återkommande områden eller delar. "
-            + "De som framträder tydligast är "
+            "Frågan verkar beröra flera återkommande områden eller delar. "
+            + "De som framträder tydligast här är "
             + _join_list(titles[:6])
             + ". "
             + _build_closing(chunks)
@@ -788,7 +790,7 @@ def _clean_sentence(sentence: str) -> str:
     sentence = re.sub(r"\b\d+\(\d+\)\b", "", sentence)
     sentence = sentence.strip(" -")
 
-    if len(sentence) < 45 or len(sentence) > 260:
+    if len(sentence) < 45 or len(sentence) > 360:
         return ""
     if _is_metadata_line(sentence):
         return ""
