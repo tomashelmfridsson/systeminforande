@@ -29,6 +29,7 @@ from rag.synthesis import (
     build_final_grounded_answer,
     resolve_synthesis_settings,
 )
+from rag.agentic_rewrite import generate_retrieval_rewrite
 from rag.search import explain_search, search
 from llm.reasoning import generate_reasoning, generate_reasoning_from_prompt, generate_reasoning_from_prompt_with_usage
 DATA_DIR = "rag/data"
@@ -959,8 +960,17 @@ def build_rag_response(query: str, debug: bool, llm_model: str | None, enable_sy
     resolved_llm_model = synthesis_settings["model"]
     synthesis_enabled = bool(synthesis_settings["enabled"])
     llm_usage_records: list[dict[str, Any]] = []
+    retrieval_rewrite = generate_retrieval_rewrite(
+        query,
+        lambda prompt, model: safe_generate_reasoning_from_prompt_with_usage_records(
+            prompt,
+            model,
+            purpose="retrieval_rewrite",
+            usage_records=llm_usage_records,
+        ),
+    )
 
-    results = filter_allowed_results(search(query, top_k=5))
+    results = filter_allowed_results(search(query, top_k=5, retrieval_rewrite=retrieval_rewrite))
 
     if not results:
         no_data = grounded_answer_or_fallback("")
@@ -980,13 +990,14 @@ def build_rag_response(query: str, debug: bool, llm_model: str | None, enable_sy
                 "llm_status": "LLM-syntes används inte i det användarvända RAG-svaret.",
                 "llm_synthesis_enabled": False,
                 "llm_synthesis_model": resolved_llm_model,
+                "agentic_retrieval": retrieval_rewrite,
             },
         }
 
     scores = [score for score, _ in results]
     confidence = round(sum(scores) / len(scores), 2)
 
-    search_debug = explain_search(query, top_k=5)
+    search_debug = explain_search(query, top_k=5, retrieval_rewrite=retrieval_rewrite)
     allowed_result_ids = {
         chunk.get("id") or f"{chunk.get('source')}::{chunk.get('title')}::{chunk.get('section')}"
         for _, chunk in results
@@ -1023,6 +1034,7 @@ def build_rag_response(query: str, debug: bool, llm_model: str | None, enable_sy
                 "llm_status": "LLM-syntes används inte i det användarvända RAG-svaret.",
                 "llm_synthesis_enabled": False,
                 "llm_synthesis_model": resolved_llm_model,
+                "agentic_retrieval": search_debug.get("agentic_retrieval", {}),
             },
         }
 
@@ -1063,6 +1075,20 @@ def build_rag_response(query: str, debug: bool, llm_model: str | None, enable_sy
             "**LLM-status:** LLM-syntes kördes endast för debug-jämförelse; användarsvaret bygger på extraherade PDF-/hemsideutdrag.",
             "",
         ]
+        agentic_debug = search_debug.get("agentic_retrieval", {})
+        if agentic_debug:
+            accepted = agentic_debug.get("accepted_variants", [])
+            rejected = agentic_debug.get("rejected_variants", [])
+            merged = agentic_debug.get("merged_ranking", [])[:5]
+            llm_debug_lines.extend(
+                [
+                    "**Agentisk retrieval:**",
+                    "- Accepterade sökvarianter: " + "; ".join(item.get("query", "") for item in accepted),
+                    "- Avvisade sökvarianter: " + (json.dumps(rejected, ensure_ascii=False) if rejected else "[]"),
+                    "- Sammanfogad ranking: " + json.dumps(merged, ensure_ascii=False),
+                    "",
+                ]
+            )
 
         for item in search_debug["top_results"]:
             score = item["score"]
@@ -1125,6 +1151,7 @@ def build_rag_response(query: str, debug: bool, llm_model: str | None, enable_sy
             "llm_synthesis_model": resolved_llm_model,
             "llm_synthesis_enabled_source": synthesis_settings["enabled_source"],
             "llm_usage": llm_usage,
+            "agentic_retrieval": search_debug.get("agentic_retrieval", {}),
         },
     }
 

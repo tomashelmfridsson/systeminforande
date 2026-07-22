@@ -49,6 +49,7 @@ Syftet med dokumentet är inte bara att beskriva slutresultatet, utan att förkl
 23. RAGAS, loggar och live modelljämförelse
 24. Promptstyrd svarskvalitet utan att släppa källgrundningen
 25. Manuell granskning, metadatahygien och nästa live-mätning
+26. Agentic RAG: kontrollerad 3-agentdesign
 
 ## 1. Målbild
 
@@ -1452,3 +1453,19 @@ Den nya körningen ska jämföras mot tidigare baselines, inte bara läsas isole
 - om chunkantal, källträffar och modell-/synthesismetadata visar att rätt deploy faktiskt testades
 
 Den praktiska slutsatsen är att RAG-förbättringen inte är färdig när lokala tester passerar. Den är färdig först när samma frågor har körts mot den deployade HF-chatboten och resultatet har jämförts med tidigare RAGAS-baselines.
+
+## 26. Agentic RAG: kontrollerad 3-agentdesign
+
+Nästa föreslagna steg är inte att släppa språkmodellen fri, utan att dela upp LLM-arbetet i tre tydliga roller med explicita JSON-kontrakt. Den detaljerade designen finns i [`docs/agentic-rag-contracts.md`](./agentic-rag-contracts.md).
+
+Grundprincipen är att användarens originalfråga alltid är ankaret för slutsvaret. En första mindre modell, `openai/gpt-oss-20b`, får bara skriva om frågan för retrieval och föreslå generella svenska böjnings-, synonym- och sammansättningsvarianter. Den får inte formulera svaret. En starkare modell, `openai/gpt-oss-120b`, får därefter jämföra evidens och skriva ett svar, men bara mot originalfrågan och bara med stöd i de hämtade källorna. En tredje mindre modell, `openai/gpt-oss-20b`, granskar grounding, metadata-läckage och drift från originalfrågan innan svaret får publiceras.
+
+Det viktiga arkitekturbeslutet är att Agent 1:s omskrivning aldrig får bli den fråga som svaret bedöms mot. Omskrivningen är ett retrievalhjälpmedel, inte en ny användarfråga. Detta skyddar mot att systemet blir bättre på att hitta närliggande material men samtidigt svarar på fel sak.
+
+Designen använder feature flags så att kedjan först kan köras i `shadow`-läge. Då loggas agenternas JSON-kontrakt, retrievaleffekt, tokenbudget och fallbackorsaker, men användaren får fortfarande den nuvarande säkra svarsvägen. Först när live-HF-mätning visar bättre context precision/recall och oförsämrad faithfulness bör läget höjas till `reviewed_answer`.
+
+Fallbackregeln är medvetet konservativ: ogiltig JSON, timeout, låg confidence, drift från originalfrågan, metadata som fakta eller unsupported claims leder tillbaka till den befintliga extractive/grounded vägen. Frånvaro av Agent 3-godkännande är alltså aldrig ett tyst godkännande.
+
+Tokenbudgeten hålls kompakt utifrån 2026-07-20-loggbaslinjen. Den enda kompletta tokenusage-raden i den tillgängliga loggen var cirka 5 216 prompttokens, 846 completiontokens och 6 062 totalt. Därför ska den nya kedjan undvika att skicka fulla chunkar till alla agenter: Agent 1 får kort retrievaldiagnos, Agent 2 får deduplicerade toppchunkar, och Agent 3 får bara originalfråga, svarskandidat och kort evidenslista. Saknad tokenusage för `openai/gpt-oss-120b` behandlas som ett observability-problem, inte som noll kostnad.
+
+En central lärdom från tidigare RAG-arbete gäller även här: lösningen ska generalisera till svenska språkvariationer i stället för att hårdkoda enskilda domänord. Testerna bör därför innehålla generiska böjningsexempel, till exempel `undervisning`, `undervisade` och `undervisat`, inte bara tidigare systeminförandetermer som råkat fallera i en viss fråga.

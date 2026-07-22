@@ -213,6 +213,43 @@ def test_tomas_q07_work_model_answer_explains_the_model_when_supported():
     assert "hans johansson" not in answer
 
 
+def test_tomas_q22_handover_answer_uses_retrieved_pdf_evidence():
+    answer = _answer_for("Hur ska överlämning till drift och förvaltning gå till?").lower()
+
+    assert not answer.startswith(FALLBACK_PREFIX.lower())
+    assert "förvaltningsobjekt" in answer
+    assert "ansvar" in answer
+    assert any(term in answer for term in ["mottagare", "förvaltningsorganisation"])
+    assert "tidplan" in answer or "plan" in answer
+    assert "dels i." not in answer
+
+
+def test_tomas_extractive_matching_handles_swedish_inflections_and_compounds_generically():
+    chunks = [
+        {
+            "source": "synthetic.pdf",
+            "source_type": "pdf",
+            "title": "Förvaltningsöverlämnande",
+            "text": (
+                "Fastställ ansvariga för överlämnandet dels i projektet och dels i "
+                "förvaltningsorganisationen. Beskriv förvaltningsobjekten och ta fram "
+                "en tidplan för överlämnandet."
+            ),
+            "pages": [1],
+        }
+    ]
+
+    answer = build_extractive_reasoning(
+        "Hur ska överlämning till drift och förvaltning gå till?",
+        chunks,
+    ).lower()
+
+    assert not answer.startswith(FALLBACK_PREFIX.lower())
+    assert "ansvariga" in answer
+    assert "förvaltningsorganisation" in answer
+    assert "tidplan" in answer
+
+
 def test_tomas_synthesis_prompt_contains_quality_guardrails():
     prompt = build_synthesis_prompt(
         "Hur planerar man implementation av system?",

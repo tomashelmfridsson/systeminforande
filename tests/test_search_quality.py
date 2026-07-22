@@ -3,11 +3,146 @@ import sys
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
+import rag.search as search_module
 from rag.search import explain_search
+
+
+def _install_synthetic_chunks(monkeypatch, chunks: list[dict]) -> None:
+    monkeypatch.setattr(search_module, "_CHUNKS_CACHE", None)
+    monkeypatch.setattr(search_module, "_INDEX_CACHE", None)
+    monkeypatch.setattr(search_module, "load_chunks", lambda: chunks)
+
+
+def _rewrite_result(question: str, accepted: list[str], rejected: list[dict] | None = None) -> dict:
+    return {
+        "status": "ok",
+        "original_question": question,
+        "retrieval_queries": [
+            {"query": query, "purpose": "literal" if index == 0 else "synonym", "weight": 1.0 if index == 0 else 0.8}
+            for index, query in enumerate(accepted)
+        ],
+        "debug": {"dropped_queries": rejected or []},
+    }
 
 
 def _sources(search_debug: dict) -> list[str]:
     return [item["chunk"]["source"] for item in search_debug["top_results"]]
+
+
+def test_multi_query_hits_that_match_multiple_variants_outrank_single_variant_hits(monkeypatch):
+    question = "Hur beskrivs ansvar?"
+    _install_synthetic_chunks(
+        monkeypatch,
+        [
+            {
+                "id": "single-original",
+                "source": "Ansvar_planering.pdf",
+                "source_type": "pdf",
+                "title": "Ansvar",
+                "text": "Ansvar beskrivs med roller och tidplan.",
+                "pages": [1],
+            },
+            {
+                "id": "multi-variant",
+                "source": "Utbildningsstrategi.pdf",
+                "source_type": "pdf",
+                "title": "Utbildningsstrategi",
+                "text": "Ansvar beskrivs i en utbildningsstrategi med målgrupper och utbildningsbehov.",
+                "pages": [2],
+            },
+            {
+                "id": "single-variant",
+                "source": "Malgrupper.pdf",
+                "source_type": "pdf",
+                "title": "Målgrupper",
+                "text": "Målgrupper beskrivs separat i underlaget.",
+                "pages": [3],
+            },
+        ],
+    )
+
+    result = explain_search(
+        question,
+        top_k=3,
+        retrieval_rewrite=_rewrite_result(
+            question,
+            [question, "utbildningsstrategi utbildningsbehov", "målgrupper utbildningsstrategi"],
+        ),
+    )
+
+    assert result["top_results"][0]["chunk"]["id"] == "multi-variant"
+    assert result["agentic_retrieval"]["merged_ranking"][0]["matched_query_count"] >= 2
+
+
+def test_multi_query_rerank_keeps_original_query_hits_above_weak_drifted_variant(monkeypatch):
+    question = "Hur planeras utbildning?"
+    _install_synthetic_chunks(
+        monkeypatch,
+        [
+            {
+                "id": "original-topic",
+                "source": "Utbildning_planering.pdf",
+                "source_type": "pdf",
+                "title": "Planera utbildning",
+                "text": "Planeras utbildning med ansvar, målgrupper och tidplan.",
+                "pages": [1],
+            },
+            {
+                "id": "weak-drift",
+                "source": "Acceptanstest_testplan.pdf",
+                "source_type": "pdf",
+                "title": "Acceptanstest testplan",
+                "text": "Acceptanstest och testplan beskriver verifiering före godkännande.",
+                "pages": [5],
+            },
+        ],
+    )
+
+    result = explain_search(
+        question,
+        top_k=2,
+        retrieval_rewrite=_rewrite_result(
+            question,
+            [question, "acceptanstest testplan"],
+            rejected=[{"query": "driftsättning", "reason": "semantic_drift"}],
+        ),
+    )
+
+    assert result["top_results"][0]["chunk"]["id"] == "original-topic"
+    assert result["agentic_retrieval"]["rejected_variants"] == [
+        {"query": "driftsättning", "reason": "semantic_drift"}
+    ]
+
+
+def test_multi_query_retrieval_deduplicates_chunks_before_answer_generation(monkeypatch):
+    question = "Hur planeras utbildning?"
+    _install_synthetic_chunks(
+        monkeypatch,
+        [
+            {
+                "id": "same-chunk",
+                "source": "Utbildning_planering.pdf",
+                "source_type": "pdf",
+                "title": "Planera utbildning",
+                "text": "Planeras utbildning genom utbildningsstrategi och utbildningsbehov.",
+                "pages": [1],
+            }
+        ],
+    )
+
+    result = explain_search(
+        question,
+        top_k=5,
+        retrieval_rewrite=_rewrite_result(
+            question,
+            [question, "utbildningsstrategi", "utbildningsbehov"],
+        ),
+    )
+
+    ids = [item["chunk"]["id"] for item in result["top_results"]]
+    assert ids == ["same-chunk"]
+    assert result["agentic_retrieval"]["per_query_hits"]
+    assert result["agentic_retrieval"]["merged_ranking"][0]["matched_query_count"] >= 2
 
 
 def test_acceptance_test_query_prefers_acceptance_documents():

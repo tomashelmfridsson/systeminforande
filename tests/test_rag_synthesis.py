@@ -1,5 +1,6 @@
 from pathlib import Path
 from types import SimpleNamespace
+import json
 import sys
 
 import pytest
@@ -7,6 +8,16 @@ import pytest
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from llm.reasoning import extract_hf_usage
+from rag.agentic_rewrite import (
+    DEFAULT_REWRITE_MODEL,
+    build_retrieval_rewrite_prompt,
+    generate_retrieval_rewrite,
+    parse_retrieval_rewrite_response,
+)
+from rag.agentic_answer import (
+    build_evidence_answer_prompt,
+    generate_evidence_answer,
+)
 from rag.grounding import INSUFFICIENT_EVIDENCE_ANSWER
 from rag.synthesis import (
     DEFAULT_SYNTHESIS_MODEL,
@@ -55,6 +66,105 @@ OBSTACLE_CHUNKS = [
         "pages": [2],
     },
 ]
+
+UNDERVISNING_RELATION_CHUNKS = [
+    {
+        "id": "kursplan:1",
+        "source": "Utbildningsplan.pdf",
+        "source_type": "pdf",
+        "title": "Planering av lärarledd utbildning",
+        "text": (
+            "Lärarna undervisade pilotgruppen i de nya arbetssätten innan införandet. "
+            "Erfarenheterna användes för att justera kursplanen och göra innehållet mer praktiskt."
+        ),
+        "pages": [4],
+    },
+    {
+        "id": "uppfoljning:2",
+        "source": "Utbildningsuppfoljning.pdf",
+        "source_type": "pdf",
+        "title": "Uppföljning efter genomförd utbildning",
+        "text": (
+            "Efter att superanvändarna hade undervisat sina grupper samlades frågor in. "
+            "Frågorna användes som underlag för korta repetitionstillfällen."
+        ),
+        "pages": [2],
+    },
+]
+
+UNDERVISNING_REWRITE_METADATA = {
+    "status": "ok",
+    "original_question": "Hur ska undervisning följas upp efter införandet?",
+    "semantic_terms": [
+        {"surface": "undervisning", "normalized_family": "undervisa", "kind": "derivation"},
+        {"surface": "undervisade", "normalized_family": "undervisa", "kind": "inflection"},
+        {"surface": "undervisat", "normalized_family": "undervisa", "kind": "inflection"},
+    ],
+    "negative_constraints": ["lägg inte till generiska pedagogiska råd"],
+}
+
+
+def test_agent2_prompt_teaches_semantic_relations_between_undervisning_and_undervisade():
+    prompt = build_evidence_answer_prompt(
+        "Hur ska undervisning följas upp efter införandet?",
+        UNDERVISNING_RELATION_CHUNKS,
+        UNDERVISNING_REWRITE_METADATA,
+    )
+    prompt_lower = prompt.lower()
+
+    assert "undervisning" in prompt_lower
+    assert "undervisade" in prompt_lower
+    assert "undervisat" in prompt_lower
+    assert "ordformer" in prompt_lower
+    assert "samma begreppsfamilj" in prompt_lower
+    assert "inte som egna fakta" in prompt_lower
+
+
+def test_agent2_rejects_semantic_relation_answer_when_an_answer_point_lacks_evidence_id():
+    question = "Hur ska undervisning följas upp efter införandet?"
+
+    def fake_llm(prompt: str, model: str | None = None) -> str:
+        assert "chunk_id=kursplan:1" in prompt
+        assert "chunk_id=uppfoljning:2" in prompt
+        return json.dumps(
+            {
+                "original_question": question,
+                "answer": (
+                    "Undervisningen bör följas upp genom att erfarenheter från när lärarna undervisade "
+                    "pilotgruppen används för att justera kursplanen och göra innehållet mer praktiskt. "
+                    "Efter att superanvändarna hade undervisat sina grupper behöver frågor samlas in och "
+                    "användas som underlag för korta repetitionstillfällen."
+                ),
+                "answer_scope": "direct",
+                "evidence_used": [
+                    {
+                        "chunk_id": "kursplan:1",
+                        "source": "Utbildningsplan.pdf",
+                        "pages": [4],
+                        "claim_supported": "Erfarenheter från undervisade pilotgrupper används för att justera kursplanen.",
+                    }
+                ],
+                "unsupported_or_uncertain": [],
+                "source_coverage": {
+                    "uses_retrieved_chunks": True,
+                    "answers_original_question": True,
+                    "ignores_metadata_as_facts": True,
+                },
+                "grounding_notes": "Svaret använder ordformen undervisning i frågan och undervisade/undervisat i evidensen.",
+            },
+            ensure_ascii=False,
+        )
+
+    result = generate_evidence_answer(
+        question,
+        UNDERVISNING_RELATION_CHUNKS,
+        UNDERVISNING_REWRITE_METADATA,
+        fake_llm,
+    )
+
+    assert result["status"] == "fallback"
+    assert result["debug"]["fallback_reason"] == "agent2_missing_evidence"
+    assert result["evidence_ids_used"] == []
 
 
 def test_synthesis_prompt_asks_for_fuller_source_grounded_obstacle_reasoning():
@@ -335,3 +445,187 @@ def test_huggingface_provider_call_does_not_fail_when_usage_is_missing(monkeypat
         "completion_tokens": None,
         "total_tokens": None,
     }
+
+
+def test_agent1_q22_style_question_keeps_original_highest_weight_and_allows_useful_pdf_wording_variants():
+    question = "Hur lämnas systemet över till förvaltning efter införandet?"
+
+    def fake_llm(prompt: str, model: str | None = None) -> str:
+        assert model == DEFAULT_REWRITE_MODEL
+        assert question in prompt
+        assert "Svara inte på frågan" in prompt
+        assert "strikt JSON" in prompt
+        assert len(prompt.split()) <= 600
+        return json.dumps(
+            {
+                "original_question": question,
+                "retrieval_queries": [
+                    {"query": "förvaltningsöverlämnande efter införande", "purpose": "compound"},
+                    {"query": "överlämning till förvaltning", "purpose": "swedish_inflection"},
+                    {"query": "mottagare förvaltningsobjekt", "purpose": "synonym"},
+                ],
+                "semantic_terms": [
+                    {"surface": "lämnas över", "normalized_family": "överlämna", "kind": "lemma"},
+                    {"surface": "överlämning", "normalized_family": "överlämna", "kind": "inflection"},
+                    {"surface": "förvaltningsöverlämnande", "normalized_family": "överlämna förvaltning", "kind": "compound"},
+                    {"surface": "förvaltning", "normalized_family": "förvaltning", "kind": "lemma"},
+                ],
+                "negative_constraints": ["ändra inte frågan till driftsättning"],
+                "confidence": 0.82,
+            },
+            ensure_ascii=False,
+        )
+
+    result = generate_retrieval_rewrite(question, fake_llm)
+
+    assert result["status"] == "ok"
+    assert result["model"] == DEFAULT_REWRITE_MODEL
+    assert result["retrieval_queries"][0] == {
+        "query": question,
+        "purpose": "literal",
+        "weight": 1.0,
+    }
+    assert len(result["retrieval_queries"]) <= 5
+    assert all(item["weight"] < 1.0 for item in result["retrieval_queries"][1:])
+    variant_text = " ".join(item["query"] for item in result["retrieval_queries"][1:])
+    assert "förvaltningsöverlämnande" in variant_text
+    assert "överlämning" in variant_text
+    assert result["debug"]["dropped_queries"] == []
+
+
+def test_agent1_generic_swedish_grammar_variants_are_accepted_without_domain_terms():
+    question = "Hur ska undervisning planeras när lärare har undervisat olika grupper?"
+    payload = {
+        "original_question": question,
+        "retrieval_queries": [
+            {"query": "planera undervisning för olika lärargrupper", "purpose": "swedish_inflection"},
+            {"query": "undervisade grupper och utbildningsplanering", "purpose": "swedish_inflection"},
+            {"query": "undervisat olika grupper planering", "purpose": "swedish_inflection"},
+        ],
+        "semantic_terms": [
+            {"surface": "undervisning", "normalized_family": "undervisa", "kind": "lemma"},
+            {"surface": "undervisade", "normalized_family": "undervisa", "kind": "inflection"},
+            {"surface": "undervisat", "normalized_family": "undervisa", "kind": "inflection"},
+            {"surface": "lärare", "normalized_family": "lärare", "kind": "lemma"},
+        ],
+        "negative_constraints": [],
+        "confidence": 0.76,
+    }
+
+    result = parse_retrieval_rewrite_response(question, json.dumps(payload, ensure_ascii=False))
+
+    assert result["status"] == "ok"
+    queries = [item["query"] for item in result["retrieval_queries"]]
+    assert queries[0] == question
+    assert any("undervisade" in query for query in queries)
+    assert any("undervisat" in query for query in queries)
+    assert result["debug"]["accepted_query_count"] >= 3
+
+
+def test_agent1_drifted_rewrites_are_dropped_before_retrieval():
+    question = "Hur lämnas systemet över till förvaltning?"
+    payload = {
+        "original_question": question,
+        "retrieval_queries": [
+            {"query": "driftsättning och driftstart av systemet", "purpose": "broader_context"},
+            {"query": "överlämning till förvaltning", "purpose": "swedish_inflection"},
+        ],
+        "semantic_terms": [
+            {"surface": "överlämning", "normalized_family": "överlämna", "kind": "inflection"},
+            {"surface": "förvaltning", "normalized_family": "förvaltning", "kind": "lemma"},
+            {"surface": "driftsättning", "normalized_family": "driftsättning", "kind": "lemma"},
+        ],
+        "negative_constraints": ["driftsättning är inte samma scope som överlämning"],
+        "confidence": 0.9,
+    }
+
+    result = parse_retrieval_rewrite_response(question, json.dumps(payload, ensure_ascii=False))
+
+    assert result["status"] == "ok"
+    queries = [item["query"] for item in result["retrieval_queries"]]
+    assert "överlämning till förvaltning" in queries
+    assert "driftsättning och driftstart av systemet" not in queries
+    assert result["debug"]["dropped_queries"] == [
+        {
+            "query": "driftsättning och driftstart av systemet",
+            "reason": "semantic_drift",
+        }
+    ]
+
+
+def test_agent1_response_must_be_strict_json_and_preserve_original_question():
+    question = "Vad är ett arbetsområde?"
+
+    invalid_json = parse_retrieval_rewrite_response(question, "Här är JSON:\n{}")
+    changed_question = parse_retrieval_rewrite_response(
+        question,
+        json.dumps(
+            {
+                "original_question": "Vad är en arbetsmodell?",
+                "retrieval_queries": [{"query": "arbetsområde definition", "purpose": "literal"}],
+                "semantic_terms": [],
+                "negative_constraints": [],
+                "confidence": 0.8,
+            },
+            ensure_ascii=False,
+        ),
+    )
+
+    assert invalid_json["status"] == "fallback"
+    assert invalid_json["debug"]["fallback_reason"] == "agent1_invalid_json"
+    assert changed_question["status"] == "fallback"
+    assert changed_question["debug"]["fallback_reason"] == "original_question_mismatch"
+
+
+def test_agent1_low_confidence_or_answer_like_rewrites_fall_back_or_are_dropped():
+    question = "Finns det en arbetsmodell för införande?"
+    low_confidence = parse_retrieval_rewrite_response(
+        question,
+        json.dumps(
+            {
+                "original_question": question,
+                "retrieval_queries": [{"query": "införandemodell", "purpose": "synonym"}],
+                "semantic_terms": [],
+                "negative_constraints": [],
+                "confidence": 0.2,
+            },
+            ensure_ascii=False,
+        ),
+    )
+    answer_like = parse_retrieval_rewrite_response(
+        question,
+        json.dumps(
+            {
+                "original_question": question,
+                "retrieval_queries": [
+                    {"query": "Ja, det finns en arbetsmodell som används i införandet.", "purpose": "broader_context"},
+                    {"query": "införandemodell arbetsmodell", "purpose": "synonym"},
+                ],
+                "semantic_terms": [
+                    {"surface": "arbetsmodell", "normalized_family": "arbetsmodell", "kind": "lemma"},
+                    {"surface": "införandemodell", "normalized_family": "arbetsmodell", "kind": "synonym"},
+                ],
+                "negative_constraints": [],
+                "confidence": 0.8,
+            },
+            ensure_ascii=False,
+        ),
+    )
+
+    assert low_confidence["status"] == "fallback"
+    assert low_confidence["debug"]["fallback_reason"] == "low_confidence"
+    assert "Ja, det finns" not in " ".join(
+        item["query"] for item in answer_like["retrieval_queries"]
+    )
+    assert answer_like["debug"]["dropped_queries"][0]["reason"] == "answers_question"
+
+
+def test_agent1_rewrite_prompt_requests_strict_json_and_small_output_budget():
+    prompt = build_retrieval_rewrite_prompt("Hur används acceptanstest i införandet?")
+
+    assert "openai/gpt-oss-20b" in prompt
+    assert "max 5" in prompt
+    assert "strikt JSON" in prompt
+    assert "Svara inte på frågan" in prompt
+    assert "200 output tokens" in prompt
+    assert len(prompt.split()) <= 600

@@ -67,13 +67,27 @@ def _has_narrative_answer(answer_markdown: str) -> bool:
 
 def _load_local_app_without_launch(monkeypatch):
     import gradio as gr
+    import uvicorn
 
     def _noop_launch(self, *args, **kwargs):
         return None
 
     monkeypatch.setattr(gr.Blocks, "launch", _noop_launch)
+    monkeypatch.setattr(gr, "mount_gradio_app", lambda app, *args, **kwargs: app)
+    monkeypatch.setattr(uvicorn, "run", lambda *args, **kwargs: None)
     sys.modules.pop("app", None)
-    return importlib.import_module("app")
+    app_module = importlib.import_module("app")
+    monkeypatch.setattr(
+        app_module,
+        "generate_retrieval_rewrite",
+        lambda question, llm_rewrite: {
+            "status": "fallback",
+            "original_question": question,
+            "retrieval_queries": [{"query": question, "purpose": "literal", "weight": 1.0}],
+            "debug": {"dropped_queries": [], "fallback_reason": "local_test_no_agent1_llm"},
+        },
+    )
+    return app_module
 
 
 def _jsonl_records(log_dir: Path) -> list[dict]:
@@ -195,19 +209,29 @@ def test_local_api_ask_honors_enable_synthesis_true_without_env_flag(monkeypatch
 
 def test_local_launch_mounts_custom_api_app(monkeypatch):
     launched_kwargs = []
+    mounted_apps = []
 
     import gradio as gr
+    import uvicorn
 
     def _capture_launch(self, *args, **kwargs):
         launched_kwargs.append(kwargs)
         return None
 
+    def _capture_mount(app, *args, **kwargs):
+        mounted_apps.append(app)
+        return app
+
     monkeypatch.setattr(gr.Blocks, "launch", _capture_launch)
+    monkeypatch.setattr(gr, "mount_gradio_app", _capture_mount)
+    monkeypatch.setattr(uvicorn, "run", lambda *args, **kwargs: None)
     sys.modules.pop("app", None)
     app_module = importlib.import_module("app")
 
-    assert launched_kwargs
-    assert launched_kwargs[-1]["_app"] is app_module.API_APP
+    if launched_kwargs:
+        assert launched_kwargs[-1]["_app"] is app_module.API_APP
+    else:
+        assert mounted_apps[-1] is app_module.API_APP
 
 
 def test_local_health_and_ready_routes_are_on_mounted_api_app(monkeypatch):

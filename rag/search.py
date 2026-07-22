@@ -638,6 +638,8 @@ def _split_query_clauses(query: str) -> list[str]:
 
 
 def _chunk_identity(chunk: dict) -> tuple:
+    if chunk.get("id"):
+        return ("id", chunk.get("id"))
     return (
         chunk.get("source", ""),
         chunk.get("title", ""),
@@ -665,6 +667,156 @@ def _search_single(query: str, top_k: int, index: dict) -> list[tuple[float, dic
     scored = _rerank_candidates(query, scored)
     pruned = _prune_scored_results(scored, top_k)
     return [(item["score"], item["chunk"]) for item in pruned]
+
+
+def _accepted_retrieval_queries(query: str, retrieval_rewrite: dict | None) -> list[dict]:
+    fallback = [{"query": query, "purpose": "literal", "weight": 1.0}]
+    if not isinstance(retrieval_rewrite, dict):
+        return fallback
+
+    raw_queries = retrieval_rewrite.get("retrieval_queries")
+    if not isinstance(raw_queries, list):
+        return fallback
+
+    accepted = []
+    seen = set()
+    for index, item in enumerate(raw_queries):
+        if not isinstance(item, dict):
+            continue
+        query_text = re.sub(r"\s+", " ", str(item.get("query") or "")).strip()
+        if not query_text:
+            continue
+        key = _ascii_fold(query_text.lower())
+        if key in seen:
+            continue
+        seen.add(key)
+        accepted.append(
+            {
+                "query": query_text,
+                "purpose": str(item.get("purpose") or ("literal" if index == 0 else "variant")),
+                "weight": _safe_float(item.get("weight"), default=1.0 if index == 0 else 0.75),
+            }
+        )
+
+    if not accepted or _ascii_fold(accepted[0]["query"].lower()) != _ascii_fold(query.lower()):
+        accepted.insert(0, {"query": query, "purpose": "literal", "weight": 1.0})
+
+    return accepted[:5]
+
+
+def _safe_float(value, default: float) -> float:
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        return default
+
+
+def _query_hit_for_debug(query_item: dict, rank: int, score: float, chunk: dict) -> dict:
+    return {
+        "query": query_item["query"],
+        "purpose": query_item.get("purpose"),
+        "weight": round(query_item.get("weight", 1.0), 4),
+        "rank": rank,
+        "score": round(score, 4),
+        "chunk_id": _chunk_id_for_debug(chunk),
+        "source": chunk.get("source"),
+        "title": chunk.get("title"),
+        "pages": chunk.get("pages"),
+    }
+
+
+def _chunk_id_for_debug(chunk: dict) -> str:
+    if chunk.get("id"):
+        return str(chunk.get("id"))
+    return f"{chunk.get('source')}::{chunk.get('title')}::{chunk.get('section')}::{chunk.get('pages')}"
+
+
+def _merged_rank_for_debug(entry: dict) -> dict:
+    chunk = entry["chunk"]
+    matched_queries = entry.get("matched_queries", [])
+    return {
+        "chunk_id": _chunk_id_for_debug(chunk),
+        "source": chunk.get("source"),
+        "title": chunk.get("title"),
+        "pages": chunk.get("pages"),
+        "score": round(entry["score"], 4),
+        "matched_query_count": len(matched_queries),
+        "matched_queries": matched_queries,
+        "original_query_match": bool(entry.get("original_query_match")),
+    }
+
+
+def _search_multi_query(
+    query: str,
+    top_k: int,
+    index: dict,
+    retrieval_rewrite: dict | None,
+) -> tuple[list[tuple[float, dict]], dict]:
+    accepted_queries = _accepted_retrieval_queries(query, retrieval_rewrite)
+    per_query_hits = []
+    aggregated = {}
+
+    for query_index, query_item in enumerate(accepted_queries):
+        query_text = query_item["query"]
+        weight = query_item.get("weight", 1.0)
+        results = _search_single(query_text, max(top_k * 2, 5), index)
+        per_query = []
+        for rank, (score, chunk) in enumerate(results, start=1):
+            key = _chunk_identity(chunk)
+            entry = aggregated.setdefault(
+                key,
+                {
+                    "chunk": chunk,
+                    "base_score": 0.0,
+                    "score": 0.0,
+                    "matched_queries": [],
+                    "original_query_match": False,
+                    "best_rank": rank,
+                },
+            )
+            weighted_score = score * weight
+            entry["base_score"] = max(entry["base_score"], weighted_score)
+            entry["best_rank"] = min(entry["best_rank"], rank)
+            entry["matched_queries"].append(query_text)
+            if query_index == 0:
+                entry["original_query_match"] = True
+            per_query.append(_query_hit_for_debug(query_item, rank, score, chunk))
+
+        per_query_hits.append(
+            {
+                "query": query_text,
+                "purpose": query_item.get("purpose"),
+                "weight": round(weight, 4),
+                "hits": per_query,
+            }
+        )
+
+    for entry in aggregated.values():
+        matched_query_count = len(entry["matched_queries"])
+        multi_query_bonus = max(0, matched_query_count - 1) * 11.0
+        original_query_bonus = 3.0 if entry["original_query_match"] else 0.0
+        rank_bonus = max(0.0, 1.0 - (entry["best_rank"] - 1) * 0.1)
+        entry["score"] = entry["base_score"] + multi_query_bonus + original_query_bonus + rank_bonus
+
+    merged_entries = sorted(
+        aggregated.values(),
+        key=lambda entry: (
+            entry["score"],
+            entry["original_query_match"],
+            len(entry["matched_queries"]),
+            -entry["best_rank"],
+        ),
+        reverse=True,
+    )
+    top_entries = merged_entries[:top_k]
+    results = [(entry["score"], entry["chunk"]) for entry in top_entries]
+    debug = {
+        "accepted_variants": accepted_queries,
+        "rejected_variants": (retrieval_rewrite or {}).get("debug", {}).get("dropped_queries", []),
+        "per_query_hits": per_query_hits,
+        "merged_ranking": [_merged_rank_for_debug(entry) for entry in merged_entries],
+    }
+    return results, debug
 
 
 def _score_document(query: str, query_terms: list[str], document: dict, index: dict) -> dict:
@@ -839,11 +991,15 @@ def _dot_product(left: dict[str, float], right: dict[str, float]) -> float:
     return sum(value * right.get(key, 0.0) for key, value in left.items())
 
 
-def search(query: str, top_k: int = 5):
+def search(query: str, top_k: int = 5, retrieval_rewrite: dict | None = None):
     index = _build_index()
     print(f"🔍 Search: laddade {index['doc_count']} chunkar")
     if not index["documents"]:
         return []
+
+    if retrieval_rewrite is not None:
+        results, _debug = _search_multi_query(query, top_k, index, retrieval_rewrite)
+        return results
 
     overall_results = _search_single(query, max(top_k, 5), index)
     clauses = _split_query_clauses(query)
@@ -888,11 +1044,38 @@ def search(query: str, top_k: int = 5):
     return final_results
 
 
-def explain_search(query: str, top_k: int = 5) -> dict:
+def explain_search(query: str, top_k: int = 5, retrieval_rewrite: dict | None = None) -> dict:
     index = _build_index()
     original_query_terms = _tokenize(query)
     query_terms = _expand_query_with_vocabulary(original_query_terms, index["vocabulary"])
     intent = classify_query_intent(query)
+
+    if retrieval_rewrite is not None:
+        results, agentic_debug = _search_multi_query(query, top_k, index, retrieval_rewrite)
+        top = []
+        for score, chunk in results:
+            document = next(
+                (document for document in index["documents"] if _chunk_identity(document["chunk"]) == _chunk_identity(chunk)),
+                None,
+            )
+            parts = _score_document(query, query_terms, document, index) if document else {"total": score}
+            top.append(
+                {
+                    "score": round(score, 4),
+                    "parts": parts,
+                    "chunk": chunk,
+                    "matched_terms": sorted(_matched_query_terms(query_terms, document)) if document else [],
+                }
+            )
+
+        return {
+            "query": query,
+            "query_terms": original_query_terms,
+            "expanded_query_terms": query_terms,
+            "intent": intent,
+            "top_results": top,
+            "agentic_retrieval": agentic_debug,
+        }
 
     scored = []
     for document in index["documents"]:
