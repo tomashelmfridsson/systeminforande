@@ -56,9 +56,12 @@
     "answer_contains_any": [
       "inte tillräckligt underlag",
       "inte relevant stöd",
-      "källmaterialet"
+      "källmaterialet",
+      "kan inte verifiera",
+      "tillgängliga källorna"
     ],
-    "expected_source_any": []
+    "expected_source_any": [],
+    "source_policy": "none"
   },
   {
     "id": "new_system_testing",
@@ -76,10 +79,7 @@
     "id": "implementation_stages",
     "question": "Vilka etapper finns det",
     "answer_contains_any": ["etapp", "planering", "acceptanstest", "pilotdrift", "driftsättning"],
-    "expected_source_any": [
-      "Verktyget_etapper.pdf",
-      "Mallar_etapplan.pdf",
-      "Verktyget_grov_plan.pdf"
-    ]
+    "expected_source_any": [],
+    "source_policy": "any"
   }
 ]

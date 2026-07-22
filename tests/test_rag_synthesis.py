@@ -228,6 +228,30 @@ def test_synthesis_stage_accepts_fuller_source_bound_obstacle_reasoning():
     assert result["final_answer"] == rewritten
 
 
+def test_synthesis_stage_strips_llm_generated_sources_before_app_sources_are_appended():
+    rewritten = (
+        "Ett systeminförande kan hindras av att flera arbetsområden måste fungera samtidigt, inte av en enda isolerad aktivitet. "
+        "Underlaget pekar på acceptanstest, utbildning och information, IT-miljöer, konvertering och laddning samt driftsättning. "
+        "Det betyder att hinder kan uppstå när ansvar, aktiviteter eller uppföljning inom dessa områden inte hålls ihop. "
+        "Acceptanstest och utbildning påverkar verksamhetens möjlighet att börja använda systemet på ett kontrollerat sätt. "
+        "IT-miljöer, konvertering och driftsättning är samtidigt tekniska och praktiska förutsättningar för att lösningen ska fungera i skarp drift."
+        "\n\n---\n\n### Källor\n- [Felaktig extra källista](https://example.com)"
+    )
+
+    result = build_final_grounded_answer(
+        "Vilka hinder finns i systeminförande?",
+        OBSTACLE_CHUNKS,
+        enable_synthesis=True,
+        llm_rewrite=lambda prompt, model=None: rewritten,
+    )
+
+    final_answer = str(result["final_answer"])
+
+    assert result["synthesis_used"] is True
+    assert final_answer.count("### Källor") == 0
+    assert "Felaktig extra källista" not in final_answer
+
+
 def test_synthesis_stage_is_off_by_default():
     result = build_final_grounded_answer(
         "Vad ska en utbildningsstrategi innehålla",

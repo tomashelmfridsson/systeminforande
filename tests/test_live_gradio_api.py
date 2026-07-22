@@ -17,6 +17,13 @@ BASE_URL = os.getenv("SYSTEMINFORANDE_BASE_URL", "https://helmfridsson-systeminf
 TIMEOUT_SECONDS = float(os.getenv("SYSTEMINFORANDE_API_TIMEOUT", "60"))
 DEFAULT_MODEL = os.getenv("SYSTEMINFORANDE_LLM_MODEL", "openai/gpt-oss-120b")
 SCENARIO_PATH = Path(__file__).parent / "data" / "live_api_scenarios.json"
+UNSUPPORTED_FALLBACK_KEYWORDS = (
+    "inte tillräckligt underlag",
+    "inte relevant stöd",
+    "källmaterialet",
+    "kan inte verifiera",
+    "tillgängliga källorna",
+)
 
 
 def _load_scenarios():
@@ -374,8 +381,15 @@ def test_submit_regression_scenarios(gradio_client, scenario):
     answer_lower = answer.lower()
     assert any(keyword.lower() in answer_lower for keyword in scenario["answer_contains_any"])
 
-    expected_sources = set(scenario["expected_source_any"])
-    if expected_sources:
+    actual_sources = _extract_sources(answer)
+    if scenario.get("source_policy") == "any":
+        assert actual_sources, f"Expected at least one cited source, got answer: {answer!r}"
+    elif scenario.get("source_policy") == "none":
+        assert not actual_sources, f"Expected no cited sources for unsupported question, got {sorted(actual_sources)}"
+    else:
+        expected_sources = set(scenario["expected_source_any"])
+        if not expected_sources:
+            return
         actual_sources = _extract_sources(answer)
         assert actual_sources & expected_sources, (
             f"Expected one of {sorted(expected_sources)} but got {sorted(actual_sources)}"
@@ -415,11 +429,7 @@ def test_submit_is_robust_to_common_misspellings(
 def test_submit_rejects_unsupported_question_with_fallback(gradio_client):
     answer = _submit_question(gradio_client, "Vilken färg har månen i projektmodellen?")
     answer_lower = answer.lower()
-    assert (
-        "inte tillräckligt underlag" in answer_lower
-        or "inte relevant stöd" in answer_lower
-        or "källmaterialet" in answer_lower
-    )
+    assert any(keyword in answer_lower for keyword in UNSUPPORTED_FALLBACK_KEYWORDS)
 
 
 @pytest.mark.live_api

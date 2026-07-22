@@ -129,7 +129,7 @@ def build_final_grounded_answer(
         result["llm_status"] = "fallback_to_extractive_due_to_grounding_check"
         return result
 
-    result["final_answer"] = rewritten_answer
+    result["final_answer"] = _strip_metadata(rewritten_answer)
     result["synthesis_used"] = True
     result["llm_status"] = "rewrite_applied"
     return result
