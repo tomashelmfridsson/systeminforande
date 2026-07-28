@@ -29,6 +29,7 @@ _ALLOWED_TOP_LEVEL_KEYS = {
     "grounding_notes",
 }
 _ALLOWED_SCOPES = {"direct", "partial_due_to_thin_evidence", "insufficient_evidence"}
+_SCOPE_ALIASES = {"sufficient": "direct"}
 _ALLOWED_EVIDENCE_KEYS = {"chunk_id", "source", "pages", "claim_supported"}
 _ALLOWED_COVERAGE_KEYS = {
     "uses_retrieved_chunks",
@@ -79,6 +80,8 @@ def build_evidence_answer_prompt(
         "Om evidensen inte räcker: answer_scope=insufficient_evidence och ge ett kort ärligt icke-svar.\n"
         "Returnera enbart strikt JSON, utan markdown eller prosa utanför objektet.\n"
         "JSON-fält: original_question, answer, answer_scope, evidence_used, evidence_ids_used, unsupported_or_uncertain, source_coverage, grounding_notes.\n"
+        "answer_scope måste vara exakt direct, partial_due_to_thin_evidence eller insufficient_evidence.\n"
+        "Varje evidence_used-objekt måste innehålla chunk_id, source, pages och claim_supported. Kopiera source och pages från evidensen.\n"
         "source_coverage måste ange uses_retrieved_chunks, answers_original_question och ignores_metadata_as_facts.\n"
         "Tokenbudget: cirka 2 200–3 200 input tokens och högst 500 output tokens.\n\n"
         f"Fråga:\n{original_question}\n\n"
@@ -258,6 +261,7 @@ def parse_evidence_answer_response(
         return _fallback(original_question, "agent2_original_question_mismatch", model=model)
 
     answer_scope = str(payload.get("answer_scope") or "").strip()
+    answer_scope = _SCOPE_ALIASES.get(answer_scope, answer_scope)
     if answer_scope not in _ALLOWED_SCOPES:
         return _fallback(original_question, "agent2_schema_error", model=model)
     if answer_scope == "insufficient_evidence":
@@ -475,9 +479,13 @@ def _valid_evidence_used(value: Any, chunk_lookup: dict[str, dict[str, Any]]) ->
         if not isinstance(item, dict) or set(item) - _ALLOWED_EVIDENCE_KEYS:
             return []
         chunk_id = str(item.get("chunk_id") or "").strip()
+        if not chunk_id or chunk_id not in chunk_lookup:
+            return []
+        chunk = chunk_lookup[chunk_id]
         claim = str(item.get("claim_supported") or "").strip()
-        source = str(item.get("source") or "").strip()
-        if not chunk_id or chunk_id not in chunk_lookup or not claim or not source:
+        source = str(chunk.get("source") or "").strip()
+        pages = chunk.get("pages") or []
+        if not source:
             return []
         if chunk_id in seen:
             continue
@@ -485,7 +493,7 @@ def _valid_evidence_used(value: Any, chunk_lookup: dict[str, dict[str, Any]]) ->
             {
                 "chunk_id": chunk_id,
                 "source": source[:160],
-                "pages": item.get("pages", []),
+                "pages": pages,
                 "claim_supported": claim[:220],
             }
         )

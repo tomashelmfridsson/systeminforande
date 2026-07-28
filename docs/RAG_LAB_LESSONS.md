@@ -51,6 +51,7 @@ Syftet med dokumentet är inte bara att beskriva slutresultatet, utan att förkl
 25. Manuell granskning, metadatahygien och nästa live-mätning
 26. Agentic RAG: kontrollerad 3-agentdesign
 27. Agentic RAG 7: live-utvärdering och kvarvarande risker
+28. Frikopplat RAG-API och första livekörningen av treagentskedjan
 
 ## 1. Målbild
 
@@ -1507,3 +1508,75 @@ I den nya livecapturen skickades det explicita modellvalet `openai/gpt-oss-120b`
 Den säkra extractive/model-free vägen är liveverifierad, snabb och stabil nog för smoke-regressionerna. Däremot är den här körningen inte ett godkännande av full Agentic RAG med vald LLM-modell, eftersom den deployade miljön inte gav strukturerad `/api/ask`-metadata och providerkrediterna stoppade LLM-jämförelsen. Nästa skarpa mätning behöver därför göras när live `/api/ask` åter är tillgänglig eller när `/submit` exponerar motsvarande strukturerade metadata: requested model, resolved model, synthesis used, grounding fallback reason och tokenusage.
 
 Praktiskt betyder det att lösningen bör fortsätta behandla agentisk LLM-syntes som kontrollerad och villkorad. Retrievalförbättringar och promptpolicy kan fortsätta utvecklas, men slutsatsen om bättre svarskvalitet och lägre tokenbudget måste bygga på deployad evidens där modellen faktiskt får köras och metadata går att läsa maskinellt.
+
+## 28. Frikopplat RAG-API och första livekörningen av treagentskedjan
+
+Den 28 juli 2026 deployades revision `3691b74b5530d300ad8d4b7832dac72c65a2226f`, där FastAPI gjordes till ägare av kontrollgränssnittet och Gradio monterades som en separat UI-applikation på `/`. Det ersatte den tidigare kopplingen till Gradio-interna appklasser och privata launch-varianter. Efter deployen svarade `/health`, `/ready` och `/api/ask` korrekt samtidigt som Gradio fortfarande exponerade `/gradio_api/info` och `/submit`.
+
+`/health` bekräftade både rätt revision och `agentic_rag_enabled: true`. Agentic RAG aktiveras som standard i Docker/HF med `SYSTEMINFORANDE_ENABLE_AGENTIC_RAG=true`, men `/api/ask` kan överstyra läget per anrop. Exempelvis väljer `?enable_agentic_rag=false&debug=false` kontrollvägen och `?enable_agentic_rag=true&debug=false` agentvägen. JSON-body har högre prioritet än URL-parametrar, och URL-parametrar har högre prioritet än miljökonfigurationen. Detta gör det möjligt att A/B-testa samma fråga på samma deployrevision utan omstart.
+
+Det är viktigt att skilja denna faktiska implementation från det tidigare designförslaget om `off`, `shadow` och `reviewed_answer`. Den deployade implementationen är för närvarande binär: av eller på, med per-anrop-override. Ett fullständigt shadow-läge där agentkedjan körs och loggas utan att kunna påverka användarsvaret är ännu inte implementerat.
+
+### Första A/B-proben mot `/api/ask`
+
+Den första liveproben använde Q22, `Hur ska överlämning till drift och förvaltning gå till?`, med `openai/gpt-oss-120b` och `enable_synthesis=false` för att isolera agentkedjan.
+
+Kontrollvägen med Agentic RAG av gav:
+
+- svarstid `153,43 ms`
+- noll LLM-anrop och noll rapporterade tokens
+- det tidigare extraktiva och källbundna svaret
+- en separat `Källor`-sektion med `Verktyget_aktiviteter.pdf`
+
+Agentvägen gav:
+
+- svarstid `3 904,56 ms`
+- två LLM-anrop
+- `3 611` prompttokens, `1 649` completiontokens och `5 260` tokens totalt
+- Agent 1 `ok`, med fem accepterade retrievalvarianter
+- Agent 2 `fallback` med `agent2_schema_error`
+- Agent 3 `not_run`
+- ett sämre icke-svar trots att retrievalen hade relevant stöd
+
+Den större tiopunktsmätningen stoppades därför. Det hade varit missvisande att räkna detta som ett kvalitetsresultat för treagentsdesignen när Agent 3 aldrig kördes och felet låg i kontraktskopplingen mellan modell och parser.
+
+### Vad schemafelet faktiskt var
+
+Ett direkt diagnosanrop med exakt Agent 2-prompt visade att modellen returnerade giltig JSON och ett relevant, källnära svar. Modellen använde dock:
+
+```json
+{
+  "answer_scope": "sufficient",
+  "evidence_used": [
+    {"chunk_id": "Verktyget_aktiviteter_7.1.20"},
+    {"chunk_id": "Verktyget_projektstyrning_2.8"}
+  ]
+}
+```
+
+Parsern accepterade bara `direct`, `partial_due_to_thin_evidence` och `insufficient_evidence`. Den krävde dessutom att modellen duplicerade `source`, `pages` och `claim_supported` i varje `evidence_used`-objekt, trots att applikationen redan har auktoritativ källmetadata för varje `chunk_id`. Resultatet blev ett schemafel trots att svaret och de refererade chunk-ID:na var användbara.
+
+Detta visar en viktig skillnad mellan fail-safe validering och onödigt sköra kontrakt. Parsern ska avvisa okända eller osäkra svar, men den bör inte underkänna ett semantiskt likvärdigt statusvärde eller kräva att modellen återger metadata som systemet redan äger och kan kontrollera.
+
+### Fallbackbuggen
+
+Liveproben avslöjade även en separat säkerhetsbugg. När Agent 2 föll tillbaka skickades Agent 2:s generiska icke-svar in som `fallback_answer` till den befintliga svarsgeneratorn. Därmed ersattes det fungerande extraktiva svaret. Samma kodväg hade även kunnat återanvända ett Agent 2-svar som Agent 3 uttryckligen hade avvisat.
+
+Den korrekta fallbackregeln är striktare:
+
+- endast ett svar som Agent 3 godkänt eller säkert reviderat får publiceras som agentsvar
+- schemafel, Agent 2-fallback eller Agent 3-reject ska återgå till den oberoende extraktiva/grounded vägen
+- ett underkänt agentsvar får aldrig bli fallback för sig självt
+
+### Korrigering och nästa verifiering
+
+Korrigeringen skapades i commit `f9c3bc8`:
+
+- Agent 2-prompten listar nu exakt tillåtna `answer_scope`-värden och evidensfält.
+- Det observerade och säkra synonymvärdet `sufficient` normaliseras till `direct`.
+- `source` och `pages` hämtas från applikationens egna chunks i stället för att litas på från modelltexten.
+- Agent 3 är fortfarande obligatorisk innan agentsvaret får publiceras.
+- Underkända eller ogiltiga agentsvar kan inte längre ersätta det extraktiva reservsvaret.
+- Regressionstest täcker både liveformatet och att Agent 3-reject bevarar reservsvaret.
+
+Efter korrigeringen passerade den lokala sviten med `143 passed`, `15 deselected` live-tester och `5 warnings`. Nästa steg är att deploya `f9c3bc8` och upprepa exakt samma Q22-prob. Först när Agent 2 blir `ok`, Agent 3 faktiskt körs och kontroll-/agentresultaten kan jämföras meningsfullt bör den tidigare tiopunktsmätningen återupptas.

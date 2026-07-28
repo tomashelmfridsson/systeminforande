@@ -9,6 +9,7 @@ from pathlib import Path
 import pytest
 import requests
 from fastapi.testclient import TestClient
+from rag.agentic_answer import parse_evidence_answer_response
 
 Client = pytest.importorskip("gradio_client").Client
 
@@ -304,6 +305,120 @@ def test_agentic_rag_usage_metadata_includes_per_agent_tokens_latency_counts_and
     assert agent_usage["agent2_evidence_answer"]["total_tokens"] == 125
     assert agent_usage["agent3_grounded_review"]["model"] == "agent3-model"
     assert agent_usage["agent3_grounded_review"]["latency_ms"] == 12.5
+
+
+def test_agentic_rag_rejected_agent_answer_preserves_extractive_fallback(monkeypatch):
+    app_module = _load_local_app_without_launch(monkeypatch)
+    monkeypatch.setenv("SYSTEMINFORANDE_ENABLE_AGENTIC_RAG", "true")
+    calls: list[str] = []
+    _stub_common_agentic_pipeline_rag(app_module, monkeypatch, calls)
+
+    monkeypatch.setattr(
+        app_module,
+        "generate_retrieval_rewrite",
+        lambda question, llm_rewrite: {
+            "status": "ok",
+            "model": "agent1-model",
+            "retrieval_queries": [{"query": question, "purpose": "literal", "weight": 1.0}],
+            "debug": {"fallback_reason": None, "dropped_queries": []},
+        },
+    )
+    monkeypatch.setattr(
+        app_module,
+        "generate_evidence_answer",
+        lambda *args, **kwargs: {
+            "status": "ok",
+            "model": "agent2-model",
+            "answer": "Ett agentsvar som Agent 3 underkänner.",
+            "answer_scope": "direct",
+            "evidence_ids_used": ["chunk-1"],
+            "debug": {"fallback_reason": None},
+        },
+    )
+    monkeypatch.setattr(
+        app_module,
+        "generate_answer_review",
+        lambda *args, **kwargs: {
+            "status": "rejected",
+            "model": "agent3-model",
+            "revision": "",
+            "evidence_ids_used": [],
+            "debug": {"fallback_reason": "agent3_grounding_failed"},
+        },
+    )
+
+    def _extractive_fallback(query, chunks, **kwargs):
+        assert "fallback_answer" not in kwargs
+        return {
+            "extractive_answer": "Det källbundna extraktiva reservsvaret.",
+            "final_answer": "Det källbundna extraktiva reservsvaret.",
+            "synthesis_used": False,
+            "llm_status": "disabled",
+        }
+
+    monkeypatch.setattr(app_module, "build_final_grounded_answer", _extractive_fallback)
+
+    response = app_module.build_rag_response(
+        "Vad är en utbildningsstrategi?",
+        debug=False,
+        llm_model="model-a",
+        enable_synthesis=False,
+    )
+
+    assert response["answer_markdown"].startswith("Det källbundna extraktiva reservsvaret.")
+    assert "agentsvar som Agent 3 underkänner" not in response["answer_markdown"]
+    assert response["retrieval"]["agentic_pipeline"]["review_status"] == "rejected"
+
+
+def test_agent2_accepts_live_model_scope_alias_and_minimal_evidence_objects():
+    question = "Hur lämnas systemet över till förvaltning efter införandet?"
+    chunks = [
+        {
+            "id": "q22-1",
+            "source": "Forvaltningsoverlamnande.pdf",
+            "source_type": "pdf",
+            "title": "Förvaltningsöverlämnande",
+            "text": "Förvaltningsöverlämnandet beskriver mottagare, förvaltningsobjekt och en tidplan för överlämnandet.",
+            "pages": [3],
+        }
+    ]
+    raw = json.dumps(
+        {
+            "original_question": question,
+            "answer": "Förvaltningsöverlämnandet beskriver mottagare, förvaltningsobjekt och en tidplan för överlämnandet.",
+            "answer_scope": "sufficient",
+            "evidence_used": [{"chunk_id": "q22-1"}],
+            "evidence_ids_used": ["q22-1"],
+            "unsupported_or_uncertain": [],
+            "source_coverage": {
+                "uses_retrieved_chunks": True,
+                "answers_original_question": True,
+                "ignores_metadata_as_facts": True,
+            },
+            "grounding_notes": "Svaret använder q22-1.",
+        },
+        ensure_ascii=False,
+    )
+
+    result = parse_evidence_answer_response(
+        question,
+        chunks,
+        raw,
+        rewrite_metadata={
+            "semantic_terms": [
+                {
+                    "surface": "förvaltningsöverlämnande",
+                    "normalized_family": "överlämna förvaltning",
+                }
+            ]
+        },
+    )
+
+    assert result["status"] == "ok"
+    assert result["answer_scope"] == "direct"
+    assert result["evidence_ids_used"] == ["q22-1"]
+    assert result["evidence_used"][0]["source"] == "Forvaltningsoverlamnande.pdf"
+    assert result["evidence_used"][0]["pages"] == [3]
 
 
 def test_local_api_ask_honors_explicit_llm_model_and_returns_structured_metadata(monkeypatch):

@@ -1287,8 +1287,6 @@ def build_rag_response(
                 usage_records=llm_usage_records,
             ),
         }
-        if agentic_enabled and isinstance(agent2_answer, dict):
-            synthesis_kwargs["fallback_answer"] = str(agent2_answer.get("answer") or "")
         synthesis_result = build_final_grounded_answer(query, chunks, **synthesis_kwargs)
     structured_answer = str(synthesis_result["extractive_answer"])
     final_answer = str(synthesis_result["final_answer"])
