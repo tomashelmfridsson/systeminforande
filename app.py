@@ -1,4 +1,3 @@
-import inspect
 import json
 import os
 import re
@@ -7,9 +6,8 @@ import uuid
 import threading
 from typing import Any
 from pathlib import Path
-from fastapi import HTTPException, Request as FastAPIRequest
+from fastapi import FastAPI, HTTPException, Request as FastAPIRequest
 import gradio as gr
-from gradio.routes import App as GradioApp
 import requests
 
 from rag.grounding import filter_allowed_results, grounded_answer_or_fallback
@@ -105,7 +103,10 @@ def log_startup_version(version: str) -> None:
 
 
 DEPLOY_REVISION = load_deploy_revision()
-API_APP = GradioApp()
+API_APP = FastAPI(
+    title="Systeminförande RAG API",
+    version=DEPLOY_REVISION,
+)
 
 
 def _ensure_log_dir() -> bool:
@@ -419,7 +420,15 @@ def select_and_submit(message: str, doc_id, debug_mode, llm_model, request: gr.R
         yield answer
 
 
-def answer_question(message, doc_id=None, debug_mode=False, llm_model=None, enable_synthesis: bool | None = None, request: Any = None) -> dict[str, Any]:
+def answer_question(
+    message,
+    doc_id=None,
+    debug_mode=False,
+    llm_model=None,
+    enable_synthesis: bool | None = None,
+    enable_agentic_rag: bool | None = None,
+    request: Any = None,
+) -> dict[str, Any]:
     started_at = time.perf_counter()
     raw_message = message or ""
     message = raw_message.strip()
@@ -438,6 +447,11 @@ def answer_question(message, doc_id=None, debug_mode=False, llm_model=None, enab
         "doc_id": doc_id,
         "debug_mode": bool(debug_mode),
         "enable_synthesis": resolved_enable_synthesis,
+        "enable_agentic_rag": (
+            agentic_rag_enabled()
+            if enable_agentic_rag is None
+            else bool(enable_agentic_rag)
+        ),
         "llm_model": resolved_llm_model,
         "route": None,
         "answer_markdown": "",
@@ -486,7 +500,13 @@ def answer_question(message, doc_id=None, debug_mode=False, llm_model=None, enab
                 base_response["timing_ms"] = round((time.perf_counter() - started_at) * 1000, 2)
                 return base_response
 
-    rag_response = build_rag_response(message, debug_mode, resolved_llm_model, resolved_enable_synthesis)
+    rag_response = build_rag_response(
+        message,
+        debug_mode,
+        resolved_llm_model,
+        resolved_enable_synthesis,
+        enable_agentic_rag=enable_agentic_rag,
+    )
     base_response.update(rag_response)
     retrieval = rag_response.get("retrieval") or {}
     base_response["llm_usage"] = rag_response.get("llm_usage") or retrieval.get("llm_usage") or summarize_llm_usage([], resolved_llm_model)
@@ -1085,7 +1105,14 @@ def _agentic_pipeline_metadata(
     }
 
 
-def build_rag_response(query: str, debug: bool, llm_model: str | None, enable_synthesis: bool | None = None) -> dict[str, Any]:
+def build_rag_response(
+    query: str,
+    debug: bool,
+    llm_model: str | None,
+    enable_synthesis: bool | None = None,
+    *,
+    enable_agentic_rag: bool | None = None,
+) -> dict[str, Any]:
     synthesis_settings = resolve_synthesis_settings(
         enable_synthesis=enable_synthesis,
         llm_model=llm_model,
@@ -1093,7 +1120,11 @@ def build_rag_response(query: str, debug: bool, llm_model: str | None, enable_sy
     )
     resolved_llm_model = synthesis_settings["model"]
     synthesis_enabled = bool(synthesis_settings["enabled"])
-    agentic_enabled = agentic_rag_enabled()
+    agentic_enabled = (
+        agentic_rag_enabled()
+        if enable_agentic_rag is None
+        else bool(enable_agentic_rag)
+    )
     llm_usage_records: list[dict[str, Any]] = []
     retrieval_rewrite = None
     if agentic_enabled:
@@ -1626,12 +1657,51 @@ with gr.Blocks() as demo:
 
 @API_APP.get("/health")
 def health():
-    return {"status": "ok", "revision": DEPLOY_REVISION}
+    return {
+        "status": "ok",
+        "revision": DEPLOY_REVISION,
+        "agentic_rag_enabled": agentic_rag_enabled(),
+    }
 
 
 @API_APP.get("/ready")
 def ready():
-    return {"status": "ok", "revision": DEPLOY_REVISION}
+    return {
+        "status": "ok",
+        "revision": DEPLOY_REVISION,
+        "agentic_rag_enabled": agentic_rag_enabled(),
+    }
+
+
+def _request_bool_override(
+    payload: dict[str, Any],
+    *,
+    body_key: str,
+    request: FastAPIRequest,
+    query_keys: tuple[str, ...],
+    default: bool | None,
+) -> bool | None:
+    if body_key in payload:
+        value = payload[body_key]
+        if isinstance(value, bool):
+            return value
+        raise HTTPException(status_code=400, detail=f"{body_key} måste vara en bool om det anges")
+
+    for query_key in query_keys:
+        value = request.query_params.get(query_key)
+        if value is None:
+            continue
+        normalized = value.strip().lower()
+        if normalized in {"1", "true", "yes", "on"}:
+            return True
+        if normalized in {"0", "false", "no", "off"}:
+            return False
+        raise HTTPException(
+            status_code=400,
+            detail=f"{query_key} måste vara true eller false om det anges",
+        )
+
+    return default
 
 
 @API_APP.post("/api/ask")
@@ -1644,14 +1714,37 @@ def api_ask(payload: dict[str, Any], request: FastAPIRequest):
     if doc_id is not None and not isinstance(doc_id, str):
         raise HTTPException(status_code=400, detail="doc_id måste vara en sträng om det anges")
 
-    debug_mode = bool(payload.get("debug_mode", False))
+    debug_mode = bool(
+        _request_bool_override(
+            payload,
+            body_key="debug_mode",
+            request=request,
+            query_keys=("debug", "debug_mode"),
+            default=False,
+        )
+    )
     llm_model = payload.get("llm_model")
     if llm_model is not None and not isinstance(llm_model, str):
         raise HTTPException(status_code=400, detail="llm_model måste vara en sträng om det anges")
 
-    enable_synthesis = payload.get("enable_synthesis")
-    if enable_synthesis is not None and not isinstance(enable_synthesis, bool):
-        raise HTTPException(status_code=400, detail="enable_synthesis måste vara en bool om det anges")
+    enable_synthesis = _request_bool_override(
+        payload,
+        body_key="enable_synthesis",
+        request=request,
+        query_keys=("enable_synthesis",),
+        default=None,
+    )
+    enable_agentic_rag = _request_bool_override(
+        payload,
+        body_key="enable_agentic_rag",
+        request=request,
+        query_keys=(
+            "enable_agentic_rag",
+            "agentic_rag",
+            AGENTIC_RAG_FEATURE_FLAG_ENV,
+        ),
+        default=None,
+    )
 
     response = answer_question(
         message=question,
@@ -1659,6 +1752,7 @@ def api_ask(payload: dict[str, Any], request: FastAPIRequest):
         debug_mode=debug_mode,
         llm_model=llm_model,
         enable_synthesis=enable_synthesis,
+        enable_agentic_rag=enable_agentic_rag,
         request=request,
     )
     doc = DOC_INDEX.get(doc_id) if doc_id else None
@@ -1676,6 +1770,7 @@ def api_ask(payload: dict[str, Any], request: FastAPIRequest):
         metadata={
             "debug_mode": debug_mode,
             "enable_synthesis": enable_synthesis,
+            "enable_agentic_rag": enable_agentic_rag,
             "llm_usage": response.get("llm_usage"),
             "agentic_pipeline": (response.get("retrieval") or {}).get("agentic_pipeline"),
         },
@@ -1692,50 +1787,32 @@ with open("style.css", encoding="utf-8") as f:
 log_startup_version(DEPLOY_REVISION)
 
 
+SERVER_NAME = os.getenv("GRADIO_SERVER_NAME") or "0.0.0.0"
+SERVER_PORT = int(os.getenv("GRADIO_SERVER_PORT") or os.getenv("PORT") or "7860")
+
+# FastAPI owns the control surface. Gradio is a mounted UI subapplication and
+# cannot replace or hide /health, /ready, /docs, or /api/ask.
+ASGI_APP = gr.mount_gradio_app(
+    API_APP,
+    demo,
+    path="/",
+    server_name=SERVER_NAME,
+    server_port=SERVER_PORT,
+    theme=None,
+    css=css,
+    ssr_mode=False,
+)
+
+
 def launch_demo(**kwargs):
-    launch_kwargs = {"theme": None, "css": css, "ssr_mode": False}
-    launch_kwargs.update(kwargs)
-
-    # Newer Gradio versions accept a private `_app` hook that lets us attach
-    # custom FastAPI routes (/health, /ready, /api/ask) to the same ASGI app.
-    # Some Hugging Face runtimes install a Gradio build where Blocks.launch()
-    # does not expose that hook, so guard it at runtime instead of passing an
-    # unsupported keyword and crashing during startup.
-    launch_params = inspect.signature(demo.launch).parameters
-    if "_app" in launch_params:
-        launch_kwargs["_app"] = API_APP
-        return demo.launch(**launch_kwargs)
-
-    if not hasattr(gr, "mount_gradio_app"):
-        # Last-resort compatibility path: the UI still launches, but custom
-        # FastAPI routes will not be mounted on very old Gradio versions.
-        return demo.launch(**launch_kwargs)
-
-    server_name = launch_kwargs.pop(
-        "server_name",
-        os.getenv("GRADIO_SERVER_NAME") or "0.0.0.0",
-    )
-    server_port = int(
-        launch_kwargs.pop(
-            "server_port",
-            os.getenv("GRADIO_SERVER_PORT") or os.getenv("PORT") or "7860",
-        )
-    )
-    mount_params = inspect.signature(gr.mount_gradio_app).parameters
-    mount_kwargs = {key: value for key, value in launch_kwargs.items() if key in mount_params}
-    gr.mount_gradio_app(
-        API_APP,
-        demo,
-        path="/",
-        server_name=server_name,
-        server_port=server_port,
-        **mount_kwargs,
-    )
-
     import uvicorn
 
-    return uvicorn.run(API_APP, host=server_name, port=server_port)
+    server_name = kwargs.pop("server_name", SERVER_NAME)
+    server_port = int(kwargs.pop("server_port", SERVER_PORT))
+    if kwargs:
+        raise TypeError(f"Okända launch-parametrar: {', '.join(sorted(kwargs))}")
+    return uvicorn.run(ASGI_APP, host=server_name, port=server_port)
 
 
-if __name__ == "__main__" or os.getenv("SYSTEMINFORANDE_SKIP_AUTOLAUNCH") != "1":
+if __name__ == "__main__":
     launch_demo()

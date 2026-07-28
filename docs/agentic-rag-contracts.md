@@ -221,7 +221,7 @@ Testbara regler:
 
 Föreslagna miljövariabler:
 
-- `SYSTEMINFORANDE_ENABLE_AGENTIC_RAG`: global av/på. Default `false` tills live-HF-utvärdering visar förbättring.
+- `SYSTEMINFORANDE_ENABLE_AGENTIC_RAG`: global av/på. Applikationskoden faller tillbaka till `false` om variabeln saknas, medan Docker/HF-deployen sätter `true` för den kontrollerade live-utvärderingen. `/api/ask` kan överstyra miljövärdet per anrop med `enable_agentic_rag`.
 - `SYSTEMINFORANDE_AGENTIC_RAG_MODE`: `off`, `shadow`, `reviewed_answer`. Default `shadow` i testmiljö.
 - `SYSTEMINFORANDE_AGENT1_MODEL`: default `openai/gpt-oss-20b`.
 - `SYSTEMINFORANDE_AGENT2_MODEL`: default `openai/gpt-oss-120b`.

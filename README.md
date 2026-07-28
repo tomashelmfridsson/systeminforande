@@ -27,7 +27,11 @@ Experimentell grounded LLM-syntes för fria RAG-frågor styrs med:
 - `SYSTEMINFORANDE_ENABLE_LLM_SYNTHESIS=true` för att slå på omskrivningssteget efter extraktivt svar.
 - `SYSTEMINFORANDE_LLM_SYNTHESIS_MODEL=openai/gpt-oss-120b` eller `SYSTEMINFORANDE_LLM_SYNTHESIS_MODEL=zai-org/GLM-5.2` för att välja värdmodell när syntesen är aktiverad.
 
-API-flödet stöder även per-anrop-override via `/api/ask` med JSON-fälten `question` (str), `debug_mode` (bool), `enable_synthesis` (bool), `llm_model` (str) och `doc_id` (str), så att samma deploy kan testas med syntes av/på och med olika modeller utan kodändring. Den deployade kontroll-ytan ska även svara `200` på `/health` och `/ready`.
+API-flödet stöder även per-anrop-override via `/api/ask` med JSON-fälten `question` (str), `debug_mode` (bool), `enable_synthesis` (bool), `enable_agentic_rag` (bool), `llm_model` (str) och `doc_id` (str), så att samma deploy kan A/B-testas med syntes och Agentic RAG av/på utan kodändring. Den deployade kontroll-ytan ska även svara `200` på `/health` och `/ready`; båda status-endpointarna visar om Agentic RAG är aktiverad i miljön.
+
+Docker/Hugging Face-deployen aktiverar Agentic RAG som standard med `SYSTEMINFORANDE_ENABLE_AGENTIC_RAG=true`. Gradio använder miljöns standardvärde. Ett `/api/ask`-anrop kan tillfälligt välja kontrollvägen med `"enable_agentic_rag": false` eller agentvägen med `"enable_agentic_rag": true`, vilket gör jämförelsen reproducerbar på samma revision.
+
+Samma overrides kan anges i URL:en, till exempel `POST /api/ask?enable_agentic_rag=false&debug=true`. JSON-body har högst prioritet, därefter URL-parametrar och sist miljökonfigurationen. URL-värden accepterar `true/false`, `1/0`, `yes/no` och `on/off`; ogiltiga värden ger `400`.
 
 Obs: Gradio-endpointen `/submit` räcker för manuell chatbot-testning, men den är inte samma sak som den strukturerade utvärderingsytan. Live-jämförelser som behöver styra `enable_synthesis` per anrop och läsa metadata som `llm_model`, `retrieval.llm_synthesis_used` och `retrieval.llm_synthesis_model` ska använda `/api/ask` när den är deployad.
 

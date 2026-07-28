@@ -328,6 +328,147 @@ def test_local_api_ask_honors_explicit_llm_model_and_returns_structured_metadata
     assert payload["retrieval"]["llm_status"]
 
 
+def test_local_api_ask_can_override_agentic_rag_per_request(monkeypatch):
+    app_module = _load_local_app_without_launch(monkeypatch)
+    received = {}
+
+    def _fake_answer_question(**kwargs):
+        received.update(kwargs)
+        return {
+            "normalized_question": kwargs["message"],
+            "answer_markdown": "Ett strukturerat testsvar.",
+            "route": "rag",
+            "llm_model": kwargs["llm_model"],
+            "timing_ms": 1.0,
+            "sources": [],
+            "llm_usage": {"calls": 0},
+            "retrieval": {
+                "agentic_rag_enabled": kwargs["enable_agentic_rag"],
+                "agentic_pipeline": {"enabled": kwargs["enable_agentic_rag"]},
+            },
+        }
+
+    monkeypatch.setattr(app_module, "answer_question", _fake_answer_question)
+    client = TestClient(app_module.API_APP)
+
+    response = client.post(
+        "/api/ask",
+        json={
+            "question": "Hur testar man ett nytt system?",
+            "enable_agentic_rag": True,
+            "enable_synthesis": False,
+            "llm_model": "openai/gpt-oss-120b",
+        },
+    )
+
+    assert response.status_code == 200
+    assert received["enable_agentic_rag"] is True
+    assert response.json()["retrieval"]["agentic_rag_enabled"] is True
+
+
+def test_local_api_ask_accepts_agentic_and_debug_url_overrides(monkeypatch):
+    app_module = _load_local_app_without_launch(monkeypatch)
+    received = {}
+
+    def _fake_answer_question(**kwargs):
+        received.update(kwargs)
+        return {
+            "normalized_question": kwargs["message"],
+            "answer_markdown": "Ett strukturerat testsvar.",
+            "route": "rag",
+            "llm_model": kwargs["llm_model"],
+            "timing_ms": 1.0,
+            "sources": [],
+            "llm_usage": {"calls": 0},
+            "retrieval": {
+                "agentic_rag_enabled": kwargs["enable_agentic_rag"],
+                "agentic_pipeline": None,
+            },
+        }
+
+    monkeypatch.setattr(app_module, "answer_question", _fake_answer_question)
+    client = TestClient(app_module.API_APP)
+
+    response = client.post(
+        "/api/ask?enable_agentic_rag=false&debug=true",
+        json={
+            "question": "Hur testar man ett nytt system?",
+            "llm_model": "openai/gpt-oss-120b",
+        },
+    )
+
+    assert response.status_code == 200
+    assert received["enable_agentic_rag"] is False
+    assert received["debug_mode"] is True
+
+
+def test_local_api_ask_body_override_has_priority_over_url(monkeypatch):
+    app_module = _load_local_app_without_launch(monkeypatch)
+    received = {}
+
+    def _fake_answer_question(**kwargs):
+        received.update(kwargs)
+        return {
+            "normalized_question": kwargs["message"],
+            "answer_markdown": "Ett strukturerat testsvar.",
+            "route": "rag",
+            "llm_model": kwargs["llm_model"],
+            "timing_ms": 1.0,
+            "sources": [],
+            "llm_usage": {"calls": 0},
+            "retrieval": {
+                "agentic_rag_enabled": kwargs["enable_agentic_rag"],
+                "agentic_pipeline": None,
+            },
+        }
+
+    monkeypatch.setattr(app_module, "answer_question", _fake_answer_question)
+    client = TestClient(app_module.API_APP)
+
+    response = client.post(
+        "/api/ask?enable_agentic_rag=false&debug=false",
+        json={
+            "question": "Hur testar man ett nytt system?",
+            "enable_agentic_rag": True,
+            "debug_mode": True,
+            "llm_model": "openai/gpt-oss-120b",
+        },
+    )
+
+    assert response.status_code == 200
+    assert received["enable_agentic_rag"] is True
+    assert received["debug_mode"] is True
+
+
+def test_local_api_ask_rejects_non_boolean_agentic_override(monkeypatch):
+    app_module = _load_local_app_without_launch(monkeypatch)
+    client = TestClient(app_module.API_APP)
+
+    response = client.post(
+        "/api/ask",
+        json={
+            "question": "Hur testar man ett nytt system?",
+            "enable_agentic_rag": "true",
+        },
+    )
+
+    assert response.status_code == 400
+    assert "enable_agentic_rag" in response.json()["detail"]
+
+
+def test_local_api_ask_rejects_invalid_boolean_url_override(monkeypatch):
+    app_module = _load_local_app_without_launch(monkeypatch)
+    client = TestClient(app_module.API_APP)
+
+    response = client.post(
+        "/api/ask?debug=maybe",
+        json={"question": "Hur testar man ett nytt system?"},
+    )
+
+    assert response.status_code == 400
+    assert "debug" in response.json()["detail"]
+
+
 def test_local_api_ask_uses_synthesis_by_default_when_not_explicitly_disabled(monkeypatch):
     monkeypatch.delenv("SYSTEMINFORANDE_ENABLE_LLM_SYNTHESIS", raising=False)
     app_module = _load_local_app_without_launch(monkeypatch)
@@ -415,31 +556,42 @@ def test_local_api_ask_honors_enable_synthesis_true_without_env_flag(monkeypatch
     assert payload["retrieval"]["llm_synthesis_model"] == "mistralai/Mistral-Small-4-119B-2603"
 
 
-def test_local_launch_mounts_custom_api_app(monkeypatch):
-    launched_kwargs = []
+def test_local_launch_mounts_gradio_on_fastapi_parent(monkeypatch):
     mounted_apps = []
 
     import gradio as gr
     import uvicorn
 
-    def _capture_launch(self, *args, **kwargs):
-        launched_kwargs.append(kwargs)
-        return None
-
     def _capture_mount(app, *args, **kwargs):
         mounted_apps.append(app)
         return app
 
-    monkeypatch.setattr(gr.Blocks, "launch", _capture_launch)
     monkeypatch.setattr(gr, "mount_gradio_app", _capture_mount)
     monkeypatch.setattr(uvicorn, "run", lambda *args, **kwargs: None)
     sys.modules.pop("app", None)
     app_module = importlib.import_module("app")
 
-    if launched_kwargs:
-        assert launched_kwargs[-1]["_app"] is app_module.API_APP
-    else:
-        assert mounted_apps[-1] is app_module.API_APP
+    assert mounted_apps[-1] is app_module.API_APP
+    assert app_module.ASGI_APP is app_module.API_APP
+
+
+def test_mounted_asgi_app_serves_fastapi_and_gradio_routes(monkeypatch):
+    import gradio as gr
+
+    original_mount = gr.mount_gradio_app
+    monkeypatch.setattr(gr, "mount_gradio_app", original_mount)
+    sys.modules.pop("app", None)
+    app_module = importlib.import_module("app")
+    client = TestClient(app_module.ASGI_APP)
+
+    health_response = client.get("/health")
+    api_response = client.post("/api/ask", json={})
+    gradio_response = client.get("/gradio_api/info")
+
+    assert health_response.status_code == 200
+    assert api_response.status_code == 400
+    assert gradio_response.status_code == 200
+    assert "/submit" in gradio_response.json()["named_endpoints"]
 
 
 def test_local_health_and_ready_routes_are_on_mounted_api_app(monkeypatch):
