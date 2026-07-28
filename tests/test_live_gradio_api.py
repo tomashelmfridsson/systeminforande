@@ -105,6 +105,207 @@ def _jsonl_records(log_dir: Path) -> list[dict]:
     return records
 
 
+def _agentic_pipeline_chunk() -> dict:
+    return {
+        "id": "chunk-1",
+        "source": "Utbildningsstrategi.pdf",
+        "source_type": "pdf",
+        "title": "Utbildningsstrategi",
+        "text": "Utbildningsstrategin ska beskriva syfte, målgrupper, utbildningsbehov och genomförande.",
+        "pages": [1],
+    }
+
+
+def _stub_common_agentic_pipeline_rag(app_module, monkeypatch, calls: list[str]) -> None:
+    chunk = _agentic_pipeline_chunk()
+
+    def fake_search(query, top_k=5, retrieval_rewrite=None):
+        calls.append("retrieval_with_rewrite" if retrieval_rewrite else "retrieval")
+        return [(12.0, chunk)]
+
+    def fake_explain_search(query, top_k=5, retrieval_rewrite=None):
+        return {
+            "query": query,
+            "query_terms": ["utbildningsstrategi"],
+            "expanded_query_terms": ["utbildningsstrategi"],
+            "intent": "definition",
+            "top_results": [
+                {
+                    "score": 12.0,
+                    "parts": {"bm25": 10, "title_overlap": 1, "definition_boost": 1, "domain_boost": 0, "intent_boost": 0},
+                    "chunk": chunk,
+                    "matched_terms": ["utbildningsstrategi"],
+                }
+            ],
+            "agentic_retrieval": {
+                "accepted_variants": [
+                    {"query": query, "purpose": "literal", "weight": 1.0},
+                    {"query": "utbildningsstrategi målgrupper", "purpose": "synonym", "weight": 0.88},
+                ],
+                "rejected_variants": [{"query": "generiska utbildningsråd", "reason": "semantic_drift"}],
+                "merged_ranking": [],
+            } if retrieval_rewrite else {},
+        }
+
+    monkeypatch.setattr(app_module, "search", fake_search)
+    monkeypatch.setattr(app_module, "explain_search", fake_explain_search)
+    monkeypatch.setattr(app_module, "filter_allowed_results", lambda results: results)
+    monkeypatch.setattr(app_module, "_has_relevant_rag_support", lambda search_debug: (True, ""))
+    monkeypatch.setattr(app_module, "build_sources_md", lambda results: "\n\n### Källor\n- Utbildningsstrategi.pdf")
+
+
+def test_agentic_rag_feature_flag_disabled_preserves_non_agentic_retrieval_path(monkeypatch):
+    app_module = _load_local_app_without_launch(monkeypatch)
+    monkeypatch.setenv("SYSTEMINFORANDE_ENABLE_AGENTIC_RAG", "false")
+    calls: list[str] = []
+    _stub_common_agentic_pipeline_rag(app_module, monkeypatch, calls)
+
+    def fail_if_agent1_runs(*args, **kwargs):
+        raise AssertionError("Agent 1 should not run when agentic RAG is disabled")
+
+    monkeypatch.setattr(app_module, "generate_retrieval_rewrite", fail_if_agent1_runs)
+    monkeypatch.setattr(
+        app_module,
+        "build_final_grounded_answer",
+        lambda *args, **kwargs: {
+            "extractive_answer": "Källbundet bassvar om utbildningsstrategi.",
+            "final_answer": "Källbundet bassvar om utbildningsstrategi.",
+            "synthesis_used": False,
+            "llm_status": "disabled",
+        },
+    )
+
+    response = app_module.build_rag_response("Vad är en utbildningsstrategi?", debug=False, llm_model="model-a", enable_synthesis=False)
+
+    assert calls == ["retrieval"]
+    assert response["retrieval"]["agentic_rag_enabled"] is False
+    assert response["retrieval"].get("agentic_pipeline") is None
+    assert response["retrieval"]["agentic_retrieval"] == {}
+
+
+def test_agentic_rag_feature_flag_enabled_calls_three_roles_in_order_uses_reviewed_answer_and_skips_debug_comparison(monkeypatch):
+    app_module = _load_local_app_without_launch(monkeypatch)
+    monkeypatch.setenv("SYSTEMINFORANDE_ENABLE_AGENTIC_RAG", "true")
+    calls: list[str] = []
+    _stub_common_agentic_pipeline_rag(app_module, monkeypatch, calls)
+
+    def fake_agent1(question, llm_rewrite, **kwargs):
+        calls.append("agent1")
+        return {
+            "status": "ok",
+            "model": "agent1-model",
+            "retrieval_queries": [{"query": question, "purpose": "literal", "weight": 1.0}],
+            "debug": {"fallback_reason": None, "dropped_queries": []},
+        }
+
+    def fake_agent2(original_question, chunks, rewrite_metadata, llm_answer, **kwargs):
+        calls.append("agent2")
+        return {
+            "status": "ok",
+            "model": "agent2-model",
+            "answer": "Utbildningsstrategin beskriver syfte, målgrupper, utbildningsbehov och genomförande.",
+            "answer_scope": "direct",
+            "evidence_ids_used": ["chunk-1"],
+            "debug": {"fallback_reason": None},
+        }
+
+    def fake_agent3(original_question, draft_answer, evidence_snippets, evidence_ids, llm_review, **kwargs):
+        calls.append("agent3")
+        assert original_question == "Vad är en utbildningsstrategi?"
+        assert draft_answer == "Utbildningsstrategin beskriver syfte, målgrupper, utbildningsbehov och genomförande."
+        assert evidence_ids == ["chunk-1"]
+        return {
+            "status": "approved",
+            "model": "agent3-model",
+            "reason": "Svaret är källbundet.",
+            "revision": "",
+            "evidence_ids_used": ["chunk-1"],
+            "debug": {"fallback_reason": None},
+        }
+
+    def fake_fallback_answer(query, chunks, **kwargs):
+        return {
+            "extractive_answer": "Extraktivt reservsvar.",
+            "final_answer": "Extraktivt reservsvar.",
+            "synthesis_used": False,
+            "llm_status": "disabled",
+        }
+
+    monkeypatch.setattr(app_module, "generate_retrieval_rewrite", fake_agent1)
+    monkeypatch.setattr(app_module, "generate_evidence_answer", fake_agent2)
+    monkeypatch.setattr(app_module, "generate_answer_review", fake_agent3)
+    monkeypatch.setattr(app_module, "build_final_grounded_answer", fake_fallback_answer)
+
+    response = app_module.build_rag_response("Vad är en utbildningsstrategi?", debug=True, llm_model="model-a", enable_synthesis=True)
+
+    assert calls[:4] == ["agent1", "retrieval_with_rewrite", "agent2", "agent3"]
+    assert "debug_comparison" not in [item["purpose"] for item in response["llm_usage"]["calls_detail"]]
+    assert response["answer_markdown"].startswith("Utbildningsstrategin beskriver syfte")
+    assert response["retrieval"]["agentic_rag_enabled"] is True
+    assert response["retrieval"]["agentic_pipeline"]["review_status"] == "approved"
+
+
+def test_agentic_rag_usage_metadata_includes_per_agent_tokens_latency_counts_and_fallback(monkeypatch):
+    app_module = _load_local_app_without_launch(monkeypatch)
+    monkeypatch.setenv("SYSTEMINFORANDE_ENABLE_AGENTIC_RAG", "true")
+    calls: list[str] = []
+    _stub_common_agentic_pipeline_rag(app_module, monkeypatch, calls)
+
+    def fake_agent1(question, llm_rewrite, **kwargs):
+        llm_rewrite("agent1 prompt", "agent1-model")
+        return {"status": "ok", "model": "agent1-model", "retrieval_queries": [{"query": question, "purpose": "literal", "weight": 1.0}], "debug": {"fallback_reason": None, "dropped_queries": []}}
+
+    def fake_agent2(original_question, chunks, rewrite_metadata, llm_answer, **kwargs):
+        llm_answer("agent2 prompt", "agent2-model")
+        return {"status": "ok", "model": "agent2-model", "answer": "Utbildningsstrategin beskriver syfte, målgrupper, utbildningsbehov och genomförande.", "answer_scope": "direct", "evidence_ids_used": ["chunk-1"], "debug": {"fallback_reason": None}}
+
+    def fake_agent3(original_question, draft_answer, evidence_snippets, evidence_ids, llm_review, **kwargs):
+        llm_review("agent3 prompt", "agent3-model")
+        return {"status": "approved", "model": "agent3-model", "revision": "", "evidence_ids_used": ["chunk-1"], "debug": {"fallback_reason": None}}
+
+    def fake_fallback_answer(query, chunks, **kwargs):
+        return {"extractive_answer": "Utbildningsstrategin beskriver syfte.", "final_answer": "Utbildningsstrategin beskriver syfte.", "synthesis_used": False, "llm_status": "disabled"}
+
+    def fake_llm(prompt, model, *, purpose, usage_records):
+        usage_records.append({
+            "purpose": purpose,
+            "provider": "test",
+            "model": model,
+            "prompt_tokens": 100,
+            "completion_tokens": 25,
+            "total_tokens": 125,
+            "latency_ms": 12.5,
+            "missing": False,
+            "status": "ok",
+            "error": None,
+        })
+        return "{}"
+
+    monkeypatch.setattr(app_module, "generate_retrieval_rewrite", fake_agent1)
+    monkeypatch.setattr(app_module, "generate_evidence_answer", fake_agent2)
+    monkeypatch.setattr(app_module, "generate_answer_review", fake_agent3)
+    monkeypatch.setattr(app_module, "build_final_grounded_answer", fake_fallback_answer)
+    monkeypatch.setattr(app_module, "safe_generate_reasoning_from_prompt_with_usage_records", fake_llm)
+
+    response = app_module.build_rag_response("Vad är en utbildningsstrategi?", debug=False, llm_model="model-a", enable_synthesis=True)
+    metadata = response["retrieval"]["agentic_pipeline"]
+
+    assert [agent["role"] for agent in metadata["agents"]] == ["agent1_retrieval_rewrite", "agent2_evidence_answer", "agent3_grounded_review"]
+    assert metadata["accepted_rewrites"] == 2
+    assert metadata["rejected_rewrites"] == 1
+    assert metadata["fallback_reason"] is None
+    assert metadata["usage"]["prompt_tokens"] == 300
+    assert metadata["usage"]["completion_tokens"] == 75
+    assert metadata["usage"]["total_tokens"] == 375
+    assert metadata["usage"]["calls"] == 3
+    assert metadata["usage"]["calls_detail"][0]["latency_ms"] == 12.5
+    agent_usage = {agent["role"]: agent["usage"] for agent in metadata["agents"]}
+    assert agent_usage["agent1_retrieval_rewrite"]["total_tokens"] == 125
+    assert agent_usage["agent2_evidence_answer"]["total_tokens"] == 125
+    assert agent_usage["agent3_grounded_review"]["model"] == "agent3-model"
+    assert agent_usage["agent3_grounded_review"]["latency_ms"] == 12.5
+
+
 def test_local_api_ask_honors_explicit_llm_model_and_returns_structured_metadata(monkeypatch):
     app_module = _load_local_app_without_launch(monkeypatch)
     client = TestClient(app_module.API_APP)

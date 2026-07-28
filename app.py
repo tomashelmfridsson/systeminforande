@@ -29,6 +29,12 @@ from rag.synthesis import (
     build_final_grounded_answer,
     resolve_synthesis_settings,
 )
+from rag.agentic_answer import (
+    DEFAULT_ANSWER_MODEL,
+    DEFAULT_REVIEW_MODEL,
+    generate_answer_review,
+    generate_evidence_answer,
+)
 from rag.agentic_rewrite import generate_retrieval_rewrite
 from rag.search import explain_search, search
 from llm.reasoning import generate_reasoning, generate_reasoning_from_prompt, generate_reasoning_from_prompt_with_usage
@@ -43,6 +49,7 @@ DEPLOY_REVISION_SOURCE = DEPLOY_REVISION_FILE
 DEPLOY_REVISION_FALLBACK = "local"
 LOG_DIR = Path(os.getenv("SYSTEMINFORANDE_LOG_DIR", "/data/logs"))
 ENABLE_USAGE_LOGGING = os.getenv("SYSTEMINFORANDE_ENABLE_LOGGING", "true").strip().lower() not in {"0", "false", "no"}
+AGENTIC_RAG_FEATURE_FLAG_ENV = "SYSTEMINFORANDE_ENABLE_AGENTIC_RAG"
 _LOG_WRITE_LOCK = threading.Lock()
 EMBED_RESIZE_JS = """
 () => {
@@ -140,6 +147,17 @@ def _trim_text(value: str | None, max_length: int = 4000) -> str:
     if len(text) <= max_length:
         return text
     return text[: max_length - 1] + "…"
+
+
+def _env_flag_enabled(name: str, default: bool = False) -> bool:
+    raw = os.getenv(name)
+    if raw is None:
+        return default
+    return raw.strip().lower() in {"1", "true", "yes", "on"}
+
+
+def agentic_rag_enabled() -> bool:
+    return _env_flag_enabled(AGENTIC_RAG_FEATURE_FLAG_ENV, default=False)
 
 
 def _serialize_sources_for_log(sources: list[dict[str, Any]] | None) -> list[dict[str, Any]]:
@@ -500,6 +518,7 @@ def submit(message, doc_id, debug_mode, llm_model, request: gr.Request | None = 
         metadata={
             "debug_mode": bool(debug_mode),
             "llm_usage": response.get("llm_usage"),
+            "agentic_pipeline": (response.get("retrieval") or {}).get("agentic_pipeline"),
         },
     )
     yield response["answer_markdown"]
@@ -688,10 +707,11 @@ def _llm_usage_call_record(
     model: str | None,
     usage: dict[str, int | None] | None = None,
     status: str,
+    latency_ms: float | int | None = None,
     error: str | None = None,
 ) -> dict[str, Any]:
     usage = usage or {}
-    return {
+    record = {
         "purpose": purpose,
         "provider": "huggingface_hub.InferenceClient.chat_completion",
         "model": model,
@@ -702,6 +722,9 @@ def _llm_usage_call_record(
         "status": status,
         "error": error,
     }
+    if latency_ms is not None:
+        record["latency_ms"] = latency_ms
+    return record
 
 
 def _sum_usage_field(records: list[dict[str, Any]], field: str) -> int | None:
@@ -728,6 +751,22 @@ def summarize_llm_usage(records: list[dict[str, Any]] | None, model: str | None)
     }
 
 
+def _usage_records_for_purpose(records: list[dict[str, Any]], purpose: str) -> list[dict[str, Any]]:
+    return [record for record in records if record.get("purpose") == purpose]
+
+
+def _agent_usage_summary(records: list[dict[str, Any]], purpose: str, model: str | None) -> dict[str, Any]:
+    matching_records = _usage_records_for_purpose(records, purpose)
+    summary = summarize_llm_usage(matching_records, model)
+    latencies: list[float] = []
+    for record in matching_records:
+        latency = record.get("latency_ms")
+        if isinstance(latency, (int, float)):
+            latencies.append(float(latency))
+    summary["latency_ms"] = round(sum(latencies), 2) if latencies else None
+    return summary
+
+
 def safe_generate_reasoning_from_prompt_with_usage_records(
     prompt: str,
     model: str | None,
@@ -735,24 +774,29 @@ def safe_generate_reasoning_from_prompt_with_usage_records(
     purpose: str,
     usage_records: list[dict[str, Any]],
 ) -> str:
+    started_at = time.perf_counter()
     try:
         result = generate_reasoning_from_prompt_with_usage(prompt, model=model)
+        latency_ms = round((time.perf_counter() - started_at) * 1000, 2)
         usage_records.append(
             _llm_usage_call_record(
                 purpose=purpose,
                 model=model,
                 usage=result.usage,
                 status="ok",
+                latency_ms=latency_ms,
             )
         )
         return result.text
     except Exception as exc:
         print(f"LLM-fel i generate_reasoning_from_prompt: {exc}")
+        latency_ms = round((time.perf_counter() - started_at) * 1000, 2)
         usage_records.append(
             _llm_usage_call_record(
                 purpose=purpose,
                 model=model,
                 status="error",
+                latency_ms=latency_ms,
                 error=str(exc),
             )
         )
@@ -951,6 +995,96 @@ def _has_relevant_rag_support(search_debug: dict) -> tuple[bool, str]:
     return True, ""
 
 
+def _fallback_reason_from_debug(payload: dict[str, Any] | None) -> str | None:
+    if not isinstance(payload, dict):
+        return None
+    debug = payload.get("debug")
+    if not isinstance(debug, dict):
+        return None
+    reason = debug.get("fallback_reason")
+    return str(reason) if reason else None
+
+
+def _agent_status(payload: dict[str, Any] | None, default: str = "unknown") -> str:
+    if not isinstance(payload, dict):
+        return default
+    return str(payload.get("status") or default)
+
+
+def _agent_model(payload: dict[str, Any] | None, fallback: str | None) -> str | None:
+    if not isinstance(payload, dict):
+        return fallback
+    return str(payload.get("model") or fallback) if (payload.get("model") or fallback) else None
+
+
+def _agentic_pipeline_metadata(
+    *,
+    enabled: bool,
+    retrieval_rewrite: dict[str, Any] | None,
+    agent2_answer: dict[str, Any] | None,
+    agent3_review: dict[str, Any] | None,
+    agentic_debug: dict[str, Any] | None,
+    usage_records: list[dict[str, Any]],
+    resolved_llm_model: str | None,
+) -> dict[str, Any] | None:
+    if not enabled:
+        return None
+
+    accepted = []
+    rejected = []
+    if isinstance(agentic_debug, dict):
+        accepted = agentic_debug.get("accepted_variants") or []
+        rejected = agentic_debug.get("rejected_variants") or []
+    if not accepted and isinstance(retrieval_rewrite, dict):
+        accepted = retrieval_rewrite.get("retrieval_queries") or []
+        rejected = (retrieval_rewrite.get("debug") or {}).get("dropped_queries") or []
+
+    review_status = _agent_status(agent3_review, "not_run")
+    fallback_reasons = [
+        _fallback_reason_from_debug(retrieval_rewrite),
+        _fallback_reason_from_debug(agent2_answer),
+        _fallback_reason_from_debug(agent3_review),
+    ]
+    if review_status == "rejected":
+        fallback_reasons.append(_fallback_reason_from_debug(agent3_review) or "agent3_rejected")
+
+    agent1_model = _agent_model(retrieval_rewrite, None)
+    agent2_model = _agent_model(agent2_answer, DEFAULT_ANSWER_MODEL)
+    agent3_model = _agent_model(agent3_review, DEFAULT_REVIEW_MODEL)
+
+    return {
+        "enabled": True,
+        "agents": [
+            {
+                "role": "agent1_retrieval_rewrite",
+                "model": agent1_model,
+                "status": _agent_status(retrieval_rewrite),
+                "fallback_reason": _fallback_reason_from_debug(retrieval_rewrite),
+                "usage": _agent_usage_summary(usage_records, "agent1_retrieval_rewrite", agent1_model),
+            },
+            {
+                "role": "agent2_evidence_answer",
+                "model": agent2_model,
+                "status": _agent_status(agent2_answer, "not_run"),
+                "fallback_reason": _fallback_reason_from_debug(agent2_answer),
+                "usage": _agent_usage_summary(usage_records, "agent2_evidence_answer", agent2_model),
+            },
+            {
+                "role": "agent3_grounded_review",
+                "model": agent3_model,
+                "status": review_status,
+                "fallback_reason": _fallback_reason_from_debug(agent3_review),
+                "usage": _agent_usage_summary(usage_records, "agent3_grounded_review", agent3_model),
+            },
+        ],
+        "accepted_rewrites": len(accepted) if isinstance(accepted, list) else 0,
+        "rejected_rewrites": len(rejected) if isinstance(rejected, list) else 0,
+        "review_status": review_status,
+        "fallback_reason": next((reason for reason in fallback_reasons if reason), None),
+        "usage": summarize_llm_usage(usage_records, resolved_llm_model),
+    }
+
+
 def build_rag_response(query: str, debug: bool, llm_model: str | None, enable_synthesis: bool | None = None) -> dict[str, Any]:
     synthesis_settings = resolve_synthesis_settings(
         enable_synthesis=enable_synthesis,
@@ -959,16 +1093,19 @@ def build_rag_response(query: str, debug: bool, llm_model: str | None, enable_sy
     )
     resolved_llm_model = synthesis_settings["model"]
     synthesis_enabled = bool(synthesis_settings["enabled"])
+    agentic_enabled = agentic_rag_enabled()
     llm_usage_records: list[dict[str, Any]] = []
-    retrieval_rewrite = generate_retrieval_rewrite(
-        query,
-        lambda prompt, model: safe_generate_reasoning_from_prompt_with_usage_records(
-            prompt,
-            model,
-            purpose="retrieval_rewrite",
-            usage_records=llm_usage_records,
-        ),
-    )
+    retrieval_rewrite = None
+    if agentic_enabled:
+        retrieval_rewrite = generate_retrieval_rewrite(
+            query,
+            lambda prompt, model: safe_generate_reasoning_from_prompt_with_usage_records(
+                prompt,
+                model,
+                purpose="agent1_retrieval_rewrite",
+                usage_records=llm_usage_records,
+            ),
+        )
 
     results = filter_allowed_results(search(query, top_k=5, retrieval_rewrite=retrieval_rewrite))
 
@@ -978,6 +1115,7 @@ def build_rag_response(query: str, debug: bool, llm_model: str | None, enable_sy
             "route": "rag",
             "answer_markdown": no_data,
             "sources": [],
+            "llm_usage": summarize_llm_usage(llm_usage_records, resolved_llm_model),
             "retrieval": {
                 "query": query,
                 "query_terms": [],
@@ -990,7 +1128,17 @@ def build_rag_response(query: str, debug: bool, llm_model: str | None, enable_sy
                 "llm_status": "LLM-syntes används inte i det användarvända RAG-svaret.",
                 "llm_synthesis_enabled": False,
                 "llm_synthesis_model": resolved_llm_model,
-                "agentic_retrieval": retrieval_rewrite,
+                "agentic_rag_enabled": agentic_enabled,
+                "agentic_retrieval": retrieval_rewrite or {},
+                "agentic_pipeline": _agentic_pipeline_metadata(
+                    enabled=agentic_enabled,
+                    retrieval_rewrite=retrieval_rewrite,
+                    agent2_answer=None,
+                    agent3_review=None,
+                    agentic_debug={},
+                    usage_records=llm_usage_records,
+                    resolved_llm_model=resolved_llm_model,
+                ),
             },
         }
 
@@ -1022,6 +1170,7 @@ def build_rag_response(query: str, debug: bool, llm_model: str | None, enable_sy
             "route": "rag",
             "answer_markdown": no_data,
             "sources": serialize_results(results),
+            "llm_usage": summarize_llm_usage(llm_usage_records, resolved_llm_model),
             "retrieval": {
                 "query": query,
                 "query_terms": search_debug["query_terms"],
@@ -1034,23 +1183,82 @@ def build_rag_response(query: str, debug: bool, llm_model: str | None, enable_sy
                 "llm_status": "LLM-syntes används inte i det användarvända RAG-svaret.",
                 "llm_synthesis_enabled": False,
                 "llm_synthesis_model": resolved_llm_model,
+                "agentic_rag_enabled": agentic_enabled,
                 "agentic_retrieval": search_debug.get("agentic_retrieval", {}),
+                "agentic_pipeline": _agentic_pipeline_metadata(
+                    enabled=agentic_enabled,
+                    retrieval_rewrite=retrieval_rewrite,
+                    agent2_answer=None,
+                    agent3_review=None,
+                    agentic_debug=search_debug.get("agentic_retrieval", {}),
+                    usage_records=llm_usage_records,
+                    resolved_llm_model=resolved_llm_model,
+                ),
             },
         }
 
     chunks = [chunk for _, chunk in results]
-    synthesis_result = build_final_grounded_answer(
-        query,
-        chunks,
-        enable_synthesis=synthesis_enabled,
-        llm_model=resolved_llm_model,
-        llm_rewrite=lambda prompt, model: safe_generate_reasoning_from_prompt_with_usage_records(
-            prompt,
-            model,
-            purpose="synthesis",
-            usage_records=llm_usage_records,
-        ),
-    )
+    agent2_answer = None
+    agent3_review = None
+    agentic_reviewed_answer = None
+    if agentic_enabled:
+        agent2_answer = generate_evidence_answer(
+            query,
+            chunks,
+            retrieval_rewrite,
+            lambda prompt, model: safe_generate_reasoning_from_prompt_with_usage_records(
+                prompt,
+                model,
+                purpose="agent2_evidence_answer",
+                usage_records=llm_usage_records,
+            ),
+        )
+        draft_answer = str(agent2_answer.get("answer") or "").strip()
+        evidence_ids = agent2_answer.get("evidence_ids_used") or []
+        if agent2_answer.get("status") == "ok" and draft_answer:
+            agent3_review = generate_answer_review(
+                query,
+                draft_answer,
+                chunks,
+                evidence_ids if isinstance(evidence_ids, list) else [],
+                lambda prompt, model: safe_generate_reasoning_from_prompt_with_usage_records(
+                    prompt,
+                    model,
+                    purpose="agent3_grounded_review",
+                    usage_records=llm_usage_records,
+                ),
+            )
+            if agent3_review.get("status") == "approved":
+                agentic_reviewed_answer = draft_answer
+            elif agent3_review.get("status") == "revision" and str(agent3_review.get("revision") or "").strip():
+                agentic_reviewed_answer = str(agent3_review.get("revision") or "").strip()
+
+    if agentic_reviewed_answer:
+        synthesis_result = build_final_grounded_answer(
+            query,
+            chunks,
+            enable_synthesis=False,
+            llm_model=resolved_llm_model,
+            fallback_answer=agentic_reviewed_answer,
+            llm_rewrite=None,
+        )
+        synthesis_result["final_answer"] = agentic_reviewed_answer
+        review_status = _agent_status(agent3_review, "approved")
+        synthesis_result["llm_status"] = f"agentic_review_{review_status}"
+    else:
+        synthesis_kwargs = {
+            "enable_synthesis": synthesis_enabled,
+            "llm_model": resolved_llm_model,
+            "llm_rewrite": lambda prompt, model: safe_generate_reasoning_from_prompt_with_usage_records(
+                prompt,
+                model,
+                purpose="agentic_fallback_synthesis" if agentic_enabled else "synthesis",
+                usage_records=llm_usage_records,
+            ),
+        }
+        if agentic_enabled and isinstance(agent2_answer, dict):
+            synthesis_kwargs["fallback_answer"] = str(agent2_answer.get("answer") or "")
+        synthesis_result = build_final_grounded_answer(query, chunks, **synthesis_kwargs)
     structured_answer = str(synthesis_result["extractive_answer"])
     final_answer = str(synthesis_result["final_answer"])
     sources_md = build_sources_md(results)
@@ -1060,19 +1268,22 @@ def build_rag_response(query: str, debug: bool, llm_model: str | None, enable_sy
     llm_answer = ""
     if debug:
         llm_prompt = rag_prompt(query, chunks)
-        llm_answer = safe_generate_reasoning_from_prompt_with_usage_records(
-            llm_prompt,
-            resolved_llm_model,
-            purpose="debug_comparison",
-            usage_records=llm_usage_records,
-        )
+        if not agentic_enabled:
+            llm_answer = safe_generate_reasoning_from_prompt_with_usage_records(
+                llm_prompt,
+                resolved_llm_model,
+                purpose="debug_comparison",
+                usage_records=llm_usage_records,
+            )
         llm_debug_lines = [
             "\n\n---\n\n### Debug",
             f"**Confidence:** {confidence}",
             f"**Frågetyp:** {translate_intent(search_debug['intent'])}",
             f"**Query-termer:** `{', '.join(search_debug['query_terms'])}`",
             f"**Diagnos:** {diagnose_retrieval(structured_answer, search_debug)}",
-            "**LLM-status:** LLM-syntes kördes endast för debug-jämförelse; användarsvaret bygger på extraherade PDF-/hemsideutdrag.",
+            "**LLM-status:** Agentisk granskning aktiv; separat debug-jämförelse hoppades över."
+            if agentic_enabled
+            else "**LLM-status:** LLM-syntes kördes endast för debug-jämförelse; användarsvaret bygger på extraherade PDF-/hemsideutdrag.",
             "",
         ]
         agentic_debug = search_debug.get("agentic_retrieval", {})
@@ -1126,6 +1337,15 @@ def build_rag_response(query: str, debug: bool, llm_model: str | None, enable_sy
         + llm_debug_md
     )
     llm_usage = summarize_llm_usage(llm_usage_records, resolved_llm_model)
+    agentic_pipeline = _agentic_pipeline_metadata(
+        enabled=agentic_enabled,
+        retrieval_rewrite=retrieval_rewrite,
+        agent2_answer=agent2_answer,
+        agent3_review=agent3_review,
+        agentic_debug=search_debug.get("agentic_retrieval", {}),
+        usage_records=llm_usage_records,
+        resolved_llm_model=resolved_llm_model,
+    )
     return {
         "route": "rag",
         "llm_model": resolved_llm_model,
@@ -1151,7 +1371,9 @@ def build_rag_response(query: str, debug: bool, llm_model: str | None, enable_sy
             "llm_synthesis_model": resolved_llm_model,
             "llm_synthesis_enabled_source": synthesis_settings["enabled_source"],
             "llm_usage": llm_usage,
+            "agentic_rag_enabled": agentic_enabled,
             "agentic_retrieval": search_debug.get("agentic_retrieval", {}),
+            "agentic_pipeline": agentic_pipeline,
         },
     }
 
@@ -1455,6 +1677,7 @@ def api_ask(payload: dict[str, Any], request: FastAPIRequest):
             "debug_mode": debug_mode,
             "enable_synthesis": enable_synthesis,
             "llm_usage": response.get("llm_usage"),
+            "agentic_pipeline": (response.get("retrieval") or {}).get("agentic_pipeline"),
         },
     )
     return response
@@ -1514,4 +1737,5 @@ def launch_demo(**kwargs):
     return uvicorn.run(API_APP, host=server_name, port=server_port)
 
 
-launch_demo()
+if __name__ == "__main__" or os.getenv("SYSTEMINFORANDE_SKIP_AUTOLAUNCH") != "1":
+    launch_demo()

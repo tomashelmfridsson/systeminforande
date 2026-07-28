@@ -92,10 +92,11 @@ def build_final_grounded_answer(
     *,
     enable_synthesis: bool,
     llm_model: str | None = None,
+    fallback_answer: str | None = None,
     llm_rewrite: LLMRewriteFn | None = None,
 ) -> dict[str, object]:
     raw_extractive_answer = build_extractive_reasoning(query, chunks)
-    extractive_answer = _normalize_extractive_answer(raw_extractive_answer)
+    extractive_answer = _normalize_extractive_answer(fallback_answer or raw_extractive_answer)
     result: dict[str, object] = {
         "extractive_answer": extractive_answer,
         "final_answer": extractive_answer,

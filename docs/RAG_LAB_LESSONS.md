@@ -50,6 +50,7 @@ Syftet med dokumentet är inte bara att beskriva slutresultatet, utan att förkl
 24. Promptstyrd svarskvalitet utan att släppa källgrundningen
 25. Manuell granskning, metadatahygien och nästa live-mätning
 26. Agentic RAG: kontrollerad 3-agentdesign
+27. Agentic RAG 7: live-utvärdering och kvarvarande risker
 
 ## 1. Målbild
 
@@ -1469,3 +1470,40 @@ Fallbackregeln är medvetet konservativ: ogiltig JSON, timeout, låg confidence,
 Tokenbudgeten hålls kompakt utifrån 2026-07-20-loggbaslinjen. Den enda kompletta tokenusage-raden i den tillgängliga loggen var cirka 5 216 prompttokens, 846 completiontokens och 6 062 totalt. Därför ska den nya kedjan undvika att skicka fulla chunkar till alla agenter: Agent 1 får kort retrievaldiagnos, Agent 2 får deduplicerade toppchunkar, och Agent 3 får bara originalfråga, svarskandidat och kort evidenslista. Saknad tokenusage för `openai/gpt-oss-120b` behandlas som ett observability-problem, inte som noll kostnad.
 
 En central lärdom från tidigare RAG-arbete gäller även här: lösningen ska generalisera till svenska språkvariationer i stället för att hårdkoda enskilda domänord. Testerna bör därför innehålla generiska böjningsexempel, till exempel `undervisning`, `undervisade` och `undervisat`, inte bara tidigare systeminförandetermer som råkat fallera i en viss fråga.
+
+## 27. Agentic RAG 7: live-utvärdering och kvarvarande risker
+
+Den senaste Agentic RAG-mätningen gjordes 2026-07-23 mot den deployade Hugging Face-appen, inte bara lokalt. Det var viktigt eftersom lokala tester bara visar att koden håller sina kontrakt, medan live-mätningen visar vad användaren faktiskt möter i Gradio/HF-miljön.
+
+### Vad som verifierades
+
+Först kördes hela den lokala regressionssviten i den kanoniska repokopian. `pytest -q` gav `143 passed, 6 warnings` på 76,40 sekunder. Därefter kördes live smoke-testet `python3 tools/run_live_http_smoke.py` mot `https://helmfridsson-systeminforande.hf.space`. Det passerade `/gradio_api/info`, åtta scenarier och två regressionsfrågor. Smoke-artefakten finns i `tests/results/live_http_smoke_2026-07-23_openai-gpt-oss-120b.md`.
+
+Live-proben visade samtidigt en viktig gränssnittsrisk: `/health` och `/ready` svarade `200` med deployrevision `a64798811f70acaed2e2e8df95f911a9c90b338c`, men `/api/ask` svarade `404` i den deployade appen. Den fungerande livevägen i den här körningen var därför Gradio `/submit`, där fjärde input är `llm_model`.
+
+### RAGAS-liknande resultat för Q22 och svaga frågor
+
+En riktad livecapture kördes med fem repetitioner av Q22, `Hur ska överlämning till drift och förvaltning gå till?`, samt svagfrågorna Q09, Q13, Q18, Q20 och Q30. Capturen finns i `tests/results/ragas_hf_capture_20260723T133131Z_openai-gpt-oss-120b.json` och den deterministiska RAGAS-liknande scoringen finns i `tests/results/ragas_hf_capture_scores_20260723T133137Z_offline.json`.
+
+Den sammanlagda bilden för de tio frågorna var:
+
+- `faithfulness`: medel `0.6884`, median `0.6641`
+- `answer relevance`: medel `0.7367`, median `0.5917`
+- `context precision`: medel `0.2519`, median `0.2127`
+- `context recall`: medel `0.3468`, median `0.2326`
+
+Q22 var deterministisk över fem repetitioner: samma 471 tecken långa svar och samma scoring varje gång. Det är bra för stabilitet, men inte tillräckligt som kvalitetsbevis. Svaret var grundat i `Verktyget_aktiviteter.pdf`, men scoringen markerade fortfarande `missing_direct_answer`, `unfocused_retrieval` och `insufficient_retrieval`. Med andra ord: systemet hallucinerade inte fritt, men hämtade och formulerade fortfarande för smalt underlag för hela frågan om överlämning till drift och förvaltning.
+
+Svagfrågorna visade samma mönster i olika grad. Q18 fick stark faithfulness och relevans, medan Q13 föll tydligt på faithfulness. Flera frågor hade låg context precision/recall trots att slutanvändarsvaret ofta var begripligt. Det bekräftar den tidigare lärdomen: svaret kan vara hjälpsamt på ytan men ändå behöva bättre retrievalevidens innan vi räknar det som löst.
+
+### Tokenusage och modellrisk
+
+Jämförelsebaslinjen `/Users/tomashelmfridsson/Downloads/2026-07-21.jsonl` innehöll 52 rader med användbar `metadata.llm_usage.total_tokens`. Medianen var `8 459,5` total tokens, med medel `7 870,9` och spann `2 712` till `14 505`.
+
+I den nya livecapturen skickades det explicita modellvalet `openai/gpt-oss-120b` via Gradio `/submit`, men svaret exponerade ingen strukturerad tokenusage. Dessutom rapporterade alla tio debugsektioner att LLM-jämförelsen misslyckades med Hugging Face Inference Provider `402 Payment Required`, eftersom de inkluderade månadskrediterna var förbrukade. Den här körningen kan därför inte bevisa att den valda modellen håller målbilden `4k-5k` tokens. Det ska behandlas som ett observability- och providercredits-problem, inte som noll kostnad.
+
+### Arkitekturslutsats
+
+Den säkra extractive/model-free vägen är liveverifierad, snabb och stabil nog för smoke-regressionerna. Däremot är den här körningen inte ett godkännande av full Agentic RAG med vald LLM-modell, eftersom den deployade miljön inte gav strukturerad `/api/ask`-metadata och providerkrediterna stoppade LLM-jämförelsen. Nästa skarpa mätning behöver därför göras när live `/api/ask` åter är tillgänglig eller när `/submit` exponerar motsvarande strukturerade metadata: requested model, resolved model, synthesis used, grounding fallback reason och tokenusage.
+
+Praktiskt betyder det att lösningen bör fortsätta behandla agentisk LLM-syntes som kontrollerad och villkorad. Retrievalförbättringar och promptpolicy kan fortsätta utvecklas, men slutsatsen om bättre svarskvalitet och lägre tokenbudget måste bygga på deployad evidens där modellen faktiskt får köras och metadata går att läsa maskinellt.

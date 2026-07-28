@@ -5,14 +5,18 @@ import re
 from typing import Any, Callable
 
 DEFAULT_ANSWER_MODEL = "openai/gpt-oss-120b"
+DEFAULT_REVIEW_MODEL = "openai/gpt-oss-20b"
 MAX_ANSWER_EVIDENCE_CHUNKS = 8
 MAX_CHUNK_EXCERPT_CHARS = 650
+MAX_REVIEW_EVIDENCE_CHUNKS = 6
+MAX_REVIEW_CHUNK_EXCERPT_CHARS = 450
 INSUFFICIENT_EVIDENCE_MESSAGE = (
     "Det finns inte tillräckligt tydligt underlag i de hämtade källutdragen "
     "för att besvara frågan på ett säkert sätt."
 )
 
 LLMAnswerFn = Callable[[str, str | None], str]
+LLMReviewFn = Callable[[str, str | None], str]
 
 _ALLOWED_TOP_LEVEL_KEYS = {
     "original_question",
@@ -31,6 +35,8 @@ _ALLOWED_COVERAGE_KEYS = {
     "answers_original_question",
     "ignores_metadata_as_facts",
 }
+_ALLOWED_REVIEW_TOP_LEVEL_KEYS = {"status", "reason", "revision", "evidence_ids_used"}
+_ALLOWED_REVIEW_STATUSES = {"approved", "rejected", "revision"}
 _STOPWORDS = {
     "och", "att", "det", "den", "de", "som", "för", "med", "till", "från", "eller",
     "inte", "kan", "ska", "bör", "också", "dessutom", "genom", "utifrån", "ett", "en", "samt",
@@ -107,6 +113,121 @@ def generate_evidence_answer(
         rewrite_metadata=rewrite_metadata,
         model=model,
     )
+
+
+def build_answer_review_prompt(
+    original_question: str,
+    draft_answer: str,
+    evidence_snippets: list[dict[str, Any]],
+    evidence_ids: list[str],
+) -> str:
+    compact_chunks = _compact_review_evidence(evidence_snippets)
+    allowed_ids = [str(item) for item in evidence_ids if str(item).strip()]
+    evidence_block = "\n".join(
+        (
+            f"evidence_id={chunk['chunk_id']} | källa={chunk['source']} | sidor={_format_pages(chunk.get('pages'))}\n"
+            f"utdrag={chunk['text']}"
+        )
+        for chunk in compact_chunks
+    )
+    return (
+        "Agent 3: review och grounding judge för svensk RAG. Modellmål: openai/gpt-oss-20b.\n"
+        "Granska om draftsvar exakt svarar på originalfrågan och endast stöds av evidensen.\n"
+        "Avvisa svar som driver till en omskriven eller annan fråga, t.ex. driftsättning när originalfrågan gäller överlämning till förvaltning/ledning.\n"
+        "Avvisa unsupported claims, generiska råd, process/lifecycle/best-practice och styrning som inte uttryckligen finns i evidensen.\n"
+        "Returnera enbart strikt JSON utan markdown: {status, reason, revision, evidence_ids_used}.\n"
+        "status måste vara approved, rejected eller revision. revision används bara om en kort källstödd korrigering kan ges från evidensen.\n"
+        "evidence_ids_used får bara innehålla listade id. Tokenbudget: <=1 800 input tokens och <=200 output tokens.\n\n"
+        f"Originalfråga:\n{original_question}\n\n"
+        f"Draftsvar:\n{draft_answer}\n\n"
+        f"Tillåtna evidence_ids:\n{json.dumps(allowed_ids, ensure_ascii=False)}\n\n"
+        f"Kompakt evidens:\n{evidence_block}"
+    )
+
+
+def generate_answer_review(
+    original_question: str,
+    draft_answer: str,
+    evidence_snippets: list[dict[str, Any]],
+    evidence_ids: list[str],
+    llm_review: LLMReviewFn | None,
+    *,
+    model: str = DEFAULT_REVIEW_MODEL,
+) -> dict[str, Any]:
+    if not draft_answer.strip() or not evidence_snippets:
+        return _review_fallback(original_question, draft_answer, "thin_review_input", model=model)
+    if llm_review is None:
+        return _review_fallback(original_question, draft_answer, "agent3_no_llm_callback", model=model)
+
+    prompt = build_answer_review_prompt(original_question, draft_answer, evidence_snippets, evidence_ids)
+    try:
+        raw_response = llm_review(prompt, model)
+    except Exception:
+        return _review_fallback(original_question, draft_answer, "agent3_exception", model=model)
+
+    return parse_answer_review_response(
+        original_question,
+        draft_answer,
+        evidence_snippets,
+        evidence_ids,
+        raw_response,
+        model=model,
+    )
+
+
+def parse_answer_review_response(
+    original_question: str,
+    draft_answer: str,
+    evidence_snippets: list[dict[str, Any]],
+    evidence_ids: list[str],
+    raw_response: str | None,
+    *,
+    model: str = DEFAULT_REVIEW_MODEL,
+) -> dict[str, Any]:
+    raw = (raw_response or "").strip()
+    if not raw.startswith("{") or not raw.endswith("}"):
+        return _review_fallback(original_question, draft_answer, "agent3_invalid_json", model=model)
+    try:
+        payload = json.loads(raw)
+    except json.JSONDecodeError:
+        return _review_fallback(original_question, draft_answer, "agent3_invalid_json", model=model)
+    if not isinstance(payload, dict):
+        return _review_fallback(original_question, draft_answer, "agent3_invalid_json", model=model)
+    unexpected = sorted(set(payload) - _ALLOWED_REVIEW_TOP_LEVEL_KEYS)
+    if unexpected:
+        return _review_fallback(original_question, draft_answer, "agent3_unexpected_fields", model=model, extra={"unexpected_fields": unexpected})
+
+    status = str(payload.get("status") or "").strip()
+    if status not in _ALLOWED_REVIEW_STATUSES:
+        return _review_fallback(original_question, draft_answer, "agent3_schema_error", model=model)
+
+    allowed_ids = {str(item) for item in evidence_ids if str(item).strip()}
+    used_ids = _valid_review_evidence_ids(payload.get("evidence_ids_used", []), allowed_ids)
+    if status in {"approved", "revision"} and not used_ids:
+        return _review_fallback(original_question, draft_answer, "agent3_missing_evidence", model=model)
+
+    reason = str(payload.get("reason") or "").strip()[:500]
+    revision = str(payload.get("revision") or "").strip()
+    review_text = revision if status == "revision" and revision else draft_answer
+    if status in {"approved", "revision"} and not _review_answer_supported(original_question, review_text, evidence_snippets):
+        return _review_fallback(original_question, draft_answer, "agent3_grounding_failed", model=model)
+
+    return {
+        "status": status,
+        "model": model,
+        "original_question": original_question,
+        "draft_answer": draft_answer,
+        "reason": reason,
+        "revision": revision if status == "revision" else "",
+        "evidence_ids_used": used_ids,
+        "debug": {
+            "agent": "answer_review",
+            "model": model,
+            "fallback_reason": None,
+            "evidence_chunk_count": len(evidence_snippets[:MAX_REVIEW_EVIDENCE_CHUNKS]),
+            "token_budget": {"input_target": 1800, "output_target": 200},
+        },
+    }
 
 
 def parse_evidence_answer_response(
@@ -224,6 +345,35 @@ def _fallback(
     }
 
 
+def _review_fallback(
+    original_question: str,
+    draft_answer: str,
+    reason: str,
+    *,
+    model: str,
+    extra: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    debug = {
+        "agent": "answer_review",
+        "model": model,
+        "fallback_reason": reason,
+        "evidence_chunk_count": 0,
+        "token_budget": {"input_target": 1800, "output_target": 200},
+    }
+    if extra:
+        debug.update(extra)
+    return {
+        "status": "rejected",
+        "model": model,
+        "original_question": original_question,
+        "draft_answer": draft_answer,
+        "reason": "Review kunde inte godkänna svaret eftersom det inte kunde valideras mot originalfrågan och evidensen.",
+        "revision": INSUFFICIENT_EVIDENCE_MESSAGE,
+        "evidence_ids_used": [],
+        "debug": debug,
+    }
+
+
 def _compact_chunks(chunks: list[dict[str, Any]]) -> list[dict[str, Any]]:
     compact = []
     for index, chunk in enumerate(chunks[:MAX_ANSWER_EVIDENCE_CHUNKS], start=1):
@@ -238,6 +388,55 @@ def _compact_chunks(chunks: list[dict[str, Any]]) -> list[dict[str, Any]]:
             }
         )
     return compact
+
+
+def _compact_review_evidence(chunks: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    compact = []
+    for index, chunk in enumerate(chunks[:MAX_REVIEW_EVIDENCE_CHUNKS], start=1):
+        text = " ".join(str(chunk.get("text") or "").split())[:MAX_REVIEW_CHUNK_EXCERPT_CHARS]
+        compact.append(
+            {
+                "chunk_id": _chunk_id(chunk, index),
+                "source": str(chunk.get("source") or ""),
+                "pages": chunk.get("pages") or [],
+                "text": text,
+            }
+        )
+    return compact
+
+
+def _valid_review_evidence_ids(value: Any, allowed_ids: set[str]) -> list[str]:
+    if not isinstance(value, list):
+        return []
+    out = []
+    seen = set()
+    for item in value:
+        evidence_id = str(item or "").strip()
+        if not evidence_id or evidence_id not in allowed_ids or evidence_id in seen:
+            continue
+        out.append(evidence_id)
+        seen.add(evidence_id)
+        if len(out) >= MAX_REVIEW_EVIDENCE_CHUNKS:
+            break
+    return out
+
+
+def _review_answer_supported(original_question: str, answer: str, evidence_snippets: list[dict[str, Any]]) -> bool:
+    if _has_internal_or_metadata_leakage(answer):
+        return False
+    answer_tokens = _content_tokens(answer)
+    if len(answer_tokens) < 4:
+        return False
+    question_tokens = _content_tokens(original_question)
+    evidence_tokens: set[str] = set()
+    for chunk in evidence_snippets[:MAX_REVIEW_EVIDENCE_CHUNKS]:
+        evidence_tokens.update(_content_tokens(chunk.get("text", "")))
+    if not evidence_tokens:
+        return False
+    if not (answer_tokens & question_tokens):
+        return False
+    supported_tokens = answer_tokens & (evidence_tokens | question_tokens)
+    return len(supported_tokens) / max(len(answer_tokens), 1) >= 0.45
 
 
 def _compact_rewrite_metadata(metadata: dict[str, Any]) -> str:
