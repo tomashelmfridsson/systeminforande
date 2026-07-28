@@ -420,9 +420,11 @@ def test_extract_hf_usage_tolerates_missing_usage():
 
 def test_huggingface_provider_call_returns_usage_when_present(monkeypatch):
     from llm import reasoning
+    captured = {}
 
     class FakeClient:
         def chat_completion(self, **kwargs):
+            captured.update(kwargs)
             return SimpleNamespace(
                 choices=[SimpleNamespace(message={"content": "Källbundet svar"})],
                 usage=SimpleNamespace(
@@ -437,9 +439,11 @@ def test_huggingface_provider_call_returns_usage_when_present(monkeypatch):
     result = reasoning.generate_reasoning_from_prompt_with_usage(
         "Svara bara utifrån källmaterialet.",
         model="Qwen/Qwen3-32B",
+        max_tokens=1800,
     )
 
     assert result.text == "Källbundet svar"
+    assert captured["max_tokens"] == 1800
     assert result.usage == {
         "prompt_tokens": 13,
         "completion_tokens": 8,

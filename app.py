@@ -48,6 +48,9 @@ DEPLOY_REVISION_FALLBACK = "local"
 LOG_DIR = Path(os.getenv("SYSTEMINFORANDE_LOG_DIR", "/data/logs"))
 ENABLE_USAGE_LOGGING = os.getenv("SYSTEMINFORANDE_ENABLE_LOGGING", "true").strip().lower() not in {"0", "false", "no"}
 AGENTIC_RAG_FEATURE_FLAG_ENV = "SYSTEMINFORANDE_ENABLE_AGENTIC_RAG"
+AGENT1_MAX_OUTPUT_TOKENS = 1000
+AGENT2_MAX_OUTPUT_TOKENS = 1800
+AGENT3_MAX_OUTPUT_TOKENS = 1000
 _LOG_WRITE_LOCK = threading.Lock()
 EMBED_RESIZE_JS = """
 () => {
@@ -793,10 +796,15 @@ def safe_generate_reasoning_from_prompt_with_usage_records(
     *,
     purpose: str,
     usage_records: list[dict[str, Any]],
+    max_tokens: int = 1200,
 ) -> str:
     started_at = time.perf_counter()
     try:
-        result = generate_reasoning_from_prompt_with_usage(prompt, model=model)
+        result = generate_reasoning_from_prompt_with_usage(
+            prompt,
+            model=model,
+            max_tokens=max_tokens,
+        )
         latency_ms = round((time.perf_counter() - started_at) * 1000, 2)
         usage_records.append(
             _llm_usage_call_record(
@@ -1135,6 +1143,7 @@ def build_rag_response(
                 model,
                 purpose="agent1_retrieval_rewrite",
                 usage_records=llm_usage_records,
+                max_tokens=AGENT1_MAX_OUTPUT_TOKENS,
             ),
         )
 
@@ -1242,6 +1251,7 @@ def build_rag_response(
                 model,
                 purpose="agent2_evidence_answer",
                 usage_records=llm_usage_records,
+                max_tokens=AGENT2_MAX_OUTPUT_TOKENS,
             ),
         )
         draft_answer = str(agent2_answer.get("answer") or "").strip()
@@ -1257,6 +1267,7 @@ def build_rag_response(
                     model,
                     purpose="agent3_grounded_review",
                     usage_records=llm_usage_records,
+                    max_tokens=AGENT3_MAX_OUTPUT_TOKENS,
                 ),
             )
             if agent3_review.get("status") == "approved":
@@ -1264,6 +1275,7 @@ def build_rag_response(
             elif agent3_review.get("status") == "revision" and str(agent3_review.get("revision") or "").strip():
                 agentic_reviewed_answer = str(agent3_review.get("revision") or "").strip()
 
+    agentic_fallback_retrieval_used = False
     if agentic_reviewed_answer:
         synthesis_result = build_final_grounded_answer(
             query,
@@ -1277,6 +1289,18 @@ def build_rag_response(
         review_status = _agent_status(agent3_review, "approved")
         synthesis_result["llm_status"] = f"agentic_review_{review_status}"
     else:
+        if agentic_enabled:
+            baseline_results = filter_allowed_results(
+                search(query, top_k=5, retrieval_rewrite=None)
+            )
+            if baseline_results:
+                results = baseline_results
+                chunks = [chunk for _, chunk in results]
+                confidence = round(
+                    sum(score for score, _ in results) / len(results),
+                    2,
+                )
+                agentic_fallback_retrieval_used = True
         synthesis_kwargs = {
             "enable_synthesis": synthesis_enabled,
             "llm_model": resolved_llm_model,
@@ -1401,6 +1425,7 @@ def build_rag_response(
             "llm_synthesis_enabled_source": synthesis_settings["enabled_source"],
             "llm_usage": llm_usage,
             "agentic_rag_enabled": agentic_enabled,
+            "agentic_fallback_retrieval_used": agentic_fallback_retrieval_used,
             "agentic_retrieval": search_debug.get("agentic_retrieval", {}),
             "agentic_pipeline": agentic_pipeline,
         },

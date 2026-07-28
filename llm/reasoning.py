@@ -48,7 +48,12 @@ def extract_hf_usage(response: Any) -> dict[str, int | None]:
     }
 
 
-def _call_llm_with_usage(prompt: str, model: str | None = None) -> LLMCallResult:
+def _call_llm_with_usage(
+    prompt: str,
+    model: str | None = None,
+    *,
+    max_tokens: int = 1200,
+) -> LLMCallResult:
     client = get_llm_client(model=model)
     response = client.chat_completion(
         messages=[
@@ -61,7 +66,7 @@ def _call_llm_with_usage(prompt: str, model: str | None = None) -> LLMCallResult
                 "content": prompt
             }
         ],
-        max_tokens=1200,
+        max_tokens=max_tokens,
         temperature=0.2
     )
 
@@ -71,8 +76,8 @@ def _call_llm_with_usage(prompt: str, model: str | None = None) -> LLMCallResult
     )
 
 
-def _call_llm(prompt: str, model: str | None = None) -> str:
-    return _call_llm_with_usage(prompt, model=model).text
+def _call_llm(prompt: str, model: str | None = None, *, max_tokens: int = 1200) -> str:
+    return _call_llm_with_usage(prompt, model=model, max_tokens=max_tokens).text
 
 # =========================
 # FÖRDEFINIERADE FRÅGOR
@@ -110,11 +115,16 @@ def generate_reasoning_from_prompt(prompt: str, model: str | None = None) -> str
     return _call_llm(prompt, model=model)
 
 
-def generate_reasoning_from_prompt_with_usage(prompt: str, model: str | None = None) -> LLMCallResult:
+def generate_reasoning_from_prompt_with_usage(
+    prompt: str,
+    model: str | None = None,
+    *,
+    max_tokens: int = 1200,
+) -> LLMCallResult:
     """
     Genererar resonemang från färdig prompt (RAG) och behåller tokenanvändning.
     """
-    return _call_llm_with_usage(prompt, model=model)
+    return _call_llm_with_usage(prompt, model=model, max_tokens=max_tokens)
 
 
 # =========================

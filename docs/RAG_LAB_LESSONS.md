@@ -52,6 +52,7 @@ Syftet med dokumentet är inte bara att beskriva slutresultatet, utan att förkl
 26. Agentic RAG: kontrollerad 3-agentdesign
 27. Agentic RAG 7: live-utvärdering och kvarvarande risker
 28. Frikopplat RAG-API och första livekörningen av treagentskedjan
+29. Andra livekörningen: tokenkapning och isolerad fallback-retrieval
 
 ## 1. Målbild
 
@@ -1570,7 +1571,7 @@ Den korrekta fallbackregeln är striktare:
 
 ### Korrigering och nästa verifiering
 
-Korrigeringen skapades i commit `f9c3bc8`:
+Korrigeringen deployades i commit `5b93832`:
 
 - Agent 2-prompten listar nu exakt tillåtna `answer_scope`-värden och evidensfält.
 - Det observerade och säkra synonymvärdet `sufficient` normaliseras till `direct`.
@@ -1579,4 +1580,51 @@ Korrigeringen skapades i commit `f9c3bc8`:
 - Underkända eller ogiltiga agentsvar kan inte längre ersätta det extraktiva reservsvaret.
 - Regressionstest täcker både liveformatet och att Agent 3-reject bevarar reservsvaret.
 
-Efter korrigeringen passerade den lokala sviten med `143 passed`, `15 deselected` live-tester och `5 warnings`. Nästa steg är att deploya `f9c3bc8` och upprepa exakt samma Q22-prob. Först när Agent 2 blir `ok`, Agent 3 faktiskt körs och kontroll-/agentresultaten kan jämföras meningsfullt bör den tidigare tiopunktsmätningen återupptas.
+Efter korrigeringen passerade den lokala sviten med `143 passed`, `15 deselected` live-tester och `5 warnings`. Nästa steg var att deploya `5b93832` och upprepa exakt samma Q22-prob. Först när Agent 2 blir `ok`, Agent 3 faktiskt körs och kontroll-/agentresultaten kan jämföras meningsfullt bör den tidigare tiopunktsmätningen återupptas.
+
+## 29. Andra livekörningen: tokenkapning och isolerad fallback-retrieval
+
+Den andra Q22-körningen gjordes mot den deployade korrigeringen `5b938324...`. `/health` och `/ready` bekräftade samma revision, att Agentic RAG var aktiverad och att det frikopplade `/api/ask` fortfarande fungerade. Testet använde återigen `enable_synthesis=false` för att jämföra kontrollvägen med agentskedjan utan att blanda in en separat syntesmodell.
+
+Kontrollvägen gav:
+
+- svarstid `178,2 ms`
+- noll LLM-anrop och noll tokens
+- ett fokuserat extraktivt svar om överlämning till drift och förvaltning
+- en separat källsektion med `Verktyget_aktiviteter.pdf`
+
+Agentvägen gav:
+
+- svarstid `4 567,05 ms`
+- två LLM-anrop
+- `3 680` prompttokens, `1 884` completiontokens och `5 564` tokens totalt
+- Agent 1 `ok`
+- Agent 2 `fallback` med `agent2_invalid_json`
+- Agent 3 `not_run`
+
+Den första fallbackbuggen var korrigerad: användaren fick inte längre Agent 2:s generiska icke-svar. Ändå blev reservsvaret sämre än kontrollsvaret, eftersom det byggdes från Agent 1:s breddade retrievalresultat och gled över mot driftsättning i stället för att hålla fokus på överlämningen.
+
+### Exakt tokenkapning var den nya huvudorsaken
+
+Agent 2:s completion var exakt `1 200` tokens, samma värde som den gemensamma hårdkodade gränsen i LLM-klienten. Det är ett starkt tecken på att JSON-svaret kapades innan modellen hann avsluta objektet. Parserns `agent2_invalid_json` var därför korrekt fail-safe-beteende, men grundorsaken var inte längre kontraktets semantik utan ett för litet outpututrymme.
+
+En gemensam tokenbudget passar dåligt när agenterna har olika uppgifter. Agent 1 och Agent 3 ska lämna små kontrollobjekt, medan Agent 2 både ska resonera över evidens och returnera ett komplett JSON-svar. Korrigeringen inför därför separata maxgränser:
+
+- Agent 1: `1 000` outputtokens
+- Agent 2: `1 800` outputtokens
+- Agent 3: `1 000` outputtokens
+
+Tokenbudgeten skickas nu hela vägen till Hugging Face-klienten och testas uttryckligen, så att ett högre Agent 2-värde inte bara finns i konfigurationen utan faktiskt används i modell-anropet.
+
+### Fallback måste vara oberoende av den misslyckade agentvägen
+
+Den andra lärdomen är att ett säkert reservsvar inte bara får vara oberoende av Agent 2:s text. Även dess retrievalunderlag måste vara oberoende. Om Agent 1 har breddat frågan och senare agenter underkänns kan samma breddade resultat bära med sig den ämnesdrift som granskningskedjan skulle skydda mot.
+
+Den nya fallbackregeln är därför:
+
+1. om Agent 2 eller Agent 3 inte producerar ett godkänt svar, kör retrieval på nytt med användarens originalfråga
+2. använd ingen omskrivning från Agent 1 i denna reservsökning
+3. bygg både extraktivt svar och källista från de nya baslinjeresultaten
+4. exponera `agentic_fallback_retrieval_used` i `/api/ask` så att beteendet går att verifiera
+
+Den första kontrollen efter nästa deploy ska åter vara samma Q22 A/B-test. Ett meningsfullt framsteg kräver att Agent 2 returnerar giltig JSON, Agent 3 faktiskt körs och agentsvaret förbättrar frågefokus eller evidensanvändning. Om kedjan fortfarande faller tillbaka ska svaret åtminstone motsvara den stabila kontrollvägen och inte ärva Agent 1:s retrievaldrift.

@@ -250,6 +250,7 @@ def test_agentic_rag_usage_metadata_includes_per_agent_tokens_latency_counts_and
     app_module = _load_local_app_without_launch(monkeypatch)
     monkeypatch.setenv("SYSTEMINFORANDE_ENABLE_AGENTIC_RAG", "true")
     calls: list[str] = []
+    max_tokens_by_purpose: dict[str, int] = {}
     _stub_common_agentic_pipeline_rag(app_module, monkeypatch, calls)
 
     def fake_agent1(question, llm_rewrite, **kwargs):
@@ -267,7 +268,8 @@ def test_agentic_rag_usage_metadata_includes_per_agent_tokens_latency_counts_and
     def fake_fallback_answer(query, chunks, **kwargs):
         return {"extractive_answer": "Utbildningsstrategin beskriver syfte.", "final_answer": "Utbildningsstrategin beskriver syfte.", "synthesis_used": False, "llm_status": "disabled"}
 
-    def fake_llm(prompt, model, *, purpose, usage_records):
+    def fake_llm(prompt, model, *, purpose, usage_records, max_tokens=1200):
+        max_tokens_by_purpose[purpose] = max_tokens
         usage_records.append({
             "purpose": purpose,
             "provider": "test",
@@ -305,6 +307,11 @@ def test_agentic_rag_usage_metadata_includes_per_agent_tokens_latency_counts_and
     assert agent_usage["agent2_evidence_answer"]["total_tokens"] == 125
     assert agent_usage["agent3_grounded_review"]["model"] == "agent3-model"
     assert agent_usage["agent3_grounded_review"]["latency_ms"] == 12.5
+    assert max_tokens_by_purpose == {
+        "agent1_retrieval_rewrite": 1000,
+        "agent2_evidence_answer": 1800,
+        "agent3_grounded_review": 1000,
+    }
 
 
 def test_agentic_rag_rejected_agent_answer_preserves_extractive_fallback(monkeypatch):
@@ -368,6 +375,8 @@ def test_agentic_rag_rejected_agent_answer_preserves_extractive_fallback(monkeyp
     assert response["answer_markdown"].startswith("Det källbundna extraktiva reservsvaret.")
     assert "agentsvar som Agent 3 underkänner" not in response["answer_markdown"]
     assert response["retrieval"]["agentic_pipeline"]["review_status"] == "rejected"
+    assert response["retrieval"]["agentic_fallback_retrieval_used"] is True
+    assert calls == ["retrieval_with_rewrite", "retrieval"]
 
 
 def test_agent2_accepts_live_model_scope_alias_and_minimal_evidence_objects():
