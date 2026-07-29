@@ -53,6 +53,7 @@ Syftet med dokumentet är inte bara att beskriva slutresultatet, utan att förkl
 27. Agentic RAG 7: live-utvärdering och kvarvarande risker
 28. Frikopplat RAG-API och första livekörningen av treagentskedjan
 29. Andra livekörningen: tokenkapning och isolerad fallback-retrieval
+30. Tredje livekörningen: evidenskontraktet mellan Agent 2 och Agent 3
 
 ## 1. Målbild
 
@@ -1628,3 +1629,36 @@ Den nya fallbackregeln är därför:
 4. exponera `agentic_fallback_retrieval_used` i `/api/ask` så att beteendet går att verifiera
 
 Den första kontrollen efter nästa deploy ska åter vara samma Q22 A/B-test. Ett meningsfullt framsteg kräver att Agent 2 returnerar giltig JSON, Agent 3 faktiskt körs och agentsvaret förbättrar frågefokus eller evidensanvändning. Om kedjan fortfarande faller tillbaka ska svaret åtminstone motsvara den stabila kontrollvägen och inte ärva Agent 1:s retrievaldrift.
+
+## 30. Tredje livekörningen: evidenskontraktet mellan Agent 2 och Agent 3
+
+Efter deploy av `82dee9c` verifierade `/health` att rätt revision kördes. Samma Q22-fråga testades åter med syntes avstängd. Kontrollvägen svarade på `140,02 ms` utan LLM-anrop. Agentvägen tog `4 314,95 ms`, gjorde två LLM-anrop och använde `3 211` prompttokens, `1 808` completiontokens och `5 019` tokens totalt.
+
+Den höjda outputgränsen fungerade: Agent 2 avslutade efter `895` completiontokens, tydligt under den nya gränsen `1 800`, och felet `agent2_invalid_json` försvann. Agent 2 föll i stället tillbaka med `agent2_missing_evidence`, vilket gjorde att Agent 3 inte kördes.
+
+Den isolerade fallback-retrievalen fungerade däremot som avsett. Agentvägen returnerade exakt samma fokuserade svar, källa och sida som kontrollvägen. Agentskedjan gav alltså ännu ingen kvalitetsvinst, men den försämrade inte längre användarsvaret när en agent underkändes.
+
+### Agent 2 ska inte behöva duplicera systemets metadata
+
+Granskningen visade att evidenskontraktet var onödigt redundant. Agent 2 ombads returnera både `evidence_used` och `evidence_ids_used` samt duplicera `source` och `pages`, trots att applikationen redan äger denna metadata. Dessutom användes samma fallbackorsak för flera skilda fel, vilket gjorde livefelet svårt att diagnostisera.
+
+Kontraktet förenklades därför:
+
+- Agent 2 ska primärt returnera `chunk_id` och `claim_supported` i `evidence_used`.
+- Ett exakt och känt `chunk_id` är det obligatoriska ankaret; tom `claim_supported` tolereras för bakåtkompatibilitet och granskas semantiskt i nästa steg.
+- `source` och `pages` hämtas alltid från applikationens auktoritativa chunk.
+- Det äldre `evidence_ids_used` får förekomma men behövs inte och är inte den auktoritativa listan.
+- Okänt ID, saknat ID, tom evidenslista och felaktig evidensstruktur får separata fallbackorsaker med en säker lista över tillåtna ID:n.
+
+### Alla liknande retrievalträffar är inte använda källor
+
+Den tidigare deterministiska kontrollen krävde att alla hämtade chunkar som delade minst tre innehållsord med svaret skulle citeras. Det blandade ihop två olika saker: en chunk kan likna svaret utan att faktiskt vara den evidens som Agent 2 använde. Med flera agentiska sökvarianter blir många träffar naturligt språkligt närliggande, vilket gjorde regeln överkänslig.
+
+Den regeln togs bort. Groundingkontrollen använder nu bara:
+
+- originalfrågan
+- de chunkar som Agent 2 faktiskt citerat med giltiga ID:n
+- Agent 2:s korta beskrivning av vilket påstående som stöds
+- säkra termrelationer från Agent 1, endast för ordformer och sammansättningar
+
+Okända chunk-ID:n avvisas fortfarande deterministiskt och ostödda formuleringar faller fortfarande tillbaka. Skillnaden är att ett svar inte längre underkänns bara för att en annan retrievalträff råkar innehålla samma domänord. Om Agent 2 passerar denna kontroll får Agent 3 göra den avsedda semantiska granskningen mot originalfrågan och de citerade källorna.

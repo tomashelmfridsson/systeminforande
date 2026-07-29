@@ -17,6 +17,7 @@ from rag.agentic_rewrite import (
 from rag.agentic_answer import (
     build_evidence_answer_prompt,
     generate_evidence_answer,
+    parse_evidence_answer_response,
 )
 from rag.grounding import INSUFFICIENT_EVIDENCE_ANSWER
 from rag.synthesis import (
@@ -118,9 +119,11 @@ def test_agent2_prompt_teaches_semantic_relations_between_undervisning_and_under
     assert "ordformer" in prompt_lower
     assert "samma begreppsfamilj" in prompt_lower
     assert "inte som egna fakta" in prompt_lower
+    assert "bara ange chunk_id och claim_supported" in prompt
+    assert "systemet kompletterar source och pages" in prompt
 
 
-def test_agent2_rejects_semantic_relation_answer_when_an_answer_point_lacks_evidence_id():
+def test_agent2_rejects_answer_point_not_supported_by_the_cited_chunk():
     question = "Hur ska undervisning följas upp efter införandet?"
 
     def fake_llm(prompt: str, model: str | None = None) -> str:
@@ -163,8 +166,151 @@ def test_agent2_rejects_semantic_relation_answer_when_an_answer_point_lacks_evid
     )
 
     assert result["status"] == "fallback"
-    assert result["debug"]["fallback_reason"] == "agent2_missing_evidence"
+    assert result["debug"]["fallback_reason"] == "agent2_grounding_failed"
     assert result["evidence_ids_used"] == []
+
+
+def test_agent2_accepts_minimal_evidence_and_uses_authoritative_source_metadata():
+    question = "Hur ska överlämning till förvaltning gå till?"
+    chunks = [
+        {
+            "id": "overlamning:42",
+            "source": "Verktyget_aktiviteter.pdf",
+            "title": "Överlämning till förvaltning",
+            "text": (
+                "Ansvariga i projektet och förvaltningsorganisationen ska fastställas. "
+                "Det ska också fastställas vilka förvaltningsobjekt som ska förvaltas."
+            ),
+            "pages": [42],
+        }
+    ]
+    raw = json.dumps(
+        {
+            "original_question": question,
+            "answer": (
+                "Fastställ ansvariga i projektet och förvaltningsorganisationen samt vilka "
+                "förvaltningsobjekt som ska förvaltas."
+            ),
+            "answer_scope": "direct",
+            "evidence_used": [
+                {
+                    "chunk_id": "overlamning:42",
+                    "claim_supported": "Ansvariga och förvaltningsobjekt ska fastställas.",
+                }
+            ],
+            "unsupported_or_uncertain": [],
+            "source_coverage": {
+                "uses_retrieved_chunks": True,
+                "answers_original_question": True,
+                "ignores_metadata_as_facts": True,
+            },
+            "grounding_notes": "Svaret använder den citerade aktiviteten.",
+        },
+        ensure_ascii=False,
+    )
+
+    result = parse_evidence_answer_response(question, chunks, raw)
+
+    assert result["status"] == "ok"
+    assert result["evidence_ids_used"] == ["overlamning:42"]
+    assert result["evidence_used"][0]["source"] == "Verktyget_aktiviteter.pdf"
+    assert result["evidence_used"][0]["pages"] == [42]
+
+
+def test_agent2_does_not_require_citing_every_retrieved_chunk_with_similar_words():
+    question = "Hur ska överlämning till förvaltning följas upp?"
+    chunks = [
+        {
+            "id": "plan:1",
+            "source": "Overlamning.pdf",
+            "title": "Planerad överlämning",
+            "text": (
+                "Överlämningen till förvaltning ska följas upp enligt plan. "
+                "Ansvariga i projektet och förvaltningsorganisationen deltar."
+            ),
+            "pages": [1],
+        },
+        {
+            "id": "status:2",
+            "source": "Statusrapport.pdf",
+            "title": "Status",
+            "text": (
+                "Statusrapporten nämner överlämning, förvaltning och uppföljning efter införandet "
+                "men beskriver inte hur arbetet ska genomföras."
+            ),
+            "pages": [2],
+        },
+    ]
+    raw = json.dumps(
+        {
+            "original_question": question,
+            "answer": (
+                "Överlämningen till förvaltning ska följas upp enligt plan av ansvariga "
+                "i projektet och förvaltningsorganisationen."
+            ),
+            "answer_scope": "direct",
+            "evidence_used": [
+                {
+                    "chunk_id": "plan:1",
+                    "claim_supported": "Överlämningen följs upp enligt plan av ansvariga parter.",
+                }
+            ],
+            "unsupported_or_uncertain": [],
+            "source_coverage": {
+                "uses_retrieved_chunks": True,
+                "answers_original_question": True,
+                "ignores_metadata_as_facts": True,
+            },
+            "grounding_notes": "Den andra träffen behövs inte för svaret.",
+        },
+        ensure_ascii=False,
+    )
+
+    result = parse_evidence_answer_response(question, chunks, raw)
+
+    assert result["status"] == "ok"
+    assert result["evidence_ids_used"] == ["plan:1"]
+
+
+def test_agent2_reports_unknown_evidence_id_separately():
+    question = "Hur ska överlämning till förvaltning gå till?"
+    chunks = [
+        {
+            "id": "known:1",
+            "source": "Overlamning.pdf",
+            "title": "Överlämning",
+            "text": "Ansvariga i projektet och förvaltningsorganisationen ska fastställas.",
+            "pages": [1],
+        }
+    ]
+    raw = json.dumps(
+        {
+            "original_question": question,
+            "answer": "Ansvariga i projektet och förvaltningsorganisationen ska fastställas före överlämningen.",
+            "answer_scope": "direct",
+            "evidence_used": [
+                {
+                    "chunk_id": "unknown:9",
+                    "claim_supported": "Ansvariga ska fastställas.",
+                }
+            ],
+            "unsupported_or_uncertain": [],
+            "source_coverage": {
+                "uses_retrieved_chunks": True,
+                "answers_original_question": True,
+                "ignores_metadata_as_facts": True,
+            },
+            "grounding_notes": "",
+        },
+        ensure_ascii=False,
+    )
+
+    result = parse_evidence_answer_response(question, chunks, raw)
+
+    assert result["status"] == "fallback"
+    assert result["debug"]["fallback_reason"] == "agent2_evidence_unknown_id"
+    assert result["debug"]["unknown_evidence_ids"] == ["unknown:9"]
+    assert result["debug"]["allowed_evidence_ids"] == ["known:1"]
 
 
 def test_synthesis_prompt_asks_for_fuller_source_grounded_obstacle_reasoning():

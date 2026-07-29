@@ -76,12 +76,13 @@ def build_evidence_answer_prompt(
         "Använd bara de hämtade evidensutdragen nedan. Lägg inte till generiska råd, best practice, roller, möten eller styrning om de inte står i evidensen.\n"
         "Använd accepterad rewrite-metadata bara för att förstå ordformer och samma begreppsfamilj mellan fråga och evidens, inte som egna fakta.\n"
         "Skriv naturlig svensk prosa. Acceptera grammatiska böjningar och svenska sammansättningar när de stöds av evidensen.\n"
-        "Varje central svarspunkt måste stödjas av minst ett evidence_used-objekt med chunk_id och rapporteras i evidence_ids_used.\n"
+        "Varje central svarspunkt måste stödjas av minst ett evidence_used-objekt.\n"
         "Om evidensen inte räcker: answer_scope=insufficient_evidence och ge ett kort ärligt icke-svar.\n"
         "Returnera enbart strikt JSON, utan markdown eller prosa utanför objektet.\n"
-        "JSON-fält: original_question, answer, answer_scope, evidence_used, evidence_ids_used, unsupported_or_uncertain, source_coverage, grounding_notes.\n"
+        "JSON-fält: original_question, answer, answer_scope, evidence_used, unsupported_or_uncertain, source_coverage, grounding_notes.\n"
         "answer_scope måste vara exakt direct, partial_due_to_thin_evidence eller insufficient_evidence.\n"
-        "Varje evidence_used-objekt måste innehålla chunk_id, source, pages och claim_supported. Kopiera source och pages från evidensen.\n"
+        "Varje evidence_used-objekt ska bara ange chunk_id och claim_supported. Använd exakt ett listat chunk_id; systemet kompletterar source och pages.\n"
+        "Det äldre top-level-fältet evidence_ids_used behöver inte returneras; om det ändå finns ignoreras det till förmån för evidence_used.\n"
         "source_coverage måste ange uses_retrieved_chunks, answers_original_question och ignores_metadata_as_facts.\n"
         "Tokenbudget: cirka 2 200–3 200 input tokens och högst 500 output tokens.\n\n"
         f"Fråga:\n{original_question}\n\n"
@@ -274,13 +275,17 @@ def parse_evidence_answer_response(
         return _fallback(original_question, "agent2_grounding_failed", model=model)
 
     chunk_lookup = {_chunk_id(chunk, index): chunk for index, chunk in enumerate(chunks[:MAX_ANSWER_EVIDENCE_CHUNKS], start=1)}
-    evidence_used = _valid_evidence_used(payload.get("evidence_used"), chunk_lookup)
+    evidence_used, evidence_error, evidence_debug = _validate_evidence_used(
+        payload.get("evidence_used"),
+        chunk_lookup,
+    )
     if not evidence_used:
-        return _fallback(original_question, "agent2_missing_evidence", model=model)
-    cited_chunk_ids = {item["chunk_id"] for item in evidence_used}
-    supported_chunk_ids = _answer_supported_chunk_ids(answer, chunks)
-    if not supported_chunk_ids.issubset(cited_chunk_ids):
-        return _fallback(original_question, "agent2_missing_evidence", model=model)
+        return _fallback(
+            original_question,
+            evidence_error or "agent2_evidence_missing",
+            model=model,
+            extra=evidence_debug,
+        )
 
     coverage = payload.get("source_coverage")
     if not _valid_source_coverage(coverage):
@@ -470,23 +475,38 @@ def _format_pages(pages: Any) -> str:
     return str(pages or "")
 
 
-def _valid_evidence_used(value: Any, chunk_lookup: dict[str, dict[str, Any]]) -> list[dict[str, Any]]:
-    if not isinstance(value, list):
-        return []
+def _validate_evidence_used(
+    value: Any,
+    chunk_lookup: dict[str, dict[str, Any]],
+) -> tuple[list[dict[str, Any]], str | None, dict[str, Any]]:
+    allowed_ids = sorted(chunk_lookup)
+    if not isinstance(value, list) or not value:
+        return [], "agent2_evidence_missing", {"allowed_evidence_ids": allowed_ids}
     out = []
     seen = set()
     for item in value:
-        if not isinstance(item, dict) or set(item) - _ALLOWED_EVIDENCE_KEYS:
-            return []
+        if not isinstance(item, dict):
+            return [], "agent2_evidence_invalid_shape", {"allowed_evidence_ids": allowed_ids}
+        unexpected = sorted(set(item) - _ALLOWED_EVIDENCE_KEYS)
+        if unexpected:
+            return [], "agent2_evidence_invalid_shape", {
+                "allowed_evidence_ids": allowed_ids,
+                "unexpected_evidence_fields": unexpected,
+            }
         chunk_id = str(item.get("chunk_id") or "").strip()
-        if not chunk_id or chunk_id not in chunk_lookup:
-            return []
+        if not chunk_id:
+            return [], "agent2_evidence_missing_id", {"allowed_evidence_ids": allowed_ids}
+        if chunk_id not in chunk_lookup:
+            return [], "agent2_evidence_unknown_id", {
+                "allowed_evidence_ids": allowed_ids,
+                "unknown_evidence_ids": [chunk_id[:160]],
+            }
         chunk = chunk_lookup[chunk_id]
         claim = str(item.get("claim_supported") or "").strip()
         source = str(chunk.get("source") or "").strip()
         pages = chunk.get("pages") or []
         if not source:
-            return []
+            return [], "agent2_evidence_source_missing", {"evidence_id": chunk_id}
         if chunk_id in seen:
             continue
         out.append(
@@ -500,7 +520,7 @@ def _valid_evidence_used(value: Any, chunk_lookup: dict[str, dict[str, Any]]) ->
         seen.add(chunk_id)
         if len(out) >= 8:
             break
-    return out
+    return out, None, {"allowed_evidence_ids": allowed_ids}
 
 
 def _valid_source_coverage(value: Any) -> bool:
@@ -543,8 +563,10 @@ def _answer_is_grounded(
 ) -> bool:
     support_tokens: set[str] = set()
     support_tokens.update(_content_tokens(original_question))
-    for chunk in chunks[:MAX_ANSWER_EVIDENCE_CHUNKS]:
-        support_tokens.update(_content_tokens(chunk.get("text", "")))
+    cited_ids = {item["chunk_id"] for item in evidence_used}
+    for index, chunk in enumerate(chunks[:MAX_ANSWER_EVIDENCE_CHUNKS], start=1):
+        if _chunk_id(chunk, index) in cited_ids:
+            support_tokens.update(_content_tokens(chunk.get("text", "")))
     for item in evidence_used:
         support_tokens.update(_content_tokens(item.get("claim_supported", "")))
     for term in rewrite_metadata.get("semantic_terms", []) if isinstance(rewrite_metadata, dict) else []:
@@ -575,16 +597,6 @@ def _answer_is_grounded(
             continue
         return False
     return True
-
-
-def _answer_supported_chunk_ids(answer: str, chunks: list[dict[str, Any]]) -> set[str]:
-    answer_tokens = _content_tokens(answer)
-    supported = set()
-    for index, chunk in enumerate(chunks[:MAX_ANSWER_EVIDENCE_CHUNKS], start=1):
-        chunk_tokens = _content_tokens(chunk.get("text", ""))
-        if len(answer_tokens & chunk_tokens) >= 3:
-            supported.add(_chunk_id(chunk, index))
-    return supported
 
 
 def _split_sentences(text: str) -> list[str]:
