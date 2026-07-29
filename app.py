@@ -31,12 +31,14 @@ from rag.synthesis import (
 )
 from rag.agentic_answer import (
     DEFAULT_ANSWER_MODEL,
+    DEFAULT_CORRECTION_MODEL,
     DEFAULT_REVIEW_MODEL,
     evidence_chunk_id,
     generate_answer_review,
+    generate_corrected_evidence_answer,
     generate_evidence_answer,
 )
-from rag.agentic_rewrite import generate_retrieval_rewrite
+from rag.agentic_rewrite import DEFAULT_REWRITE_MODEL, generate_retrieval_rewrite
 from rag.search import explain_search, search
 from llm.reasoning import generate_reasoning, generate_reasoning_from_prompt, generate_reasoning_from_prompt_with_usage
 DATA_DIR = "rag/data"
@@ -51,9 +53,17 @@ DEPLOY_REVISION_FALLBACK = "local"
 LOG_DIR = Path(os.getenv("SYSTEMINFORANDE_LOG_DIR", "/data/logs"))
 ENABLE_USAGE_LOGGING = os.getenv("SYSTEMINFORANDE_ENABLE_LOGGING", "true").strip().lower() not in {"0", "false", "no"}
 AGENTIC_RAG_FEATURE_FLAG_ENV = "SYSTEMINFORANDE_ENABLE_AGENTIC_RAG"
+AGENT1_MODEL = os.getenv("SYSTEMINFORANDE_AGENT1_MODEL", DEFAULT_REWRITE_MODEL).strip() or DEFAULT_REWRITE_MODEL
+AGENT2_MODEL = os.getenv("SYSTEMINFORANDE_AGENT2_MODEL", DEFAULT_ANSWER_MODEL).strip() or DEFAULT_ANSWER_MODEL
+AGENT3_MODEL = os.getenv("SYSTEMINFORANDE_AGENT3_MODEL", DEFAULT_REVIEW_MODEL).strip() or DEFAULT_REVIEW_MODEL
+AGENT_CORRECTION_MODEL = (
+    os.getenv("SYSTEMINFORANDE_AGENT_CORRECTION_MODEL", DEFAULT_CORRECTION_MODEL).strip()
+    or DEFAULT_CORRECTION_MODEL
+)
 AGENT1_MAX_OUTPUT_TOKENS = 1200
 AGENT2_MAX_OUTPUT_TOKENS = 1800
 AGENT3_MAX_OUTPUT_TOKENS = 1000
+AGENT_CORRECTION_MAX_OUTPUT_TOKENS = 1000
 _LOG_WRITE_LOCK = threading.Lock()
 EMBED_RESIZE_JS = """
 () => {
@@ -270,9 +280,14 @@ DOC_INDEX = {d["id"]: d for d in DOCUMENTS}
 HF_MODELS_ENDPOINT = "https://router.huggingface.co/v1/models"
 FALLBACK_LLM_MODELS = [
     {
+        "id": "openai/gpt-oss-20b",
+        "label": "OpenAI gpt-oss 20B",
+        "description": "Kostnadseffektiv standardmodell för källbunden syntes.",
+    },
+    {
         "id": "openai/gpt-oss-120b",
         "label": "OpenAI gpt-oss 120B",
-        "description": "Standardmodell för experimentell källbunden syntes.",
+        "description": "Eskaleringsmodell för korrigering av underkända agentsvar.",
     },
     {
         "id": "zai-org/GLM-5.2",
@@ -1017,12 +1032,31 @@ def _simple_tokenize(text: str) -> set[str]:
 
 def _has_relevant_rag_support(search_debug: dict) -> tuple[bool, str]:
     top_results = search_debug.get("top_results", [])
+    generic_relevance_terms = {
+        "bast",
+        "basta",
+        "bra",
+        "battre",
+        "koll",
+        "man",
+        "maste",
+        "onskat",
+        "rekommendation",
+        "rekommendera",
+        "system",
+        "systemet",
+        "valja",
+    }
     original_query_terms = {
         term
         for term in (search_debug.get("query_terms") or [])
-        if len(term) >= 4 and term not in {"maste", "onskat"}
+        if len(term) >= 4 and term not in generic_relevance_terms
     }
-    expanded_query_terms = set(search_debug.get("expanded_query_terms") or original_query_terms)
+    expanded_query_terms = {
+        term
+        for term in (search_debug.get("expanded_query_terms") or original_query_terms)
+        if len(term) >= 4 and term not in generic_relevance_terms
+    }
 
     if not top_results or not (original_query_terms or expanded_query_terms):
         return False, "Inga tydliga träffar hittades i materialet."
@@ -1037,12 +1071,36 @@ def _has_relevant_rag_support(search_debug: dict) -> tuple[bool, str]:
         combined_tokens |= _simple_tokenize(chunk.get("title", ""))
         combined_tokens |= _simple_tokenize(chunk.get("text", ""))
         combined_tokens |= _simple_tokenize(chunk.get("source", ""))
+        combined_tokens |= {
+            str(term)
+            for term in (item.get("matched_terms") or [])
+            if str(term)
+        }
 
     matched_original_terms = original_query_terms & combined_tokens
     if matched_original_terms:
         coverage = len(matched_original_terms) / max(len(original_query_terms), 1)
-        if coverage >= 0.34 or len(matched_original_terms) >= 2 or top_score >= 10:
+        if coverage >= 0.34 or len(matched_original_terms) >= 2:
             return True, ""
+
+    agentic_debug = search_debug.get("agentic_retrieval") or {}
+    accepted_variants = agentic_debug.get("accepted_variants") or []
+    merged_ranking = agentic_debug.get("merged_ranking") or []
+    top_chunk_ids = {
+        str(item["chunk"].get("id") or "")
+        for item in top_results[:3]
+        if isinstance(item.get("chunk"), dict)
+    }
+    original_query_match = any(
+        item.get("original_query_match") is True
+        and str(item.get("chunk_id") or "") in top_chunk_ids
+        for item in merged_ranking
+    )
+    if len(accepted_variants) > 1 and not original_query_match and not matched_original_terms:
+        return (
+            False,
+            "Endast omskrivna sökvarianter gav träffar; originalfrågans ämne stöds inte av materialet.",
+        )
 
     matched_expanded_terms = expanded_query_terms & combined_tokens
     if not matched_expanded_terms:
@@ -1088,6 +1146,7 @@ def _agentic_pipeline_metadata(
     agentic_debug: dict[str, Any] | None,
     usage_records: list[dict[str, Any]],
     resolved_llm_model: str | None,
+    correction_answer: dict[str, Any] | None = None,
 ) -> dict[str, Any] | None:
     if not enabled:
         return None
@@ -1102,13 +1161,16 @@ def _agentic_pipeline_metadata(
         rejected = (retrieval_rewrite.get("debug") or {}).get("dropped_queries") or []
 
     review_status = _agent_status(agent3_review, "not_run")
+    correction_status = _agent_status(correction_answer, "not_run")
+    correction_succeeded = correction_status == "ok"
     fallback_reasons = [
         _fallback_reason_from_debug(retrieval_rewrite),
         _fallback_reason_from_debug(agent2_answer),
-        _fallback_reason_from_debug(agent3_review),
     ]
-    if review_status == "rejected":
-        fallback_reasons.append(_fallback_reason_from_debug(agent3_review) or "agent3_rejected")
+    if not correction_succeeded:
+        fallback_reasons.append(_fallback_reason_from_debug(agent3_review))
+        if review_status == "rejected":
+            fallback_reasons.append(_fallback_reason_from_debug(agent3_review) or "agent3_rejected")
 
     agent1_model = _agent_model(retrieval_rewrite, None)
     agent2_model = _agent_model(agent2_answer, DEFAULT_ANSWER_MODEL)
@@ -1142,6 +1204,31 @@ def _agentic_pipeline_metadata(
         "accepted_rewrites": len(accepted) if isinstance(accepted, list) else 0,
         "rejected_rewrites": len(rejected) if isinstance(rejected, list) else 0,
         "review_status": review_status,
+        "final_status": (
+            "corrected"
+            if correction_succeeded
+            else "approved"
+            if review_status == "approved"
+            else "revised"
+            if review_status == "revision"
+            else "fallback"
+        ),
+        "escalation": {
+            "attempted": isinstance(correction_answer, dict),
+            "model": _agent_model(correction_answer, AGENT_CORRECTION_MODEL),
+            "status": correction_status,
+            "trigger_reason": (
+                _fallback_reason_from_debug(agent3_review)
+                or str((agent3_review or {}).get("reason") or "")
+                or None
+            ),
+            "fallback_reason": _fallback_reason_from_debug(correction_answer),
+            "usage": _agent_usage_summary(
+                usage_records,
+                "agent2_120b_correction",
+                _agent_model(correction_answer, AGENT_CORRECTION_MODEL),
+            ),
+        },
         "fallback_reason": next((reason for reason in fallback_reasons if reason), None),
         "usage": summarize_llm_usage(usage_records, resolved_llm_model),
     }
@@ -1179,6 +1266,7 @@ def build_rag_response(
                 usage_records=llm_usage_records,
                 max_tokens=AGENT1_MAX_OUTPUT_TOKENS,
             ),
+            model=AGENT1_MODEL,
         )
 
     results = filter_allowed_results(search(query, top_k=5, retrieval_rewrite=retrieval_rewrite))
@@ -1243,7 +1331,8 @@ def build_rag_response(
         return {
             "route": "rag",
             "answer_markdown": no_data,
-            "sources": serialize_results(results),
+            "sources": [],
+            "homepage_links": [],
             "llm_usage": summarize_llm_usage(llm_usage_records, resolved_llm_model),
             "retrieval": {
                 "query": query,
@@ -1274,7 +1363,9 @@ def build_rag_response(
     chunks = [chunk for _, chunk in results]
     agent2_answer = None
     agent3_review = None
+    correction_answer = None
     agentic_reviewed_answer = None
+    approved_evidence_ids: list[str] = []
     if agentic_enabled:
         agent2_answer = generate_evidence_answer(
             query,
@@ -1287,6 +1378,7 @@ def build_rag_response(
                 usage_records=llm_usage_records,
                 max_tokens=AGENT2_MAX_OUTPUT_TOKENS,
             ),
+            model=AGENT2_MODEL,
         )
         draft_answer = str(agent2_answer.get("answer") or "").strip()
         evidence_ids = agent2_answer.get("evidence_ids_used") or []
@@ -1303,17 +1395,46 @@ def build_rag_response(
                     usage_records=llm_usage_records,
                     max_tokens=AGENT3_MAX_OUTPUT_TOKENS,
                 ),
+                model=AGENT3_MODEL,
             )
             if agent3_review.get("status") == "approved":
                 agentic_reviewed_answer = draft_answer
+                approved_evidence_ids = list(agent3_review.get("evidence_ids_used") or [])
             elif agent3_review.get("status") == "revision" and str(agent3_review.get("revision") or "").strip():
                 agentic_reviewed_answer = str(agent3_review.get("revision") or "").strip()
+                approved_evidence_ids = list(agent3_review.get("evidence_ids_used") or [])
+            elif agent3_review.get("status") == "rejected":
+                correction_answer = generate_corrected_evidence_answer(
+                    query,
+                    draft_answer,
+                    str(
+                        agent3_review.get("reason")
+                        or _fallback_reason_from_debug(agent3_review)
+                        or ""
+                    ),
+                    chunks,
+                    retrieval_rewrite,
+                    lambda prompt, model: safe_generate_reasoning_from_prompt_with_usage_records(
+                        prompt,
+                        model,
+                        purpose="agent2_120b_correction",
+                        usage_records=llm_usage_records,
+                        max_tokens=AGENT_CORRECTION_MAX_OUTPUT_TOKENS,
+                    ),
+                    model=AGENT_CORRECTION_MODEL,
+                )
+                corrected_answer = str(correction_answer.get("answer") or "").strip()
+                if correction_answer.get("status") == "ok" and corrected_answer:
+                    agentic_reviewed_answer = corrected_answer
+                    approved_evidence_ids = list(
+                        correction_answer.get("evidence_ids_used") or []
+                    )
 
     agentic_fallback_retrieval_used = False
     if agentic_reviewed_answer:
         results = filter_results_by_evidence_ids(
             results,
-            agent3_review.get("evidence_ids_used") if isinstance(agent3_review, dict) else [],
+            approved_evidence_ids,
         )
         chunks = [chunk for _, chunk in results]
         confidence = round(
@@ -1329,8 +1450,11 @@ def build_rag_response(
             llm_rewrite=None,
         )
         synthesis_result["final_answer"] = agentic_reviewed_answer
-        review_status = _agent_status(agent3_review, "approved")
-        synthesis_result["llm_status"] = f"agentic_review_{review_status}"
+        if correction_answer and correction_answer.get("status") == "ok":
+            synthesis_result["llm_status"] = "agentic_120b_correction"
+        else:
+            review_status = _agent_status(agent3_review, "approved")
+            synthesis_result["llm_status"] = f"agentic_review_{review_status}"
     else:
         if agentic_enabled:
             baseline_results = filter_allowed_results(
@@ -1345,13 +1469,15 @@ def build_rag_response(
                 )
                 agentic_fallback_retrieval_used = True
         synthesis_kwargs = {
-            "enable_synthesis": synthesis_enabled,
-            "llm_model": resolved_llm_model,
-            "llm_rewrite": lambda prompt, model: safe_generate_reasoning_from_prompt_with_usage_records(
-                prompt,
-                model,
-                purpose="agentic_fallback_synthesis" if agentic_enabled else "synthesis",
-                usage_records=llm_usage_records,
+            "enable_synthesis": False if agentic_enabled else synthesis_enabled,
+            "llm_model": AGENT2_MODEL if agentic_enabled else resolved_llm_model,
+            "llm_rewrite": None if agentic_enabled else (
+                lambda prompt, model: safe_generate_reasoning_from_prompt_with_usage_records(
+                    prompt,
+                    model,
+                    purpose="synthesis",
+                    usage_records=llm_usage_records,
+                )
             ),
         }
         synthesis_result = build_final_grounded_answer(query, chunks, **synthesis_kwargs)
@@ -1441,6 +1567,7 @@ def build_rag_response(
         agentic_debug=search_debug.get("agentic_retrieval", {}),
         usage_records=llm_usage_records,
         resolved_llm_model=resolved_llm_model,
+        correction_answer=correction_answer,
     )
     return {
         "route": "rag",

@@ -4,8 +4,9 @@ import json
 import re
 from typing import Any, Callable
 
-DEFAULT_ANSWER_MODEL = "openai/gpt-oss-120b"
+DEFAULT_ANSWER_MODEL = "openai/gpt-oss-20b"
 DEFAULT_REVIEW_MODEL = "openai/gpt-oss-20b"
+DEFAULT_CORRECTION_MODEL = "openai/gpt-oss-120b"
 MAX_ANSWER_EVIDENCE_CHUNKS = 8
 MAX_CHUNK_EXCERPT_CHARS = 650
 MAX_REVIEW_EVIDENCE_CHUNKS = 6
@@ -53,6 +54,8 @@ def build_evidence_answer_prompt(
     original_question: str,
     chunks: list[dict[str, Any]],
     rewrite_metadata: dict[str, Any] | None = None,
+    *,
+    model_target: str = DEFAULT_ANSWER_MODEL,
 ) -> str:
     compact_chunks = _compact_chunks(chunks)
     evidence_block = "\n".join(
@@ -66,7 +69,7 @@ def build_evidence_answer_prompt(
     metadata = _compact_rewrite_metadata(rewrite_metadata or {})
 
     return (
-        "Evidence comparator och answer builder för svensk RAG. Modellmål: openai/gpt-oss-120b.\n"
+        f"Evidence comparator och answer builder för svensk RAG. Modellmål: {model_target}.\n"
         "Svara på originalfrågan, inte på retrievalfrågan eller någon omskriven sökvariant.\n"
         "Använd bara de hämtade evidensutdragen nedan. Lägg inte till generiska råd, best practice, roller, möten eller styrning om de inte står i evidensen.\n"
         "Använd accepterad rewrite-metadata bara för att förstå ordformer och samma begreppsfamilj mellan fråga och evidens, inte som egna fakta.\n"
@@ -99,11 +102,78 @@ def generate_evidence_answer(
     if llm_answer is None:
         return _fallback(original_question, "agent2_no_llm_callback", model=model)
 
-    prompt = build_evidence_answer_prompt(original_question, chunks, rewrite_metadata)
+    prompt = build_evidence_answer_prompt(
+        original_question,
+        chunks,
+        rewrite_metadata,
+        model_target=model,
+    )
     try:
         raw_response = llm_answer(prompt, model)
     except Exception:
         return _fallback(original_question, "agent2_exception", model=model)
+
+    return parse_evidence_answer_response(
+        original_question,
+        chunks,
+        raw_response,
+        rewrite_metadata=rewrite_metadata,
+        model=model,
+    )
+
+
+def build_evidence_correction_prompt(
+    original_question: str,
+    draft_answer: str,
+    review_reason: str,
+    chunks: list[dict[str, Any]],
+    rewrite_metadata: dict[str, Any] | None = None,
+    *,
+    model_target: str = DEFAULT_CORRECTION_MODEL,
+) -> str:
+    base_prompt = build_evidence_answer_prompt(
+        original_question,
+        chunks,
+        rewrite_metadata,
+        model_target=model_target,
+    )
+    return (
+        f"Korrigeringssteg för svensk RAG. Modellmål: {model_target}.\n"
+        "Agent 3 underkände 20B-utkastet. Skriv ett nytt svar som rättar kritiken, "
+        "men använd fortfarande endast den listade evidensen och exakt samma JSON-kontrakt.\n"
+        f"Underkänt utkast:\n{draft_answer}\n\n"
+        f"Agent 3:s kritik:\n{review_reason or 'Svaret kunde inte godkännas enligt grounding-kontraktet.'}\n\n"
+        f"{base_prompt}"
+    )
+
+
+def generate_corrected_evidence_answer(
+    original_question: str,
+    draft_answer: str,
+    review_reason: str,
+    chunks: list[dict[str, Any]],
+    rewrite_metadata: dict[str, Any] | None,
+    llm_answer: LLMAnswerFn | None,
+    *,
+    model: str = DEFAULT_CORRECTION_MODEL,
+) -> dict[str, Any]:
+    if not chunks or not _has_evidence_text(chunks):
+        return _fallback(original_question, "correction_thin_evidence", model=model)
+    if llm_answer is None:
+        return _fallback(original_question, "correction_no_llm_callback", model=model)
+
+    prompt = build_evidence_correction_prompt(
+        original_question,
+        draft_answer,
+        review_reason,
+        chunks,
+        rewrite_metadata,
+        model_target=model,
+    )
+    try:
+        raw_response = llm_answer(prompt, model)
+    except Exception:
+        return _fallback(original_question, "correction_exception", model=model)
 
     return parse_evidence_answer_response(
         original_question,

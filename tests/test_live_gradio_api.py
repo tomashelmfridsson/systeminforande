@@ -88,7 +88,7 @@ def _load_local_app_without_launch(monkeypatch):
     monkeypatch.setattr(
         app_module,
         "generate_retrieval_rewrite",
-        lambda question, llm_rewrite: {
+        lambda question, llm_rewrite, **kwargs: {
             "status": "fallback",
             "original_question": question,
             "retrieval_queries": [{"query": question, "purpose": "literal", "weight": 1.0}],
@@ -273,6 +273,104 @@ def test_filter_results_by_evidence_ids_keeps_only_agent3_approved_chunks(monkey
     assert filtered == [results[0]]
 
 
+def test_relevance_gate_rejects_high_scoring_agent_drift_that_only_matches_generic_best_term(monkeypatch):
+    app_module = _load_local_app_without_launch(monkeypatch)
+    search_debug = {
+        "query_terms": ["bodtennis", "gummi", "bast"],
+        "expanded_query_terms": ["bodtennis", "gummi", "bast"],
+        "top_results": [
+            {
+                "score": 15.0,
+                "chunk": {
+                    "id": "irrelevant-1",
+                    "source": "Mallar_acceptanstest_testrapport.pdf",
+                    "title": "Sammanfattning och rekommendation",
+                    "text": "Välj den bästa rekommendationen för systeminförandet.",
+                },
+            }
+        ],
+        "agentic_retrieval": {
+            "accepted_variants": [
+                {"query": "Vilket bodtennis gummi är bäst?"},
+                {"query": "bäst kravmall testrapport sammanfattning rekommendation"},
+            ],
+            "merged_ranking": [
+                {
+                    "chunk_id": "irrelevant-1",
+                    "original_query_match": False,
+                }
+            ],
+        },
+    }
+
+    supported, reason = app_module._has_relevant_rag_support(search_debug)
+
+    assert supported is False
+    assert "originalfrågans ämne" in reason
+
+
+def test_relevance_gate_preserves_supported_domain_questions(monkeypatch):
+    app_module = _load_local_app_without_launch(monkeypatch)
+
+    for question in [
+        "Hur planerar man implementation av system?",
+        "Vad är en utbildningsstrategi?",
+        "Vilka etapper finns?",
+    ]:
+        supported, reason = app_module._has_relevant_rag_support(
+            app_module.explain_search(question, top_k=5)
+        )
+        assert supported is True, f"{question}: {reason}"
+
+
+def test_out_of_domain_table_tennis_question_returns_no_answer_sources_or_agent2_call(monkeypatch):
+    app_module = _load_local_app_without_launch(monkeypatch)
+    monkeypatch.setenv("SYSTEMINFORANDE_ENABLE_AGENTIC_RAG", "true")
+
+    drifted_rewrite = {
+        "status": "ok",
+        "model": app_module.AGENT1_MODEL,
+        "original_question": "Vilket bodtennis gummi är bäst?",
+        "retrieval_queries": [
+            {
+                "query": "Vilket bodtennis gummi är bäst?",
+                "purpose": "literal",
+                "weight": 1.0,
+            },
+            {
+                "query": "bäst kravmall testrapport sammanfattning rekommendation",
+                "purpose": "broader_context",
+                "weight": 0.8,
+            },
+        ],
+        "debug": {"fallback_reason": None, "dropped_queries": []},
+    }
+    monkeypatch.setattr(
+        app_module,
+        "generate_retrieval_rewrite",
+        lambda *args, **kwargs: drifted_rewrite,
+    )
+
+    def fail_if_agent2_runs(*args, **kwargs):
+        raise AssertionError("Agent 2 must not run for an out-of-domain question")
+
+    monkeypatch.setattr(app_module, "generate_evidence_answer", fail_if_agent2_runs)
+
+    response = app_module.build_rag_response(
+        "Vilket bodtennis gummi är bäst?",
+        debug=False,
+        llm_model="openai/gpt-oss-20b",
+        enable_synthesis=True,
+        enable_agentic_rag=True,
+    )
+
+    assert response["answer_markdown"] == app_module.grounded_answer_or_fallback("")
+    assert response["sources"] == []
+    assert response["homepage_links"] == []
+    assert response["retrieval"]["relevance_supported"] is False
+    assert "Källor" not in response["answer_markdown"]
+
+
 def test_gradio_request_url_can_disable_default_agentic_rag(monkeypatch):
     app_module = _load_local_app_without_launch(monkeypatch)
     monkeypatch.setenv("SYSTEMINFORANDE_ENABLE_AGENTIC_RAG", "true")
@@ -355,6 +453,8 @@ def test_agentic_rag_usage_metadata_includes_per_agent_tokens_latency_counts_and
     assert metadata["accepted_rewrites"] == 2
     assert metadata["rejected_rewrites"] == 1
     assert metadata["fallback_reason"] is None
+    assert metadata["final_status"] == "approved"
+    assert metadata["escalation"]["attempted"] is False
     assert metadata["usage"]["prompt_tokens"] == 300
     assert metadata["usage"]["completion_tokens"] == 75
     assert metadata["usage"]["total_tokens"] == 375
@@ -372,7 +472,123 @@ def test_agentic_rag_usage_metadata_includes_per_agent_tokens_latency_counts_and
     }
 
 
-def test_agentic_rag_rejected_agent_answer_preserves_extractive_fallback(monkeypatch):
+def test_agentic_rag_rejected_agent_answer_uses_one_120b_correction(monkeypatch):
+    app_module = _load_local_app_without_launch(monkeypatch)
+    monkeypatch.setenv("SYSTEMINFORANDE_ENABLE_AGENTIC_RAG", "true")
+    calls: list[str] = []
+    correction_calls = []
+    _stub_common_agentic_pipeline_rag(app_module, monkeypatch, calls)
+
+    monkeypatch.setattr(
+        app_module,
+        "generate_retrieval_rewrite",
+        lambda question, llm_rewrite, **kwargs: {
+            "status": "ok",
+            "model": app_module.AGENT1_MODEL,
+            "retrieval_queries": [{"query": question, "purpose": "literal", "weight": 1.0}],
+            "debug": {"fallback_reason": None, "dropped_queries": []},
+        },
+    )
+    monkeypatch.setattr(
+        app_module,
+        "generate_evidence_answer",
+        lambda *args, **kwargs: {
+            "status": "ok",
+            "model": app_module.AGENT2_MODEL,
+            "answer": "Ett agentsvar som Agent 3 underkänner.",
+            "answer_scope": "direct",
+            "evidence_ids_used": ["chunk-1"],
+            "debug": {"fallback_reason": None},
+        },
+    )
+    monkeypatch.setattr(
+        app_module,
+        "generate_answer_review",
+        lambda *args, **kwargs: {
+            "status": "rejected",
+            "model": app_module.AGENT3_MODEL,
+            "reason": "Svaret är inte tillräckligt källbundet.",
+            "revision": "",
+            "evidence_ids_used": [],
+            "debug": {"fallback_reason": "agent3_grounding_failed"},
+        },
+    )
+
+    def fake_correction(
+        original_question,
+        draft_answer,
+        review_reason,
+        chunks,
+        rewrite_metadata,
+        llm_answer,
+        *,
+        model,
+    ):
+        correction_calls.append((review_reason, model))
+        llm_answer("compact correction prompt", model)
+        return {
+            "status": "ok",
+            "model": model,
+            "answer": "Det korrigerade svaret beskriver utbildningsstrategins syfte och målgrupper.",
+            "answer_scope": "direct",
+            "evidence_ids_used": ["chunk-1"],
+            "debug": {"fallback_reason": None},
+        }
+
+    def fake_llm(prompt, model, *, purpose, usage_records, max_tokens=1200):
+        usage_records.append({
+            "purpose": purpose,
+            "provider": "test",
+            "model": model,
+            "prompt_tokens": 100,
+            "completion_tokens": 25,
+            "total_tokens": 125,
+            "latency_ms": 10.0,
+            "missing": False,
+            "status": "ok",
+            "error": None,
+        })
+        return "{}"
+
+    def corrected_answer(query, chunks, **kwargs):
+        assert kwargs["enable_synthesis"] is False
+        assert kwargs["fallback_answer"].startswith("Det korrigerade svaret")
+        return {
+            "extractive_answer": kwargs["fallback_answer"],
+            "final_answer": kwargs["fallback_answer"],
+            "synthesis_used": False,
+            "llm_status": "disabled",
+        }
+
+    monkeypatch.setattr(app_module, "generate_corrected_evidence_answer", fake_correction)
+    monkeypatch.setattr(app_module, "safe_generate_reasoning_from_prompt_with_usage_records", fake_llm)
+    monkeypatch.setattr(app_module, "build_final_grounded_answer", corrected_answer)
+
+    response = app_module.build_rag_response(
+        "Vad är en utbildningsstrategi?",
+        debug=False,
+        llm_model="model-a",
+        enable_synthesis=True,
+    )
+
+    assert response["answer_markdown"].startswith("Det korrigerade svaret")
+    assert correction_calls == [
+        ("Svaret är inte tillräckligt källbundet.", "openai/gpt-oss-120b")
+    ]
+    assert calls == ["retrieval_with_rewrite"]
+    assert response["retrieval"]["llm_status"] == "agentic_120b_correction"
+    assert response["retrieval"]["agentic_pipeline"]["final_status"] == "corrected"
+    assert response["retrieval"]["agentic_pipeline"]["fallback_reason"] is None
+    escalation = response["retrieval"]["agentic_pipeline"]["escalation"]
+    assert escalation["attempted"] is True
+    assert escalation["status"] == "ok"
+    assert escalation["usage"]["calls"] == 1
+    assert [call["purpose"] for call in response["llm_usage"]["calls_detail"]] == [
+        "agent2_120b_correction"
+    ]
+
+
+def test_agentic_rag_failed_correction_preserves_extractive_fallback_without_large_synthesis(monkeypatch):
     app_module = _load_local_app_without_launch(monkeypatch)
     monkeypatch.setenv("SYSTEMINFORANDE_ENABLE_AGENTIC_RAG", "true")
     calls: list[str] = []
@@ -381,7 +597,7 @@ def test_agentic_rag_rejected_agent_answer_preserves_extractive_fallback(monkeyp
     monkeypatch.setattr(
         app_module,
         "generate_retrieval_rewrite",
-        lambda question, llm_rewrite: {
+        lambda question, llm_rewrite, **kwargs: {
             "status": "ok",
             "model": "agent1-model",
             "retrieval_queries": [{"query": question, "purpose": "literal", "weight": 1.0}],
@@ -411,9 +627,22 @@ def test_agentic_rag_rejected_agent_answer_preserves_extractive_fallback(monkeyp
             "debug": {"fallback_reason": "agent3_grounding_failed"},
         },
     )
+    monkeypatch.setattr(
+        app_module,
+        "generate_corrected_evidence_answer",
+        lambda *args, **kwargs: {
+            "status": "fallback",
+            "model": app_module.AGENT_CORRECTION_MODEL,
+            "answer": "",
+            "evidence_ids_used": [],
+            "debug": {"fallback_reason": "agent2_invalid_json"},
+        },
+    )
 
     def _extractive_fallback(query, chunks, **kwargs):
         assert "fallback_answer" not in kwargs
+        assert kwargs["enable_synthesis"] is False
+        assert kwargs["llm_rewrite"] is None
         return {
             "extractive_answer": "Det källbundna extraktiva reservsvaret.",
             "final_answer": "Det källbundna extraktiva reservsvaret.",
@@ -433,8 +662,13 @@ def test_agentic_rag_rejected_agent_answer_preserves_extractive_fallback(monkeyp
     assert response["answer_markdown"].startswith("Det källbundna extraktiva reservsvaret.")
     assert "agentsvar som Agent 3 underkänner" not in response["answer_markdown"]
     assert response["retrieval"]["agentic_pipeline"]["review_status"] == "rejected"
+    assert response["retrieval"]["agentic_pipeline"]["final_status"] == "fallback"
+    assert response["retrieval"]["agentic_pipeline"]["escalation"]["attempted"] is True
     assert response["retrieval"]["agentic_fallback_retrieval_used"] is True
     assert calls == ["retrieval_with_rewrite", "retrieval"]
+    assert "agentic_fallback_synthesis" not in [
+        call["purpose"] for call in response["llm_usage"]["calls_detail"]
+    ]
 
 
 def test_agent2_accepts_live_model_scope_alias_and_minimal_evidence_objects():

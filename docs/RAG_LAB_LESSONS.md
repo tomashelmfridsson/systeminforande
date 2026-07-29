@@ -56,6 +56,10 @@ Syftet med dokumentet är inte bara att beskriva slutresultatet, utan att förkl
 30. Tredje livekörningen: evidenskontraktet mellan Agent 2 och Agent 3
 31. Fjärde livekörningen: systemberäknad coverage och första kompletta agentkedjan
 32. Första kompletta livekedjan och en enda auktoritativ källista
+33. RAGAS-körning med Agentic RAG stoppades av HF-krediter
+34. Kostnadsstyrd agentkedja: 20B som standard och 120B endast vid korrigering
+35. Out-of-domain-frågor får inte räddas av agentisk retrievaldrift
+36. Tillfällig driftprofil: Agentic RAG av tills nya HF-credits
 
 ## 1. Målbild
 
@@ -1717,3 +1721,69 @@ Källhanteringen görs därför generell och auktoritativ:
 - ociterade toppträffar får inte längre följa med bara för att de fanns i den sammanfogade retrievalrankingen
 
 Agentic RAG är fortsatt standard i Docker/HF. `/api/ask` kan välja den äldre vägen med JSON-fältet eller URL-parametern `enable_agentic_rag=false`. Gradio läser nu samma URL-override, så GUI:t kan jämföras på samma deploy genom att öppnas med `?enable_agentic_rag=false`; utan override används miljöns standardvärde `true`.
+
+## 33. RAGAS-körning med Agentic RAG stoppades av HF-krediter
+
+Den 29 juli kördes den befintliga utvärderingsuppsättningen med 30 frågor mot revision `d719bbe` via `/api/ask` och explicit `enable_agentic_rag=true`. API-ytan gjorde det möjligt att spara svar, retrieval-contexts, agentstatus, fallbackorsak, tokens och latens per fråga.
+
+Körningen blev inte en giltig fullständig mätning av agentkedjan. Endast Q01 nådde `approved` utan fallback. Q02–Q05 utlöste olika fallbackorsaker och från fallbackanropet i Q05 returnerade Hugging Face `402 Payment Required` eftersom månadens inkluderade Inference Provider-krediter var slut. Q06–Q30 kunde därför inte köra LLM-agenterna och föll direkt tillbaka.
+
+Tokenobservationerna ska därför läsas som en kostnadsvarning, inte som ett medelvärde för 30 agentiska svar:
+
+- fyra frågor hade kompletta tokenrader: totalt `46 903` tokens
+- med kända delanrop i Q05 observerades minst `55 120` tokens
+- kompletta rader låg mellan `8 448` och `17 891` tokens, med medel `11 725,75`
+- 29 av 30 frågor använde fallback; endast en fråga godkändes utan fallback
+
+Den deterministiska RAGAS-anpassade scorern kunde tekniskt poängsätta alla 30 slutliga svar och gav faithfulness `0,6277`, answer relevance `0,7700`, context precision `0,3514` och context recall `0,5657`. Dessa aggregat får inte jämföras som ett resultat för `enable_agentic_rag=true`, eftersom 29 svar kom från fallback och merparten kördes efter providerfelet. En rättvis jämförelse kräver nya HF-krediter och en ny komplett capture där varje rad visar en lyckad agentkedja eller där agentfel redovisas separat från kvalitetsaggregatet.
+
+Lärdomen är att utvärderingsverktyget måste spara både RAGAS-underlag och operativ telemetri. Ett svar kan vara poängsättningsbart trots att den avsedda arkitekturen aldrig kördes, vilket annars kan ge en falsk bild av förbättrad kvalitet.
+
+## 34. Kostnadsstyrd agentkedja: 20B som standard och 120B endast vid korrigering
+
+Kostnadsrapporten visade att `openai/gpt-oss-120b` användes både för Agent 2 och för den stora generella fallbacksyntesen. Vid underkända svar kunde fallbacken ensam använda omkring 8 000–9 000 tokens. Det gjorde att en misslyckad agentkedja blev dyrare än en godkänd kedja och bidrog till att HF-krediterna tog slut under 30-frågorskörningen.
+
+Kedjan ändras därför till en kontrollerad eskalering:
+
+1. Agent 1 använder 20B för retrievalvarianter.
+2. Agent 2 använder 20B för första evidenssvaret.
+3. Agent 3 använder 20B för groundinggranskning.
+4. Endast om Agent 3 returnerar `rejected` görs exakt ett nytt, kompakt korrigeringsanrop med 120B. Korrigeringen får samma originalfråga, underkänt utkast, granskningsorsak och auktoritativa evidens.
+5. Om korrigeringen inte passerar det deterministiska evidenskontraktet används baseline-retrieval och extraktivt svar utan ytterligare LLM-syntes.
+
+Agent 3:s `revision` fortsätter att användas direkt eftersom den redan är ett källkontrollerat svar från 20B och därför inte behöver en dyr eskalering. Om Agent 2 själv inte producerar ett validerat utkast körs inte heller 120B; systemet går direkt till det säkra extraktiva svaret.
+
+Modellerna kan överstyras med `SYSTEMINFORANDE_AGENT1_MODEL`, `SYSTEMINFORANDE_AGENT2_MODEL`, `SYSTEMINFORANDE_AGENT3_MODEL` och `SYSTEMINFORANDE_AGENT_CORRECTION_MODEL`. Standarderna i Docker är 20B, 20B, 20B och 120B.
+
+API-metadata skiljer nu mellan granskning och slutresultat. `review_status` visar Agent 3:s beslut, `final_status` visar om svaret blev `approved`, `revised`, `corrected` eller `fallback`, och `escalation` visar orsak, modell, status samt tokens för det enda tillåtna 120B-anropet.
+
+## 35. Out-of-domain-frågor får inte räddas av agentisk retrievaldrift
+
+Frågan `Vilket bodtennis gummi är bäst?` gav tidigare ett påhittat svar om systeminförandets sammanhängande delar, med kravmall och acceptanstestrapport som källor. Frågan saknar helt stöd i korpusen och skulle ha stoppats.
+
+Felet hade två samverkande orsaker:
+
+- Agent 1 kunde behålla ett generiskt värdeord som `bäst` och samtidigt driva sökvarianten till systeminförandedomänen.
+- Relevansgrinden accepterade en enda matchande originalterm om retrievalscoren var hög. Den höga scoren kom i praktiken från den driftade sökvarianten, inte från originalfrågans ämne.
+
+Skyddet görs därför i flera lager:
+
+1. Generiska värde- och rekommendationsord som `bäst`, `bra`, `bättre`, `välja` och `rekommendation` räknas inte som en semantisk brygga mellan originalfråga och sökvariant.
+2. En hög score ensam kan inte längre godkänna en träff med otillräcklig täckning av originalfrågans meningsbärande ämnesord.
+3. Om endast omskrivna agentfrågor ger träffar, utan originalträff eller ämnesöverlapp, klassas resultatet som irrelevant.
+4. Irrelevanta frågor stoppas före Agent 2 och returnerar inga användarvända PDF-källor eller relaterade hemsidor.
+
+Regressionstestet använder avsiktligt en skadligt driftad sökvariant mot `kravmall`, `testrapport`, `sammanfattning` och `rekommendation`. Trots höga retrievalträffar måste resultatet bli den explicita källbegränsade fallbacken. Kontrollfrågor om implementationsplanering, utbildningsstrategi och etapper verifierar samtidigt att legitima domänfrågor fortfarande passerar relevansgrinden.
+
+## 36. Tillfällig driftprofil: Agentic RAG av tills nya HF-credits
+
+Efter att månadens inkluderade Hugging Face-krediter tog slut ändrades Docker-konfigurationen till `SYSTEMINFORANDE_ENABLE_AGENTIC_RAG=false`. Den äldre RAG-vägen är därmed tillfällig standard i både Gradio och `/api/ask` när anropet inte innehåller någon override.
+
+Den kostnadsstyrda agentkedjan tas inte bort. Agent 1–3 använder fortsatt 20B och endast ett underkänt svar från Agent 3 kan utlösa den enda tillåtna 120B-korrigeringen. Kedjan kan därför testas på samma deploy med `enable_agentic_rag=true` när nya credits finns, medan `enable_agentic_rag=false` uttryckligen väljer kontrollvägen.
+
+Detta skiljer på två saker som inte bör blandas ihop:
+
+- feature flaggan avgör vilken väg ett visst anrop använder
+- Docker-värdet avgör den ekonomiskt säkra standarden för anrop som saknar override
+
+När nya credits finns ska den snålare kedjan först verifieras på ett mindre frågeurval med token-, latens-, fallback- och kvalitetsmätning. Därefter kan Docker-standarden åter sättas till `true` om resultatet motiverar kostnaden.

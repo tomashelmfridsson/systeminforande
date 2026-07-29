@@ -11,8 +11,9 @@ from rag.prompts import rag_prompt
 LLMRewriteFn = Callable[[str, str | None], str]
 SYNTHESIS_FEATURE_FLAG_ENV = "SYSTEMINFORANDE_ENABLE_LLM_SYNTHESIS"
 SYNTHESIS_MODEL_ENV = "SYSTEMINFORANDE_LLM_SYNTHESIS_MODEL"
-DEFAULT_SYNTHESIS_MODEL = "openai/gpt-oss-120b"
+DEFAULT_SYNTHESIS_MODEL = "openai/gpt-oss-20b"
 SUPPORTED_EXPERIMENT_MODELS = (
+    "openai/gpt-oss-20b",
     "openai/gpt-oss-120b",
     "zai-org/GLM-5.2",
 )

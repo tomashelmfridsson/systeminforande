@@ -62,6 +62,13 @@ _STOPWORDS = {
     "systemet",
     "fråga",
     "frågan",
+    "bast",
+    "basta",
+    "bra",
+    "battre",
+    "rekommendera",
+    "rekommendation",
+    "valja",
 }
 _ANSWER_LIKE_PATTERNS = (
     re.compile(r"^(ja|nej)\b", re.IGNORECASE),

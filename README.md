@@ -25,11 +25,23 @@ med en repo-secret `HF_TOKEN`.
 Experimentell grounded LLM-syntes för fria RAG-frågor styrs med:
 - `SYSTEMINFORANDE_ENABLE_LLM_SYNTHESIS=false` som säker standard.
 - `SYSTEMINFORANDE_ENABLE_LLM_SYNTHESIS=true` för att slå på omskrivningssteget efter extraktivt svar.
-- `SYSTEMINFORANDE_LLM_SYNTHESIS_MODEL=openai/gpt-oss-120b` eller `SYSTEMINFORANDE_LLM_SYNTHESIS_MODEL=zai-org/GLM-5.2` för att välja värdmodell när syntesen är aktiverad.
+- `SYSTEMINFORANDE_LLM_SYNTHESIS_MODEL=openai/gpt-oss-20b` är kostnadseffektiv standard för den äldre syntesvägen; modellvalet kan överstyras vid experiment.
 
 API-flödet stöder även per-anrop-override via `/api/ask` med JSON-fälten `question` (str), `debug_mode` (bool), `enable_synthesis` (bool), `enable_agentic_rag` (bool), `llm_model` (str) och `doc_id` (str), så att samma deploy kan A/B-testas med syntes och Agentic RAG av/på utan kodändring. Den deployade kontroll-ytan ska även svara `200` på `/health` och `/ready`; båda status-endpointarna visar om Agentic RAG är aktiverad i miljön.
 
-Docker/Hugging Face-deployen aktiverar Agentic RAG som standard med `SYSTEMINFORANDE_ENABLE_AGENTIC_RAG=true`. Gradio använder miljöns standardvärde om URL:en inte överstyr det; lägg exempelvis till `?enable_agentic_rag=false` på GUI-adressen för att använda den äldre RAG-vägen. Ett `/api/ask`-anrop kan tillfälligt välja kontrollvägen med `"enable_agentic_rag": false` eller agentvägen med `"enable_agentic_rag": true`, vilket gör jämförelsen reproducerbar på samma revision.
+Docker/Hugging Face-deployen använder tills vidare den äldre RAG-vägen som standard med `SYSTEMINFORANDE_ENABLE_AGENTIC_RAG=false` för att begränsa förbrukningen av HF-credits. Gradio använder miljöns standardvärde om URL:en inte överstyr det. Den kostnadsstyrda agentkedjan finns kvar och kan aktiveras för ett test med `?enable_agentic_rag=true` på GUI-adressen. Ett `/api/ask`-anrop kan på motsvarande sätt välja kontrollvägen med `"enable_agentic_rag": false` eller agentvägen med `"enable_agentic_rag": true`, vilket gör jämförelsen reproducerbar på samma revision.
+
+Den agentiska modellkedjan är kostnadsstyrd:
+
+- `SYSTEMINFORANDE_AGENT1_MODEL=openai/gpt-oss-20b` skapar retrievalvarianter.
+- `SYSTEMINFORANDE_AGENT2_MODEL=openai/gpt-oss-20b` skriver första evidenssvaret.
+- `SYSTEMINFORANDE_AGENT3_MODEL=openai/gpt-oss-20b` granskar grounding och frågefokus.
+- Om Agent 3 väljer `rejected` görs exakt ett korrigeringsanrop med `SYSTEMINFORANDE_AGENT_CORRECTION_MODEL=openai/gpt-oss-120b`.
+- Om korrigeringen inte ger ett validerat svar används ett extraktivt reservsvar. Den tidigare stora `agentic_fallback_synthesis` körs inte längre.
+
+`retrieval.agentic_pipeline.escalation` visar om 120B-korrigeringen användes, varför den utlöstes, status och separat tokenusage. `final_status` är `approved`, `revised`, `corrected` eller `fallback`.
+
+Domänfrämmande frågor stoppas före Agent 2. En hög retrievalscore från Agent 1:s omskrivna sökvarianter räcker inte om originalfrågans meningsbärande ämnesord saknar stöd i materialet. Sådana svar returnerar den källbegränsade fallbacktexten med tomma `sources` och `homepage_links`.
 
 Samma overrides kan anges i URL:en, till exempel `POST /api/ask?enable_agentic_rag=false&debug=true`. JSON-body har högst prioritet, därefter URL-parametrar och sist miljökonfigurationen. URL-värden accepterar `true/false`, `1/0`, `yes/no` och `on/off`; ogiltiga värden ger `400`.
 

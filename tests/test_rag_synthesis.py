@@ -586,7 +586,11 @@ def test_resolve_synthesis_settings_uses_llm_synthesis_by_default(monkeypatch):
 
     assert settings["enabled"] is True
     assert settings["model"] == DEFAULT_SYNTHESIS_MODEL
-    assert SUPPORTED_EXPERIMENT_MODELS == ("openai/gpt-oss-120b", "zai-org/GLM-5.2")
+    assert SUPPORTED_EXPERIMENT_MODELS == (
+        "openai/gpt-oss-20b",
+        "openai/gpt-oss-120b",
+        "zai-org/GLM-5.2",
+    )
 
 
 def test_resolve_synthesis_settings_supports_environment_default_model(monkeypatch):
