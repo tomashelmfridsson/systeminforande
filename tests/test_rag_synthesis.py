@@ -15,8 +15,10 @@ from rag.agentic_rewrite import (
     parse_retrieval_rewrite_response,
 )
 from rag.agentic_answer import (
+    build_answer_review_prompt,
     build_evidence_answer_prompt,
     generate_evidence_answer,
+    parse_answer_review_response,
     parse_evidence_answer_response,
 )
 from rag.grounding import INSUFFICIENT_EVIDENCE_ANSWER
@@ -121,6 +123,7 @@ def test_agent2_prompt_teaches_semantic_relations_between_undervisning_and_under
     assert "inte som egna fakta" in prompt_lower
     assert "bara ange chunk_id och claim_supported" in prompt
     assert "systemet kompletterar source och pages" in prompt
+    assert "returnera inte source_coverage" in prompt_lower
 
 
 def test_agent2_rejects_answer_point_not_supported_by_the_cited_chunk():
@@ -199,11 +202,7 @@ def test_agent2_accepts_minimal_evidence_and_uses_authoritative_source_metadata(
                 }
             ],
             "unsupported_or_uncertain": [],
-            "source_coverage": {
-                "uses_retrieved_chunks": True,
-                "answers_original_question": True,
-                "ignores_metadata_as_facts": True,
-            },
+            "source_coverage": "uses_retrieved_chunks, answers_original_question, ignores_metadata_as_facts",
             "grounding_notes": "Svaret använder den citerade aktiviteten.",
         },
         ensure_ascii=False,
@@ -215,6 +214,11 @@ def test_agent2_accepts_minimal_evidence_and_uses_authoritative_source_metadata(
     assert result["evidence_ids_used"] == ["overlamning:42"]
     assert result["evidence_used"][0]["source"] == "Verktyget_aktiviteter.pdf"
     assert result["evidence_used"][0]["pages"] == [42]
+    assert result["source_coverage"] == {
+        "uses_retrieved_chunks": True,
+        "answers_original_question": True,
+        "ignores_metadata_as_facts": True,
+    }
 
 
 def test_agent2_does_not_require_citing_every_retrieved_chunk_with_similar_words():
@@ -311,6 +315,49 @@ def test_agent2_reports_unknown_evidence_id_separately():
     assert result["debug"]["fallback_reason"] == "agent2_evidence_unknown_id"
     assert result["debug"]["unknown_evidence_ids"] == ["unknown:9"]
     assert result["debug"]["allowed_evidence_ids"] == ["known:1"]
+
+
+def test_agent3_only_sees_and_validates_agent2_cited_chunks():
+    question = "Hur ska systemet lämnas över till förvaltningen?"
+    draft = "Systemets tekniska driftstart genomförs med en omläggningsplan och temporär organisation."
+    chunks = [
+        {
+            "id": "handover:1",
+            "source": "Overlamning.pdf",
+            "text": "Förvaltningsobjekt, mottagare och tidplan ska fastställas vid överlämningen.",
+            "pages": [1],
+        },
+        {
+            "id": "deployment:2",
+            "source": "Driftsattning.pdf",
+            "text": "Driftstarten genomförs med en omläggningsplan och en temporär organisation.",
+            "pages": [2],
+        },
+    ]
+    prompt = build_answer_review_prompt(question, draft, chunks, ["handover:1"])
+
+    assert "evidence_id=handover:1" in prompt
+    assert "evidence_id=deployment:2" not in prompt
+
+    raw_review = json.dumps(
+        {
+            "status": "approved",
+            "reason": "Svaret bedömdes korrekt.",
+            "revision": None,
+            "evidence_ids_used": ["handover:1"],
+        },
+        ensure_ascii=False,
+    )
+    result = parse_answer_review_response(
+        question,
+        draft,
+        chunks,
+        ["handover:1"],
+        raw_review,
+    )
+
+    assert result["status"] == "rejected"
+    assert result["debug"]["fallback_reason"] == "agent3_grounding_failed"
 
 
 def test_synthesis_prompt_asks_for_fuller_source_grounded_obstacle_reasoning():

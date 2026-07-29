@@ -54,6 +54,7 @@ Syftet med dokumentet är inte bara att beskriva slutresultatet, utan att förkl
 28. Frikopplat RAG-API och första livekörningen av treagentskedjan
 29. Andra livekörningen: tokenkapning och isolerad fallback-retrieval
 30. Tredje livekörningen: evidenskontraktet mellan Agent 2 och Agent 3
+31. Fjärde livekörningen: systemberäknad coverage och första kompletta agentkedjan
 
 ## 1. Målbild
 
@@ -1662,3 +1663,32 @@ Den regeln togs bort. Groundingkontrollen använder nu bara:
 - säkra termrelationer från Agent 1, endast för ordformer och sammansättningar
 
 Okända chunk-ID:n avvisas fortfarande deterministiskt och ostödda formuleringar faller fortfarande tillbaka. Skillnaden är att ett svar inte längre underkänns bara för att en annan retrievalträff råkar innehålla samma domänord. Om Agent 2 passerar denna kontroll får Agent 3 göra den avsedda semantiska granskningen mot originalfrågan och de citerade källorna.
+
+## 31. Fjärde livekörningen: systemberäknad coverage och första kompletta agentkedjan
+
+Revision `11c7a16` verifierades live den 29 juli 2026. Kontrollvägen för Q22 svarade på `99,07 ms` utan LLM-anrop. Agentvägen tog `4 414,9 ms`, gjorde två LLM-anrop och använde `3 714` prompttokens, `1 949` completiontokens och `5 663` tokens totalt. Fallbacken gav åter exakt samma svar, källa och sida som kontrollen.
+
+Agent 2 föll denna gång med `agent2_grounding_failed`. Ett riktat anrop med modellens faktiska JSON visade att evidens-ID:na nu var korrekta och att svaret var källnära. Den blockerande skillnaden var i stället att modellen returnerade `source_coverage` som en kommaseparerad sträng:
+
+```json
+"source_coverage": "uses_retrieved_chunks, answers_original_question, ignores_metadata_as_facts"
+```
+
+Parsern krävde tidigare ett objekt med tre booleaner. Det är ett svagt kontrakt eftersom fältet är modellens egen försäkran om sådant som systemet och Agent 3 ändå måste kontrollera. `source_coverage` tas därför bort från Agent 2:s obligatoriska output och beräknas av systemet efter att evidens-ID:n och grounding har validerats.
+
+Den sista deterministiska groundingkontrollen var också för ordagrann: två nya innehållsord i en mening räckte för avslag. Den ersattes med en kontroll av total täckning och mindre påståendeenheter, där meningar även delas vid exempelvis `samt`, `dessutom` och semikolon. Det tillåter naturlig svensk parafras men stoppar fortfarande separata eller tillagda påståenden utan stöd.
+
+### Första verifierade Agent 1–2–3-passeringen
+
+Efter korrigeringen kördes ett riktat end-to-end-test mot samma HF-modeller:
+
+- Agent 1: `ok`
+- Agent 2: `ok`
+- Agent 2 använde två giltiga evidens-ID:n
+- Agent 3: `approved`
+
+Agent 2 svarade fokuserat om förvaltningsobjekt, ansvar hos leverantör och mottagare, katalogstruktur, tidplan samt flytt eller arkivering av projektmaterial. Agent 3 returnerade strikt JSON, godkände svaret och angav samma två evidens-ID:n. Detta var den första observerade kompletta passeringen genom hela treagentskedjan.
+
+En separat körning visade samtidigt att Agent 1 ibland nådde exakt sin gräns på `1 000` completiontokens och gav `agent1_invalid_json`. Gränsen höjs därför till `1 200`, medan Agent 2 ligger kvar på `1 800` och Agent 3 på `1 000`.
+
+Agent 3 får nu endast se de chunks som Agent 2 faktiskt citerade. Samma filtrering används i den deterministiska efterkontrollen. Det hindrar Agent 3 från att godkänna eller revidera ett svar med stöd från en annan, ociterad retrievalträff. Nästa deploytest ska upprepa Q22 A/B och därefter köra flera frågor för att mäta hur ofta Agent 3 väljer `approved`, `revision` respektive `rejected`.

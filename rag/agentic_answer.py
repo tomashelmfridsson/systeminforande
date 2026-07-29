@@ -31,11 +31,6 @@ _ALLOWED_TOP_LEVEL_KEYS = {
 _ALLOWED_SCOPES = {"direct", "partial_due_to_thin_evidence", "insufficient_evidence"}
 _SCOPE_ALIASES = {"sufficient": "direct"}
 _ALLOWED_EVIDENCE_KEYS = {"chunk_id", "source", "pages", "claim_supported"}
-_ALLOWED_COVERAGE_KEYS = {
-    "uses_retrieved_chunks",
-    "answers_original_question",
-    "ignores_metadata_as_facts",
-}
 _ALLOWED_REVIEW_TOP_LEVEL_KEYS = {"status", "reason", "revision", "evidence_ids_used"}
 _ALLOWED_REVIEW_STATUSES = {"approved", "rejected", "revision"}
 _STOPWORDS = {
@@ -79,11 +74,11 @@ def build_evidence_answer_prompt(
         "Varje central svarspunkt måste stödjas av minst ett evidence_used-objekt.\n"
         "Om evidensen inte räcker: answer_scope=insufficient_evidence och ge ett kort ärligt icke-svar.\n"
         "Returnera enbart strikt JSON, utan markdown eller prosa utanför objektet.\n"
-        "JSON-fält: original_question, answer, answer_scope, evidence_used, unsupported_or_uncertain, source_coverage, grounding_notes.\n"
+        "JSON-fält: original_question, answer, answer_scope, evidence_used, unsupported_or_uncertain, grounding_notes.\n"
         "answer_scope måste vara exakt direct, partial_due_to_thin_evidence eller insufficient_evidence.\n"
         "Varje evidence_used-objekt ska bara ange chunk_id och claim_supported. Använd exakt ett listat chunk_id; systemet kompletterar source och pages.\n"
         "Det äldre top-level-fältet evidence_ids_used behöver inte returneras; om det ändå finns ignoreras det till förmån för evidence_used.\n"
-        "source_coverage måste ange uses_retrieved_chunks, answers_original_question och ignores_metadata_as_facts.\n"
+        "Returnera inte source_coverage; systemet beräknar detta från validerad evidens och svaret.\n"
         "Tokenbudget: cirka 2 200–3 200 input tokens och högst 500 output tokens.\n\n"
         f"Fråga:\n{original_question}\n\n"
         f"Accepterad rewrite-metadata för retrieval, endast som stöd för termrelationer:\n{metadata}\n\n"
@@ -125,8 +120,13 @@ def build_answer_review_prompt(
     evidence_snippets: list[dict[str, Any]],
     evidence_ids: list[str],
 ) -> str:
-    compact_chunks = _compact_review_evidence(evidence_snippets)
     allowed_ids = [str(item) for item in evidence_ids if str(item).strip()]
+    allowed_id_set = set(allowed_ids)
+    compact_chunks = [
+        chunk
+        for chunk in _compact_review_evidence(evidence_snippets)
+        if chunk["chunk_id"] in allowed_id_set
+    ]
     evidence_block = "\n".join(
         (
             f"evidence_id={chunk['chunk_id']} | källa={chunk['source']} | sidor={_format_pages(chunk.get('pages'))}\n"
@@ -213,7 +213,13 @@ def parse_answer_review_response(
     reason = str(payload.get("reason") or "").strip()[:500]
     revision = str(payload.get("revision") or "").strip()
     review_text = revision if status == "revision" and revision else draft_answer
-    if status in {"approved", "revision"} and not _review_answer_supported(original_question, review_text, evidence_snippets):
+    used_id_set = set(used_ids)
+    cited_evidence = [
+        chunk
+        for index, chunk in enumerate(evidence_snippets[:MAX_REVIEW_EVIDENCE_CHUNKS], start=1)
+        if _chunk_id(chunk, index) in used_id_set
+    ]
+    if status in {"approved", "revision"} and not _review_answer_supported(original_question, review_text, cited_evidence):
         return _review_fallback(original_question, draft_answer, "agent3_grounding_failed", model=model)
 
     return {
@@ -287,16 +293,30 @@ def parse_evidence_answer_response(
             extra=evidence_debug,
         )
 
-    coverage = payload.get("source_coverage")
-    if not _valid_source_coverage(coverage):
-        return _fallback(original_question, "agent2_grounding_failed", model=model)
-
     unsupported = _valid_string_list(payload.get("unsupported_or_uncertain", []), max_items=6, max_length=180)
     if unsupported and answer_scope == "direct":
         return _fallback(original_question, "agent2_grounding_failed", model=model)
 
-    if not _answer_is_grounded(original_question, answer, chunks, evidence_used, rewrite_metadata or {}):
-        return _fallback(original_question, "agent2_grounding_failed", model=model)
+    grounding_failure = _answer_grounding_failure(
+        original_question,
+        answer,
+        chunks,
+        evidence_used,
+        rewrite_metadata or {},
+    )
+    if grounding_failure:
+        return _fallback(
+            original_question,
+            "agent2_grounding_failed",
+            model=model,
+            extra={"grounding_failure": grounding_failure},
+        )
+
+    coverage = {
+        "uses_retrieved_chunks": True,
+        "answers_original_question": True,
+        "ignores_metadata_as_facts": True,
+    }
 
     return {
         "status": "ok",
@@ -523,16 +543,6 @@ def _validate_evidence_used(
     return out, None, {"allowed_evidence_ids": allowed_ids}
 
 
-def _valid_source_coverage(value: Any) -> bool:
-    if not isinstance(value, dict) or set(value) - _ALLOWED_COVERAGE_KEYS:
-        return False
-    return (
-        value.get("uses_retrieved_chunks") is True
-        and value.get("answers_original_question") is True
-        and value.get("ignores_metadata_as_facts") is True
-    )
-
-
 def _has_evidence_text(chunks: list[dict[str, Any]]) -> bool:
     return any(_content_tokens(chunk.get("text", "")) for chunk in chunks[:MAX_ANSWER_EVIDENCE_CHUNKS])
 
@@ -554,13 +564,13 @@ def _has_internal_or_metadata_leakage(answer: str) -> bool:
     return any(phrase in lowered for phrase in _DISALLOWED_INTERNAL_PHRASES)
 
 
-def _answer_is_grounded(
+def _answer_grounding_failure(
     original_question: str,
     answer: str,
     chunks: list[dict[str, Any]],
     evidence_used: list[dict[str, Any]],
     rewrite_metadata: dict[str, Any],
-) -> bool:
+) -> str | None:
     support_tokens: set[str] = set()
     support_tokens.update(_content_tokens(original_question))
     cited_ids = {item["chunk_id"] for item in evidence_used}
@@ -576,27 +586,38 @@ def _answer_is_grounded(
         support_tokens.update(_content_tokens(term.get("normalized_family", "")))
 
     if not support_tokens:
-        return False
+        return "no_cited_support_tokens"
 
     answer_tokens = _content_tokens(answer)
     if len(answer_tokens) < 4:
-        return False
-    if len(answer_tokens & support_tokens) / max(len(answer_tokens), 1) < 0.30:
-        return False
+        return "answer_too_short"
+    total_ratio = len(answer_tokens & support_tokens) / max(len(answer_tokens), 1)
+    if total_ratio < 0.30:
+        return f"low_total_overlap:{total_ratio:.2f}"
 
-    for sentence in _split_sentences(answer):
-        sentence_tokens = _content_tokens(sentence)
-        if not sentence_tokens:
+    for index, claim_unit in enumerate(_split_claim_units(answer), start=1):
+        claim_tokens = _content_tokens(claim_unit)
+        if not claim_tokens:
             continue
-        overlap = sentence_tokens & support_tokens
-        if len(sentence_tokens - support_tokens) >= 2:
-            return False
+        overlap = claim_tokens & support_tokens
+        claim_ratio = len(overlap) / max(len(claim_tokens), 1)
         if len(overlap) >= 2:
-            continue
-        if len(overlap) / max(len(sentence_tokens), 1) >= 0.35:
-            continue
-        return False
-    return True
+            if claim_ratio >= 0.30:
+                continue
+        if claim_ratio < 0.35:
+            return f"low_claim_overlap:{index}:{claim_ratio:.2f}"
+    return None
+
+
+def _split_claim_units(text: str) -> list[str]:
+    units = []
+    for sentence in _split_sentences(text):
+        units.extend(
+            part.strip()
+            for part in re.split(r"\s*(?:;|\bdessutom\b|\bsamt\b|\bmen\b)\s*", sentence, flags=re.IGNORECASE)
+            if part.strip()
+        )
+    return units
 
 
 def _split_sentences(text: str) -> list[str]:

@@ -308,7 +308,7 @@ def test_agentic_rag_usage_metadata_includes_per_agent_tokens_latency_counts_and
     assert agent_usage["agent3_grounded_review"]["model"] == "agent3-model"
     assert agent_usage["agent3_grounded_review"]["latency_ms"] == 12.5
     assert max_tokens_by_purpose == {
-        "agent1_retrieval_rewrite": 1000,
+        "agent1_retrieval_rewrite": 1200,
         "agent2_evidence_answer": 1800,
         "agent3_grounded_review": 1000,
     }
