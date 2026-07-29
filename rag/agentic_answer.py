@@ -217,7 +217,7 @@ def parse_answer_review_response(
     cited_evidence = [
         chunk
         for index, chunk in enumerate(evidence_snippets[:MAX_REVIEW_EVIDENCE_CHUNKS], start=1)
-        if _chunk_id(chunk, index) in used_id_set
+        if evidence_chunk_id(chunk, index) in used_id_set
     ]
     if status in {"approved", "revision"} and not _review_answer_supported(original_question, review_text, cited_evidence):
         return _review_fallback(original_question, draft_answer, "agent3_grounding_failed", model=model)
@@ -280,7 +280,7 @@ def parse_evidence_answer_response(
     if _has_internal_or_metadata_leakage(answer):
         return _fallback(original_question, "agent2_grounding_failed", model=model)
 
-    chunk_lookup = {_chunk_id(chunk, index): chunk for index, chunk in enumerate(chunks[:MAX_ANSWER_EVIDENCE_CHUNKS], start=1)}
+    chunk_lookup = {evidence_chunk_id(chunk, index): chunk for index, chunk in enumerate(chunks[:MAX_ANSWER_EVIDENCE_CHUNKS], start=1)}
     evidence_used, evidence_error, evidence_debug = _validate_evidence_used(
         payload.get("evidence_used"),
         chunk_lookup,
@@ -409,7 +409,7 @@ def _compact_chunks(chunks: list[dict[str, Any]]) -> list[dict[str, Any]]:
         text = " ".join(str(chunk.get("text") or "").split())[:MAX_CHUNK_EXCERPT_CHARS]
         compact.append(
             {
-                "chunk_id": _chunk_id(chunk, index),
+                "chunk_id": evidence_chunk_id(chunk, index),
                 "source": str(chunk.get("source") or ""),
                 "title": str(chunk.get("title") or ""),
                 "pages": chunk.get("pages") or [],
@@ -425,7 +425,7 @@ def _compact_review_evidence(chunks: list[dict[str, Any]]) -> list[dict[str, Any
         text = " ".join(str(chunk.get("text") or "").split())[:MAX_REVIEW_CHUNK_EXCERPT_CHARS]
         compact.append(
             {
-                "chunk_id": _chunk_id(chunk, index),
+                "chunk_id": evidence_chunk_id(chunk, index),
                 "source": str(chunk.get("source") or ""),
                 "pages": chunk.get("pages") or [],
                 "text": text,
@@ -478,7 +478,7 @@ def _compact_rewrite_metadata(metadata: dict[str, Any]) -> str:
     return json.dumps(allowed, ensure_ascii=False)
 
 
-def _chunk_id(chunk: dict[str, Any], index: int) -> str:
+def evidence_chunk_id(chunk: dict[str, Any], index: int) -> str:
     value = chunk.get("id") or chunk.get("chunk_id")
     if value:
         return str(value)
@@ -575,7 +575,7 @@ def _answer_grounding_failure(
     support_tokens.update(_content_tokens(original_question))
     cited_ids = {item["chunk_id"] for item in evidence_used}
     for index, chunk in enumerate(chunks[:MAX_ANSWER_EVIDENCE_CHUNKS], start=1):
-        if _chunk_id(chunk, index) in cited_ids:
+        if evidence_chunk_id(chunk, index) in cited_ids:
             support_tokens.update(_content_tokens(chunk.get("text", "")))
     for item in evidence_used:
         support_tokens.update(_content_tokens(item.get("claim_supported", "")))

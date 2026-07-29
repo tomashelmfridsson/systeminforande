@@ -445,6 +445,35 @@ def test_synthesis_stage_strips_llm_generated_sources_before_app_sources_are_app
     assert "Felaktig extra källista" not in final_answer
 
 
+@pytest.mark.parametrize(
+    "source_heading",
+    (
+        "**Källor**",
+        "### Källor",
+        "Källor:",
+    ),
+)
+def test_synthesis_stage_strips_common_model_generated_source_headings(source_heading):
+    rewritten = (
+        "Ett systeminförande kan hindras när acceptanstest, utbildning, IT-miljöer, "
+        "konvertering och driftsättning inte hålls ihop med tydliga aktiviteter och ansvar."
+        f"\n\n{source_heading}\n"
+        "Arbetsomraden_checklista.pdf, avsnitt 1."
+    )
+
+    result = build_final_grounded_answer(
+        "Vilka hinder finns i systeminförande?",
+        OBSTACLE_CHUNKS,
+        enable_synthesis=True,
+        llm_rewrite=lambda prompt, model=None: rewritten,
+    )
+
+    final_answer = str(result["final_answer"])
+    assert result["synthesis_used"] is True
+    assert final_answer.count("Källor") == 0
+    assert "avsnitt 1" not in final_answer
+
+
 def test_synthesis_stage_is_off_by_default():
     result = build_final_grounded_answer(
         "Vad ska en utbildningsstrategi innehålla",

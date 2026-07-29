@@ -5,7 +5,7 @@ from typing import Any, Iterable
 QUERY_PARAM_CANDIDATES = ("LLM", "llm", "llm_model", "model", "model_id")
 
 
-def _read_query_params(request: Any) -> dict[str, str]:
+def read_query_params(request: Any) -> dict[str, str]:
     if request is None:
         return {}
 
@@ -43,7 +43,7 @@ def _to_str_dict(query_params: Any) -> dict[str, str]:
 
 
 def requested_llm_model_from_request(request: Any) -> str | None:
-    query_params = _read_query_params(request)
+    query_params = read_query_params(request)
     for key in QUERY_PARAM_CANDIDATES:
         value = query_params.get(key)
         if value is None:

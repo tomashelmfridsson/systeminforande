@@ -188,7 +188,19 @@ def test_agentic_rag_feature_flag_enabled_calls_three_roles_in_order_uses_review
     app_module = _load_local_app_without_launch(monkeypatch)
     monkeypatch.setenv("SYSTEMINFORANDE_ENABLE_AGENTIC_RAG", "true")
     calls: list[str] = []
+    evidence_filter_calls: list[list[str]] = []
+    agent_answer = (
+        "Utbildningsstrategin beskriver syfte, målgrupper, utbildningsbehov och genomförande."
+        "\n\n**Källor**\n- Modellgenererad_källa.pdf"
+    )
     _stub_common_agentic_pipeline_rag(app_module, monkeypatch, calls)
+    original_filter = app_module.filter_results_by_evidence_ids
+
+    def tracking_filter(results, evidence_ids):
+        evidence_filter_calls.append(list(evidence_ids))
+        return original_filter(results, evidence_ids)
+
+    monkeypatch.setattr(app_module, "filter_results_by_evidence_ids", tracking_filter)
 
     def fake_agent1(question, llm_rewrite, **kwargs):
         calls.append("agent1")
@@ -204,7 +216,7 @@ def test_agentic_rag_feature_flag_enabled_calls_three_roles_in_order_uses_review
         return {
             "status": "ok",
             "model": "agent2-model",
-            "answer": "Utbildningsstrategin beskriver syfte, målgrupper, utbildningsbehov och genomförande.",
+            "answer": agent_answer,
             "answer_scope": "direct",
             "evidence_ids_used": ["chunk-1"],
             "debug": {"fallback_reason": None},
@@ -213,7 +225,7 @@ def test_agentic_rag_feature_flag_enabled_calls_three_roles_in_order_uses_review
     def fake_agent3(original_question, draft_answer, evidence_snippets, evidence_ids, llm_review, **kwargs):
         calls.append("agent3")
         assert original_question == "Vad är en utbildningsstrategi?"
-        assert draft_answer == "Utbildningsstrategin beskriver syfte, målgrupper, utbildningsbehov och genomförande."
+        assert draft_answer == agent_answer
         assert evidence_ids == ["chunk-1"]
         return {
             "status": "approved",
@@ -244,6 +256,52 @@ def test_agentic_rag_feature_flag_enabled_calls_three_roles_in_order_uses_review
     assert response["answer_markdown"].startswith("Utbildningsstrategin beskriver syfte")
     assert response["retrieval"]["agentic_rag_enabled"] is True
     assert response["retrieval"]["agentic_pipeline"]["review_status"] == "approved"
+    assert evidence_filter_calls == [["chunk-1"]]
+    assert response["answer_markdown"].count("Källor") == 1
+    assert "Modellgenererad_källa.pdf" not in response["answer_markdown"]
+
+
+def test_filter_results_by_evidence_ids_keeps_only_agent3_approved_chunks(monkeypatch):
+    app_module = _load_local_app_without_launch(monkeypatch)
+    results = [
+        (9.0, {"id": "used:1", "source": "Used.pdf"}),
+        (8.0, {"id": "retrieved:2", "source": "RetrievedButUnused.pdf"}),
+    ]
+
+    filtered = app_module.filter_results_by_evidence_ids(results, ["used:1"])
+
+    assert filtered == [results[0]]
+
+
+def test_gradio_request_url_can_disable_default_agentic_rag(monkeypatch):
+    app_module = _load_local_app_without_launch(monkeypatch)
+    monkeypatch.setenv("SYSTEMINFORANDE_ENABLE_AGENTIC_RAG", "true")
+    received = {}
+
+    def fake_build_rag_response(query, debug, llm_model, enable_synthesis, *, enable_agentic_rag):
+        received["enable_agentic_rag"] = enable_agentic_rag
+        return {
+            "route": "rag",
+            "answer_markdown": "Äldre RAG-väg.",
+            "sources": [],
+            "homepage_links": [],
+            "retrieval": {"llm_usage": {}},
+            "llm_usage": {},
+        }
+
+    class FakeGradioRequest:
+        query_params = {"enable_agentic_rag": "false"}
+
+    monkeypatch.setattr(app_module, "build_rag_response", fake_build_rag_response)
+
+    response = app_module.answer_question(
+        "Vilka etapper finns?",
+        llm_model="model-a",
+        request=FakeGradioRequest(),
+    )
+
+    assert received["enable_agentic_rag"] is False
+    assert response["enable_agentic_rag"] is False
 
 
 def test_agentic_rag_usage_metadata_includes_per_agent_tokens_latency_counts_and_fallback(monkeypatch):

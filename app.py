@@ -13,6 +13,7 @@ import requests
 from rag.grounding import filter_allowed_results, grounded_answer_or_fallback
 from rag.model_selection import (
     build_model_choices,
+    read_query_params,
     requested_llm_model_from_request,
     resolve_llm_model,
 )
@@ -26,10 +27,12 @@ from rag.synthesis import (
     DEFAULT_SYNTHESIS_MODEL,
     build_final_grounded_answer,
     resolve_synthesis_settings,
+    strip_generated_answer_metadata,
 )
 from rag.agentic_answer import (
     DEFAULT_ANSWER_MODEL,
     DEFAULT_REVIEW_MODEL,
+    evidence_chunk_id,
     generate_answer_review,
     generate_evidence_answer,
 )
@@ -162,6 +165,24 @@ def _env_flag_enabled(name: str, default: bool = False) -> bool:
 
 def agentic_rag_enabled() -> bool:
     return _env_flag_enabled(AGENTIC_RAG_FEATURE_FLAG_ENV, default=False)
+
+
+def requested_agentic_rag_from_request(request: Any) -> bool | None:
+    query_params = read_query_params(request)
+    for key in (
+        "enable_agentic_rag",
+        "agentic_rag",
+        AGENTIC_RAG_FEATURE_FLAG_ENV,
+    ):
+        value = query_params.get(key)
+        if value is None:
+            continue
+        normalized = value.strip().lower()
+        if normalized in {"1", "true", "yes", "on"}:
+            return True
+        if normalized in {"0", "false", "no", "off"}:
+            return False
+    return None
 
 
 def _serialize_sources_for_log(sources: list[dict[str, Any]] | None) -> list[dict[str, Any]]:
@@ -443,6 +464,16 @@ def answer_question(
             default_model=DEFAULT_LLM_MODEL,
         )["enabled"]
     )
+    request_agentic_override = requested_agentic_rag_from_request(request)
+    resolved_enable_agentic_rag = (
+        bool(enable_agentic_rag)
+        if enable_agentic_rag is not None
+        else (
+            request_agentic_override
+            if request_agentic_override is not None
+            else agentic_rag_enabled()
+        )
+    )
 
     base_response = {
         "question": raw_message,
@@ -450,11 +481,7 @@ def answer_question(
         "doc_id": doc_id,
         "debug_mode": bool(debug_mode),
         "enable_synthesis": resolved_enable_synthesis,
-        "enable_agentic_rag": (
-            agentic_rag_enabled()
-            if enable_agentic_rag is None
-            else bool(enable_agentic_rag)
-        ),
+        "enable_agentic_rag": resolved_enable_agentic_rag,
         "llm_model": resolved_llm_model,
         "route": None,
         "answer_markdown": "",
@@ -508,7 +535,7 @@ def answer_question(
         debug_mode,
         resolved_llm_model,
         resolved_enable_synthesis,
-        enable_agentic_rag=enable_agentic_rag,
+        enable_agentic_rag=resolved_enable_agentic_rag,
     )
     base_response.update(rag_response)
     retrieval = rag_response.get("retrieval") or {}
@@ -851,15 +878,7 @@ def format_llm_error(exc: Exception) -> str:
 
 
 def _strip_answer_metadata(answer: str) -> str:
-    text = (answer or "").strip()
-    if not text:
-        return ""
-
-    for marker in ("\n\n---\n\n### Källor", "\n\n---\n\n### Debug"):
-        if marker in text:
-            text = text.split(marker, 1)[0].strip()
-
-    return text
+    return strip_generated_answer_metadata(answer)
 
 
 def _looks_like_narrative_answer(answer: str) -> bool:
@@ -940,6 +959,21 @@ def serialize_chunk(chunk: dict, score: float | None = None) -> dict[str, Any]:
 
 def serialize_results(results) -> list[dict[str, Any]]:
     return [serialize_chunk(chunk, score) for score, chunk in results]
+
+
+def filter_results_by_evidence_ids(results, evidence_ids: list[str] | None):
+    allowed_ids = {
+        str(evidence_id).strip()
+        for evidence_id in (evidence_ids or [])
+        if str(evidence_id).strip()
+    }
+    if not allowed_ids:
+        return []
+    return [
+        (score, chunk)
+        for index, (score, chunk) in enumerate(results, start=1)
+        if evidence_chunk_id(chunk, index) in allowed_ids
+    ]
 
 
 def _simple_tokenize(text: str) -> set[str]:
@@ -1277,6 +1311,15 @@ def build_rag_response(
 
     agentic_fallback_retrieval_used = False
     if agentic_reviewed_answer:
+        results = filter_results_by_evidence_ids(
+            results,
+            agent3_review.get("evidence_ids_used") if isinstance(agent3_review, dict) else [],
+        )
+        chunks = [chunk for _, chunk in results]
+        confidence = round(
+            sum(score for score, _ in results) / len(results),
+            2,
+        ) if results else 0
         synthesis_result = build_final_grounded_answer(
             query,
             chunks,
@@ -1313,7 +1356,7 @@ def build_rag_response(
         }
         synthesis_result = build_final_grounded_answer(query, chunks, **synthesis_kwargs)
     structured_answer = str(synthesis_result["extractive_answer"])
-    final_answer = str(synthesis_result["final_answer"])
+    final_answer = strip_generated_answer_metadata(str(synthesis_result["final_answer"]))
     sources_md = build_sources_md(results)
     homepage_links = serialize_homepage_links(results)
 

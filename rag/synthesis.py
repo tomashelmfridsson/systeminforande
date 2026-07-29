@@ -23,6 +23,10 @@ _STOPWORDS = {
     "finns", "utifrån", "materialet", "visar", "beskriver", "frågan", "underlaget", "samt",
     "genom", "det", "de", "ett", "en", "har", "sin", "sitt", "sina", "denna", "dessa",
 }
+_GENERATED_SECTION_HEADING_RE = re.compile(
+    r"(?im)^[ \t]*(?:---[ \t]*\r?\n[ \t]*)?"
+    r"(?:#{1,6}[ \t]*|\*\*)?(?:källor|debug)(?:\*\*)?[ \t]*:?[ \t]*$"
+)
 
 
 def _parse_feature_flag(value: str | bool | None) -> bool:
@@ -130,7 +134,7 @@ def build_final_grounded_answer(
         result["llm_status"] = "fallback_to_extractive_due_to_grounding_check"
         return result
 
-    result["final_answer"] = _strip_metadata(rewritten_answer)
+    result["final_answer"] = strip_generated_answer_metadata(rewritten_answer)
     result["synthesis_used"] = True
     result["llm_status"] = "rewrite_applied"
     return result
@@ -146,7 +150,7 @@ def _normalize_extractive_answer(answer: str | None) -> str:
 
 
 def _passes_grounding_check(candidate: str, chunks: list[dict], extractive_answer: str, query: str = "") -> bool:
-    text = _strip_metadata(candidate)
+    text = strip_generated_answer_metadata(candidate)
     if len(text) < 40:
         return False
     if _has_disallowed_template_phrase(text):
@@ -208,11 +212,11 @@ def _has_disallowed_metadata_phrase(text: str) -> bool:
     )
 
 
-def _strip_metadata(answer: str) -> str:
+def strip_generated_answer_metadata(answer: str) -> str:
     text = (answer or "").strip()
-    for marker in ("\n\n---\n\n### Källor", "\n\n---\n\n### Debug"):
-        if marker in text:
-            text = text.split(marker, 1)[0].strip()
+    match = _GENERATED_SECTION_HEADING_RE.search(text)
+    if match:
+        text = text[: match.start()].strip()
     return text
 
 

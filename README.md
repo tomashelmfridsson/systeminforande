@@ -29,7 +29,7 @@ Experimentell grounded LLM-syntes för fria RAG-frågor styrs med:
 
 API-flödet stöder även per-anrop-override via `/api/ask` med JSON-fälten `question` (str), `debug_mode` (bool), `enable_synthesis` (bool), `enable_agentic_rag` (bool), `llm_model` (str) och `doc_id` (str), så att samma deploy kan A/B-testas med syntes och Agentic RAG av/på utan kodändring. Den deployade kontroll-ytan ska även svara `200` på `/health` och `/ready`; båda status-endpointarna visar om Agentic RAG är aktiverad i miljön.
 
-Docker/Hugging Face-deployen aktiverar Agentic RAG som standard med `SYSTEMINFORANDE_ENABLE_AGENTIC_RAG=true`. Gradio använder miljöns standardvärde. Ett `/api/ask`-anrop kan tillfälligt välja kontrollvägen med `"enable_agentic_rag": false` eller agentvägen med `"enable_agentic_rag": true`, vilket gör jämförelsen reproducerbar på samma revision.
+Docker/Hugging Face-deployen aktiverar Agentic RAG som standard med `SYSTEMINFORANDE_ENABLE_AGENTIC_RAG=true`. Gradio använder miljöns standardvärde om URL:en inte överstyr det; lägg exempelvis till `?enable_agentic_rag=false` på GUI-adressen för att använda den äldre RAG-vägen. Ett `/api/ask`-anrop kan tillfälligt välja kontrollvägen med `"enable_agentic_rag": false` eller agentvägen med `"enable_agentic_rag": true`, vilket gör jämförelsen reproducerbar på samma revision.
 
 Samma overrides kan anges i URL:en, till exempel `POST /api/ask?enable_agentic_rag=false&debug=true`. JSON-body har högst prioritet, därefter URL-parametrar och sist miljökonfigurationen. URL-värden accepterar `true/false`, `1/0`, `yes/no` och `on/off`; ogiltiga värden ger `400`.
 

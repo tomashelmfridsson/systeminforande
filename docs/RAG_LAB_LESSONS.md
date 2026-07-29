@@ -55,6 +55,7 @@ Syftet med dokumentet är inte bara att beskriva slutresultatet, utan att förkl
 29. Andra livekörningen: tokenkapning och isolerad fallback-retrieval
 30. Tredje livekörningen: evidenskontraktet mellan Agent 2 och Agent 3
 31. Fjärde livekörningen: systemberäknad coverage och första kompletta agentkedjan
+32. Första kompletta livekedjan och en enda auktoritativ källista
 
 ## 1. Målbild
 
@@ -1692,3 +1693,27 @@ Agent 2 svarade fokuserat om förvaltningsobjekt, ansvar hos leverantör och mot
 En separat körning visade samtidigt att Agent 1 ibland nådde exakt sin gräns på `1 000` completiontokens och gav `agent1_invalid_json`. Gränsen höjs därför till `1 200`, medan Agent 2 ligger kvar på `1 800` och Agent 3 på `1 000`.
 
 Agent 3 får nu endast se de chunks som Agent 2 faktiskt citerade. Samma filtrering används i den deterministiska efterkontrollen. Det hindrar Agent 3 från att godkänna eller revidera ett svar med stöd från en annan, ociterad retrievalträff. Nästa deploytest ska upprepa Q22 A/B och därefter köra flera frågor för att mäta hur ofta Agent 3 väljer `approved`, `revision` respektive `rejected`.
+
+## 32. Första kompletta livekedjan och en enda auktoritativ källista
+
+Revision `fe32085` gav den första kompletta livepasseringen för Q22:
+
+- Agent 1 `ok`
+- Agent 2 `ok`
+- Agent 3 `approved`
+- ingen agentisk fallback
+- svarstid `7 468,54 ms`
+- `5 596` prompttokens, `2 585` completiontokens och `8 181` tokens totalt
+
+Kontrollvägen svarade på `163,9 ms` utan LLM-anrop. Agentsvaret var mer utvecklat men tog även med omläggningsplan och aktiviteter kring driftsättning. Detta visar att kedjan tekniskt fungerar, men att Agent 3:s fokusgranskning fortfarande behöver följas upp över flera frågor.
+
+Frågan `Vilka etapper finns?` kördes både mot `/api/ask` och den faktiska Gradio-endpointen. Båda svarade korrekt med de fem etapperna och endast en synlig `Källor`-rubrik på denna revision. Ett äldre GUI-svar hade däremot innehållit först en modellgenererad `**Källor**`-sektion och därefter applikationens klickbara `### Källor`-sektion. Den befintliga saneringen kände bara igen det senare rubrikformatet.
+
+Källhanteringen görs därför generell och auktoritativ:
+
+- modellgenererade fristående rubriker som `**Källor**`, `### Källor` och `Källor:` tas bort tillsammans med efterföljande modellmetadata
+- applikationen är ensam ansvarig för den klickbara källsektionen
+- ett Agent 3-godkänt svar visar endast de retrievalresultat vars chunk-ID faktiskt godkändes
+- ociterade toppträffar får inte längre följa med bara för att de fanns i den sammanfogade retrievalrankingen
+
+Agentic RAG är fortsatt standard i Docker/HF. `/api/ask` kan välja den äldre vägen med JSON-fältet eller URL-parametern `enable_agentic_rag=false`. Gradio läser nu samma URL-override, så GUI:t kan jämföras på samma deploy genom att öppnas med `?enable_agentic_rag=false`; utan override används miljöns standardvärde `true`.
