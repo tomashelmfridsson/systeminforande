@@ -2,6 +2,8 @@
 
 Datum: 2026-07-22
 
+> **Historiskt designdokument:** Detta dokument beskriver det ursprungliga agentkontraktet före implementation och senare kostnadsoptimeringar. Aktuella modeller, körvägar och feature flags beskrivs i [RAG Solution](./rag-solution.html).
+
 Syftet med detta dokument är att definiera en kontrollerad 3-agentdesign för nästa RAG-steg innan implementation. Designen ska förbättra svensk retrieval och svarskvalitet utan att göra lösningen beroende av hårdkodade domänord som `överlämna` eller `förvalta`. Den ska fungera generellt för svensk grammatik, böjningar och synonymer, till exempel `undervisning`, `undervisade` och `undervisat`.
 
 ## Grundprincip

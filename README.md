@@ -22,6 +22,8 @@ I GitHub-repot behöver Pages vara satt till `GitHub Actions` som build source.
 Hugging Face Space kan deployas från GitHub via `.github/workflows/deploy-huggingface.yml`
 med en repo-secret `HF_TOKEN`.
 
+Den publika lösningsbeskrivningen finns i [RAG Solution](https://tomashelmfridsson.github.io/systeminforande/rag-solution.html). Experiment, felsökning och historiska beslut dokumenteras separat i [RAG Lab Journal](https://tomashelmfridsson.github.io/systeminforande/rag-lab-lessons.html).
+
 Experimentell grounded LLM-syntes för fria RAG-frågor styrs med:
 - `SYSTEMINFORANDE_ENABLE_LLM_SYNTHESIS=false` som säker standard.
 - `SYSTEMINFORANDE_ENABLE_LLM_SYNTHESIS=true` för att slå på omskrivningssteget efter extraktivt svar.

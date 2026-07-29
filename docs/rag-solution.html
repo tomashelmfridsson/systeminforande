@@ -3,8 +3,8 @@
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <meta name="description" content="Kronologisk utvecklingsjournal för chatbotens RAG-lösning.">
-    <title>RAG Lab Journal</title>
+    <meta name="description" content="Aktuell lösningsbeskrivning för chatbotens RAG-arkitektur, retrieval, agentkedja, API och kvalitetssäkring.">
+    <title>RAG Solution</title>
     <style>
       :root {
         color-scheme: light;
@@ -19,6 +19,10 @@
 
       * {
         box-sizing: border-box;
+      }
+
+      html {
+        scroll-behavior: smooth;
       }
 
       body {
@@ -138,6 +142,13 @@
         line-height: 1.6;
         color: var(--muted);
       }
+
+      @media (max-width: 640px) {
+        .panel {
+          padding: 22px;
+          border-radius: 16px;
+        }
+      }
     </style>
   </head>
   <body>
@@ -146,11 +157,11 @@
         <p class="eyebrow">Systeminforande</p>
         <div class="top-links">
           <a href="./index.html">Till dokumentsamlingen</a>
-          <a href="./RAG_LAB_LESSONS.md">Läs rå Markdown</a>
-          <a href="./rag-solution.html">Aktuell RAG Solution</a>
-          <a href="./agentic-rag-contracts.md">Ursprungligt agentkontrakt</a>
+          <a href="./RAG_SOLUTION.md">Läs rå Markdown</a>
+          <a href="./rag-lab-lessons.html">Utvecklingsjournal</a>
+          <a href="https://www.systeminforande.se/chatt-bot">Öppna chatboten</a>
         </div>
-        <p class="meta">Kronologisk utvecklingsjournal. Författare: Tomas Helmfridsson och OpenAI Codex. Startad 2026-07-10, senast uppdaterad 2026-07-29. För aktuellt lösningsläge, läs RAG Solution.</p>
+        <p class="meta">Aktuell lösningsbeskrivning. Författare: Tomas Helmfridsson och OpenAI Codex. Senast uppdaterad 2026-07-29.</p>
         <div id="content">
           <p class="muted">Laddar dokumentet…</p>
         </div>
@@ -275,10 +286,10 @@
         return html.join("\n");
       }
 
-      fetch("./RAG_LAB_LESSONS.md")
+      fetch("./RAG_SOLUTION.md")
         .then((response) => {
           if (!response.ok) {
-            throw new Error("Kunde inte läsa markdownfilen.");
+            throw new Error("Kunde inte läsa lösningsbeskrivningen.");
           }
           return response.text();
         })

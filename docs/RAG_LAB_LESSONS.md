@@ -1,1704 +1,418 @@
-# RAG Lab Lessons
+# RAG Lab Journal
+
+**Utvecklingsjournal för chatbotens RAG-lösning**
 
 **Författare**
+
 Tomas Helmfridsson och OpenAI Codex
 
-**Datum**
+**Startdatum**
+
 2026-07-10
 
-**Framtagning**
-Detta dokument är framtaget med AI-assisterat stöd. Struktur, analys, testobservationer och textbearbetning har tagits fram i samarbete mellan människa och AI.
+**Senast uppdaterad**
 
-**Publik länk till chatboten**
-https://www.systeminforande.se/chatt-bot
+2026-07-29
 
-Detta dokument sammanfattar labben bakom chatboten för systeminförande. Fokus ligger på hur vi gick från ett antal PDF-filer till en sökbar applikation med både modellfri syntes och LLM-baserade svar, vilka tekniska val som gjordes och vad vi lärde oss av dem.
+Detta är en kronologisk journal över experiment, fel, mätningar och beslut i arbetet med chatbotens RAG-lösning. Journalen beskriver hur lösningen förändrades och varför. Den ska inte läsas som dokumentation av dagens arkitektur.
 
-Syftet med dokumentet är inte bara att beskriva slutresultatet, utan att förklara själva RAG-resan:
+Den aktuella lösningen beskrivs i [RAG Solution](./rag-solution.html).
 
-- hur källmaterial extraheras
-- hur chunkning påverkar kvaliteten
-- hur retrieval fungerar
-- vad som skiljer modellfri syntes från LLM-generering
-- vilka förbättringar vi har testat och varför
+## Så läses journalen
 
-## Innehållsförteckning
+Varje journalpost använder så långt möjligt samma struktur:
 
-1. Målbild
-2. Övergripande arkitektur
-3. Vad RAG betyder i denna lösning
-4. Varför Hugging Face och Gradio valdes
-5. Från PDF till sökbart index
-6. Chunkning
-7. Retrieval
-8. BM25
-9. Tokenisering, normalisering och stopwords
-10. Heuristiker och boostar
-11. Query intent
-12. Temperaturspåret och vad det faktiskt påverkade
-13. Alternativ till BM25
-14. Strukturerad modellfri syntes
-15. LLM-baserad syntes
-16. Modellval och praktiska LLM-erfarenheter
-17. Källor och transparens
-18. Deployment och drift
-19. Viktigaste lärdomar
-20. Nästa rimliga förbättringar
-21. Sammanfattning
-22. När vi upptäckte att RAG:en inte höll måttet
-23. RAGAS, loggar och live modelljämförelse
-24. Promptstyrd svarskvalitet utan att släppa källgrundningen
-25. Manuell granskning, metadatahygien och nästa live-mätning
-26. Agentic RAG: kontrollerad 3-agentdesign
-27. Agentic RAG 7: live-utvärdering och kvarvarande risker
-28. Frikopplat RAG-API och första livekörningen av treagentskedjan
-29. Andra livekörningen: tokenkapning och isolerad fallback-retrieval
-30. Tredje livekörningen: evidenskontraktet mellan Agent 2 och Agent 3
-31. Fjärde livekörningen: systemberäknad coverage och första kompletta agentkedjan
-32. Första kompletta livekedjan och en enda auktoritativ källista
-33. RAGAS-körning med Agentic RAG stoppades av HF-krediter
-34. Kostnadsstyrd agentkedja: 20B som standard och 120B endast vid korrigering
-35. Out-of-domain-frågor får inte räddas av agentisk retrievaldrift
-36. Tillfällig driftprofil: Agentic RAG av tills nya HF-credits
+- **Utgångsläge** – problemet eller frågan vi började med
+- **Observation** – vad tester, loggar eller kodgranskning visade
+- **Ändring** – vad vi gjorde
+- **Resultat** – vad som kunde verifieras
+- **Beslut eller lärdom** – vad observationen betyder för fortsatt arbete
 
-## 1. Målbild
+Uppgifter om modeller, feature flags och standardvärden är historiska när de står i en daterad journalpost. [RAG Solution](./rag-solution.html) är alltid den auktoritativa beskrivningen av aktuellt läge.
 
-Målet var att bygga en praktiskt användbar chatbot för material om systeminförande, men också att använda arbetet som en lärlabb för RAG.
+## Aktuellt arbetsläge
 
-Två mål löpte därför parallellt:
+Den 29 juli 2026 är den kontrollerade RAG-vägen tillfällig standard i Docker/Hugging Face:
 
-- skapa en fungerande applikation
-- förstå och dokumentera vad som faktiskt påverkar svarskvaliteten
-
-Det blev snabbt tydligt att den stora utmaningen inte bara var att "koppla in en LLM", utan att få hela kedjan att fungera:
-
-1. källmaterialet måste gå att extrahera
-2. texten måste delas upp på ett bra sätt
-3. retrieval måste hitta rätt avsnitt
-4. svaret måste byggas försiktigt utifrån underlaget
-
-## 2. Övergripande arkitektur
-
-Lösningen kan beskrivas som en enkel men tydlig RAG-pipeline:
-
-1. PDF-filer läses in från `docs/pdfs/`
-2. text extraheras sida för sida
-3. texten delas upp i chunkar
-4. chunkarna sparas i ett lokalt index i `rag/data/chunks.json`
-5. en fråga tokeniseras och matchas mot chunkarna
-6. toppresultaten används som underlag för ett svar
-7. svaret byggs antingen modellfritt eller med extern LLM
-8. källor visas som klickbara länkar till GitHub Pages
-
-Det viktiga här är att RAG inte är en enskild funktion, utan en kedja där varje steg påverkar nästa steg.
-
-## 3. Vad RAG betyder i denna lösning
-
-RAG står för Retrieval-Augmented Generation.
-
-I denna lösning betyder det:
-
-- `Retrieval`: hitta relevanta chunkar från det lokala dokumentmaterialet
-- `Augmented`: använda dessa chunkar som extra kontext
-- `Generation`: formulera ett svar baserat på chunkarna
-
-Det finns dock två typer av generation i lösningen:
-
-- `modellfri syntes`
-- `LLM-baserad generering`
-
-Det är en viktig skillnad. Generation behöver inte alltid betyda att en extern språkmodell skriver svaret. I vår strukturerade väg genereras texten av egen kod genom regelstyrd extraktion och omskrivning.
-
-## 4. Varför Hugging Face och Gradio valdes
-
-### Hugging Face
-
-Hugging Face valdes som driftmiljö därför att det gav:
-
-- enkel hosting av en Python-app
-- direkt stöd för Gradio
-- möjlighet att prova flera externa modeller via samma ekosystem
-- enkel koppling från GitHub med GitHub Actions
-
-Det gjorde plattformen lämplig för en experimentell RAG-labb där modellstöd, prompting och svarskvalitet behövde testas iterativt.
-
-### Gradio
-
-Gradio valdes därför att det gav:
-
-- snabb GUI-utveckling i Python
-- enkel koppling mellan backendlogik och UI-komponenter
-- bra stöd för att streama eller successivt uppdatera svar
-- enkel deploy i Hugging Face Spaces
-
-Nackdelen är att det är svårare att detaljstyra UI än i ett separat frontend-ramverk, men för denna labb vägde utvecklingshastigheten tyngre.
-
-## 5. Från PDF till sökbart index
-
-Kärnan i lösningen börjar i `rag/ingest.py`.
-
-Ingest betyder här steget där rått källmaterial görs om till ett internt format som resten av systemet kan arbeta med.
-
-I praktiken gör ingest detta:
-
-- läser alla PDF-filer
-- extraherar text per sida med PyMuPDF (`fitz`)
-- filtrerar bort brus
-- delar upp texten i chunkar
-- sparar chunkarna med metadata som titel, sektion, sidnummer och källa
-
-En viktig lärdom är att ingest inte bara är "förarbete". Det är själva grunden för retrievalen. Om chunkarna blir dåliga kommer även den bästa LLM:n att få dåligt underlag.
-
-## 6. Chunkning
-
-### Vad chunkning är
-
-Chunkning betyder att man delar upp dokument i mindre textblock som går att söka i.
-
-Ett chunk måste vara:
-
-- tillräckligt litet för att vara träffsäkert
-- tillräckligt stort för att behålla sammanhang
-- tillräckligt rent från brus för att inte lura retrievalen
-
-Detta är ett av de viktigaste stegen i en RAG-lösning.
-
-### Hur chunkning fungerar hos oss
-
-I denna lösning är chunkningen regelbaserad och strukturdriven. Den görs inte med LLM och den görs inte med embeddings.
-
-Det betyder:
-
-- ingen språkmodell används för att sammanfatta eller dela upp texten
-- inga vektorer används för att avgöra chunkgränser
-- chunkgränserna bestäms av dokumentstruktur, främst rubriker och sektioner
-
-Kodmässigt bygger detta på:
-
-- rubrikigenkänning med regex som `SECTION_RE`
-- stöd för rubriker som ligger på två rader, exempelvis först ett sektionsnummer och sedan själva rubriken
-- filtrering av innehållsförteckningar via `TOC_RE`
-- filtrering av headers, footers, datum och sidartefakter
-
-Detta gör chunkningen mer deterministisk och lättare att förstå.
-
-### Vad vi har förbättrat i chunkningen
-
-Under arbetet förbättrades chunkningen stegvis för att minska brus:
-
-- innehållsförteckningar filtrerades bort
-- vanliga header- och footer-rader filtrerades bort
-- mycket korta eller låg-informativa chunkar filtrerades bort
-- rubriker i olika format började kännas igen bättre
-
-Detta var viktigt därför att retrieval annars drog upp irrelevanta avsnitt som såg viktiga ut bara för att de innehöll rubriker, sidnummer eller upprepade dokumentord.
-
-### Chunkstorlek och hur fint vi delar upp texten
-
-När man talar om chunkstorlek i RAG menar man ofta antal tecken, ord eller tokens per chunk. Den typen av fast fönsterchunkning används inte i den nuvarande implementationen.
-
-Det vi i praktiken har arbetat med är i stället hur fint eller grovt vi delar upp texten:
-
-- hur bred en sektion får vara
-- hur mycket struktur som ska bevaras
-- hur mycket brus som ska rensas bort innan sektionen sparas
-
-Det är alltså mer korrekt att säga att vi har experimenterat med hur fin- eller grovkornig chunkningen ska vara, snarare än att vi har provat ett stort antal tokenstorlekar.
-
-### Varför vi inte använder LLM för chunkning
-
-Det finns lösningar där en LLM används för att:
-
-- identifiera semantiska gränser
-- skapa bättre stycken
-- märka upp innehållstyper
-
-Vi valde bort detta här eftersom det hade gjort pipelinen:
-
-- dyrare
-- långsammare
-- mindre transparent
-- svårare att felsöka
-
-För en lärlabb var det bättre att hålla chunkningen lokal, enkel och reproducerbar.
-
-### Skillnaden mellan chunkning och embeddings
-
-Det är lätt att blanda ihop dessa.
-
-- `Chunkning` avgör hur dokumentet delas upp
-- `Embeddings` avgör hur chunkar eller frågor representeras numeriskt för semantisk sökning
-
-Man kan alltså ha:
-
-- chunkning utan embeddings
-- embeddings utan avancerad chunkning
-- eller båda tillsammans
-
-I vår nuvarande lösning har vi chunkning, men ingen embedding-baserad retrieval.
-
-## 7. Retrieval
-
-Retrieval-logiken ligger i `rag/search.py`.
-
-Det är retrievalen som bestämmer vilka chunkar som ska få svara på användarens fråga. Om retrievalen missar rätt chunkar hjälper det sällan att prompten är bra.
-
-### Vad retrieval gör
-
-När en fråga kommer in sker detta i stora drag:
-
-1. frågan tokeniseras
-2. orden normaliseras
-3. stopwords filtreras bort
-4. varje chunk får en poäng
-5. chunkarna sorteras
-6. toppresultaten skickas vidare till syntes eller LLM
-
-### Vad vi hade före den nuvarande retrievalen
-
-Tidigt var retrievalen enklare och mindre domänstyrd. Det ledde oftare till att frågor om till exempel etapper, arbetsområden eller införandekrav drog upp alltför generella eller för detaljerade chunkar.
-
-Det nuvarande läget är betydligt mer styrt:
-
-- BM25-liknande lexikal poängsättning
-- titelmatchning
-- domänspecifika boostar
-- intentbaserade justeringar
-
-Detta var ett medvetet steg bort från en mer naiv ordmatchning.
-
-## 8. BM25
-
-### Vad BM25 är
-
-BM25 är en klassisk metod för textretrieval. Den försöker svara på frågan:
-
-"Hur relevant är ett dokument för denna fråga, givet vilka ord som förekommer och hur ofta?"
-
-BM25 tar bland annat hänsyn till:
-
-- om frågeordet finns i dokumentet
-- hur ofta ordet förekommer i dokumentet
-- hur vanligt ordet är i hela dokumentmängden
-- hur långt dokumentet är
-
-Det sista är viktigt. En lång text får inte automatiskt vinna bara för att den innehåller många ord.
-
-### Varför BM25 passade här
-
-BM25 var ett bra val i denna labb därför att det är:
-
-- lättare att förstå än embeddingsökning
-- snabbt
-- billigt
-- transparent
-- tillräckligt starkt för en begränsad dokumentmängd inom samma domän
-
-Det var också ett bra pedagogiskt val eftersom man tydligt kan se varför ett dokument får poäng.
-
-### Vad BM25 inte gör
-
-BM25 förstår inte betydelse på samma sätt som en embedding-modell. Den hittar främst lexikala överlapp:
-
-- samma ord
-- liknande ordstammar
-- ord i rubriker och text
-
-Det gör att BM25 är starkt när dokument och frågor använder samma språk, men svagare när användaren uttrycker sig med helt andra ord än källmaterialet.
-
-## 9. Tokenisering, normalisering och stopwords
-
-En stor del av retrievalkvaliteten kommer från små men viktiga detaljbeslut.
-
-I vår sökning sker bland annat:
-
-- tokenisering med regex
-- enkel normalisering av svenska ändelser
-- bortfiltrering av vanliga ord som inte bär mycket ämnesinformation
-
-Exempel på vad normaliseringen försöker göra:
-
-- minska skillnader mellan singular och plural
-- minska effekten av böjningsändelser
-
-Detta är ingen fullständig svensk stemming eller lemmatisering. Det är en enkel heuristisk normalisering. För just detta källmaterial räckte det för att förbättra träffbilden utan att dra in tyngre språkverktyg.
-
-## 10. Heuristiker och boostar
-
-Ovanpå BM25 har vi lagt flera heuristiska förstärkningar.
-
-### Vad en boost är
-
-En boost betyder att man manuellt lägger till eller drar ifrån poäng för vissa typer av träffar.
-
-Det betyder att retrievalen inte bara säger:
-
-- "ordet finns här"
-
-utan också:
-
-- "den här träffen borde vara extra intressant i just denna domän"
-
-### Vilka boostar vi använder
-
-Nuvarande retrieval använder bland annat:
-
-- `TITLE_BOOST`
-  Chunkar vars titel delar ord med frågan får extra poäng.
-- `DEFINITION_TITLE_BOOST`
-  Definitionsfrågor som börjar med till exempel "Vad är ..." får extra stöd från rubriker som liknar inledning, syfte eller arbetsområde.
-- `DOMAIN_RULES`
-  Frågor om arbetsområden, införandekrav, etapper och planering kopplas starkare till vissa dokument och vissa rubriktyper.
-- `OVERVIEW_SECTION_BOOST`
-  Översiktliga sektioner kan lyftas upp.
-- `DETAIL_SECTION_PENALTY`
-  För vissa översiktsfrågor kan detaljsektioner tryckas ned.
-
-### Vad heuristik betyder här
-
-Heuristik betyder i detta sammanhang tumregler baserade på observationer om vårt källmaterial.
-
-Exempel:
-
-- om frågan gäller arbetsområden är vissa checklistedokument nästan alltid mer relevanta
-- om frågan är en definition är rubriker som syfte, inledning och modell ofta bättre än detaljavsnitt
-- om frågan söker en överblick bör inte sektion 4.x med mycket detaljinnehåll dominera för hårt
-
-Heuristiker är alltså inte "fusk", utan ett sätt att anpassa en generell retrievalmetod till en specifik domän.
-
-### Nackdelen med heuristiker
-
-Heuristiker är kraftfulla men har en baksida:
-
-- de kan bli för hårdkodade
-- de kan fungera bra på dagens dokument men sämre på nytt material
-- de kräver underhåll när dokumentunderlaget förändras
-
-Det är därför viktigt att se dem som domänanpassning, inte som en universell lösning.
-
-## 11. Query intent
-
-Retrievalen försöker också klassificera frågans avsikt, exempelvis:
-
-- definition
-- syfte
-- lista
-- översiktslista
-- process
-- timing eller beslut
-
-Detta används för att förändra rankningen.
-
-Exempel:
-
-- en fråga som börjar med "Vad är ..." behandlas annorlunda än en fråga som börjar med "Vilka ..."
-- en processfråga ska ofta hitta andra chunkar än en definitionsfråga
-
-Detta är en enkel form av query understanding utan att använda separat NLP-modell.
-
-## 12. Temperaturspåret och vad det faktiskt påverkade
-
-Temperatur är en viktig parameter i LLM-generering, men den påverkar inte retrievalsteget.
-
-Det är en viktig distinktion:
-
-- `retrieval` avgör vilka chunkar som väljs
-- `temperature` avgör hur fritt eller konservativt en LLM formulerar sitt svar
-
-En högre temperatur kan ge:
-
-- mer variation
-- mer kreativitet
-- högre risk för utsvävning eller hallucination
-
-En lägre temperatur kan ge:
-
-- mer stabila svar
-- mindre variation
-- något torrare språk
-
-I den nuvarande lösningen är `temperature=0.2` i `llm/reasoning.py`, vilket är ett medvetet konservativt val.
-
-Det betyder att vi i nuläget prioriterar:
-
-- trohet mot källmaterialet
-- stabilitet
-- mindre risk för att modellen hittar på
-
-Temperaturförändringar kan alltså förbättra formuleringen, men de kan inte reparera dålig retrieval. Om fel chunkar hämtas blir svaret dåligt oavsett temperatur.
-
-## 13. Alternativ till BM25
-
-BM25 är inte det enda retrievalalternativet. Några vanliga alternativ är:
-
-### Embedding-baserad retrieval
-
-Här omvandlas frågor och chunkar till vektorer och jämförs semantiskt.
-
-Fördelar:
-
-- kan hitta relevant innehåll även när samma ord inte används
-- bättre på parafraser och betydelsenära uttryck
-
-Nackdelar:
-
-- mindre transparent
-- kräver embedding-modell
-- ofta behov av vektorindex eller vektordatabas
-
-### Hybrid retrieval
-
-Här kombineras BM25 och embeddings.
-
-Fördelar:
-
-- både exakta ordträffar och semantisk träffsäkerhet
-
-Nackdelar:
-
-- mer komplexitet
-- fler parametrar att justera
-
-### Reranking
-
-Först hämtas exempelvis 20 kandidater med BM25 eller hybrid retrieval. Sedan får en starkare modell rangordna dessa bättre.
-
-Fördelar:
-
-- högre precision i toppen
-
-Nackdelar:
-
-- extra latens
-- extra modellberoende
-
-### Full LLM retrievalhjälp
-
-I vissa system används LLM även för att:
-
-- skriva om frågor
-- bryta ned frågor i delmoment
-- välja källor
-
-Det kan fungera bra, men gör systemet mer komplext och mindre reproducerbart.
-
-### Varför vi inte gick dit nu
-
-För denna labb var BM25 med domänanpassning ett rimligt mellanläge:
-
-- tillräckligt starkt för att ge lärdomar
-- lätt att felsöka
-- billigt att köra
-- lätt att förklara
-
-## 14. Strukturerad modellfri syntes
-
-Den strukturerade vägen ligger i `rag/extractive.py`.
-
-Detta är viktigt att förstå korrekt:
-
-- den använder inte extern LLM
-- den använder inte en intern språkmodell för att skriva text
-- den bygger svar med egen Python-logik
-
-### Hur den fungerar
-
-I stora drag gör den detta:
-
-1. tittar på toppchunkarna från retrieval
-2. delar upp texten i meningar
-3. filtrerar bort metadata och brus
-4. poängsätter meningar utifrån frågeord och vissa positiva markörer
-5. väljer de bästa meningarna
-6. skriver om dem med enklare omskrivningsregler
-7. bygger ihop ett försiktigt resonemang
-
-Det är därför rätt att kalla detta för:
-
-- extraktiv syntes
-- modellfri syntes
-- regelbaserad sammanställning
-
-men inte för LLM-generering.
-
-### Använder den språkmodell för språket?
-
-Nej, inte i nuvarande implementation.
-
-Den närmar sig ett "skrivet språk" genom:
-
-- omskrivningsregler
-- introduktionsfraser beroende på frågetyp
-- enklare städning av meningar
-
-Det är alltså kod, inte modellintelligens, som försöker förbättra läsbarheten.
-
-### Styrkor
-
-- snabb
-- billig
-- robust när extern LLM inte svarar
-- transparent
-- pedagogiskt bra för att förstå hur mycket man kan göra utan modell
-
-### Svagheter
-
-- språket blir lätt stelt
-- täckningen blir ofta sämre
-- den är känslig för OCR-brus och märkliga dokumentformuleringar
-- den kan bli överförsiktig och säga att underlaget inte räcker
-
-Detta är en av de tydligaste lärdomarna i labben: modellfri syntes är värdefull för lärande och robusthet, men den når inte samma kvalitet som den bästa LLM-vägen.
-
-## 15. LLM-baserad syntes
-
-LLM-spåret bygger på:
-
-- `llm/client.py`
-- `llm/reasoning.py`
-- `llm/prompts.py`
-- `rag/prompts.py`
-
-Här används retrievalresultaten som underlag, men själva texten formuleras av extern modell.
-
-Det viktiga här är att modellen inte ska svara fritt, utan styras att:
-
-- hålla sig till källmaterialet
-- säga ifrån när underlaget inte räcker
-- skriva med egna ord
-- täcka hela listor, etapper eller steg när sådana efterfrågas
-
-Under arbetet blev det tydligt att prompten är viktig, men sekundär i förhållande till retrieval. En bra prompt kan förbättra språk, struktur och försiktighet, men den kan inte ersätta felaktigt hämtade källutdrag.
-
-## 16. Modellval och praktiska LLM-erfarenheter
-
-I praktiken provades flera modeller via Hugging Face-routning.
-
-De viktigaste observationerna var:
-
-- vissa modeller såg bra ut i katalogen men fungerade inte hos aktuell provider
-- vissa fungerade men var långsamma
-- vissa gav läckor av intern resonemangsstil
-- vissa trunkerade svar eller blev instabila
-
-Under den tidigare fasen av arbetet fungerade `openai/gpt-oss-120b` bäst av de modeller som då provades i den aktuella miljön.
-
-Per den 10 juli 2026 uppdaterades dock standardvalet efter en ny kontroll mot Hugging Faces routade modellkatalog. Den kontrollen visade att följande kandidater fanns tillgängliga i den aktuella driftskedjan:
-
-- `zai-org/GLM-5.2`
-- `openai/gpt-oss-120b`
-- `Qwen/Qwen3-32B`
-- `deepseek-ai/DeepSeek-R1`
-- `zai-org/GLM-4.5`
-
-Det nya standardvalet blev `zai-org/GLM-5.2`.
-
-Skälen var följande:
-
-- modellen var faktiskt tillgänglig via Hugging Face-routningen vid kontrolltillfället
-- den exponerades med flera live-providers
-- den presenterades som en ny flaggskeppsmodell för långhorisontuppgifter
-- Hugging Face-kortet beskrev stöd för upp till 1M token kontext
-
-Samtidigt behölls `Qwen/Qwen3-32B` som ett tydligt alternativ eftersom Qwen3-familjen har stark flerspråkig profil och är intressant för svensk RAG-syntes.
-
-Den praktiska lärdomen är därför dubbel:
-
-- modellval måste baseras på vad som faktiskt är routbart i den aktuella driftmiljön
-- standardvalet bör kunna ändras när en ny modell blir verkligt tillgänglig och inte bara när den nämns i externa nyheter eller modelljämförelser
-
-## 17. Källor och transparens
-
-En viktig del av lösningen är att användaren kan se källor till svaren.
-
-PDF-länkar publiceras via GitHub Pages:
-
-- `https://tomashelmfridsson.github.io/systeminforande/pdfs/<filnamn>`
-
-Detta val gjordes eftersom det gav:
-
-- stabila publika dokumentlänkar
-- enklare länkning från svaren
-- separering mellan dokumenthosting och apphosting
-
-Det visade sig vara ett bättre upplägg än att låta Hugging Face bära hela dokumentdelen.
-
-## 18. Deployment och drift
-
-Lösningen deployas i två delar:
-
-- GitHub Pages för PDF-filer
-- Hugging Face Spaces för Gradio-appen
-
-GitHub Actions används för att publicera appen till Hugging Face. Senare lades även ett nattligt hälsocheckjobb till för att upptäcka om den valda LLM-modellen inte längre är tillgänglig.
-
-Detta är en viktig praktisk lärdom: när man bygger en lösning ovanpå externa modeller räcker det inte att koden fungerar. Man måste också övervaka att den externa beroendekedjan fortfarande fungerar.
-
-## 19. Viktigaste lärdomar
-
-### 1. Chunkning är inte ett hjälpsteg utan ett kärnsteg
-
-Det var lätt att först tänka att chunkning bara handlar om att "dela upp text". I praktiken visade labben att chunkning styr:
-
-- hur bra retrievalen kan bli
-- hur mycket brus som följer med
-- hur lätt det är att skapa bra syntes
-
-### 2. Retrievalproblemet kommer före promptproblemet
-
-Många dåliga svar såg först ut som promptproblem, men visade sig i själva verket bero på att fel chunkar hämtades eller att bra chunkar hade för låg rankning.
-
-### 3. Temperatur och modellval påverkar svarsstil mer än källträff
-
-Temperatur kan göra en modell mer eller mindre kreativ, men den kan inte ersätta bra retrieval.
-
-### 4. BM25 är fortfarande mycket användbart
-
-Trots all uppmärksamhet kring embeddings och vektordatabaser visade labben att en väljusterad BM25-lösning med bra chunkning och domänheuristik kan ge mycket långt resultat, särskilt i en begränsad dokumentmängd.
-
-### 5. Modellfri syntes är pedagogiskt mycket värdefull
-
-Även om den inte ger bäst svar visar den tydligt vilka delar av kedjan som faktiskt fungerar utan svart låda. Det gör den mycket användbar i en lärmiljö.
-
-### 6. Externa modeller kräver operativ robusthet
-
-Rate limits, providerbyten och modellstöd blev en verklig del av systemdesignen. Det räcker inte med "rätt kod", utan man måste även bygga felhantering och övervakning.
-
-## 20. Nästa rimliga förbättringar
-
-Utifrån labben framstår följande förbättringar som mest intressanta:
-
-- prova hybrid retrieval ovanpå nuvarande BM25
-- införa reranking på toppkandidater
-- förbättra den modellfria syntesen för definitioner och översiktsfrågor
-- lägga till mer diagnostik som visar varför vissa chunkar vann
-- jämföra enkel svensk stemming mot mer avancerad språknormalisering
-
-## 21. Sammanfattning
-
-Den viktigaste tekniska lärdomen från labben är att bra RAG inte börjar i modellen, utan i materialberedningen.
-
-Vi byggde en lösning där:
-
-- PDF-filer extraheras och chunkas lokalt
-- retrieval sker med BM25-liknande lexikal sökning
-- heuristiker och boostar används för domänanpassning
-- ett modellfritt spår visar vad som går att göra utan LLM
-- ett LLM-spår visar hur mycket bättre formulering och täckning man kan få när retrievalen fungerar
-
-Från ett lärperspektiv blev detta särskilt tydligt:
-
-- chunkning avgör mer än man tror
-- retrieval är ofta den verkliga flaskhalsen
-- temperatur hör till generering, inte retrieval
-- BM25 är enkelt men kraftfullt
-- heuristiker kan ge stor effekt i en smal domän
-
-Det gör denna labb till mer än en chatbot. Den fungerar också som en konkret genomlysning av hur en RAG-lösning faktiskt byggs, justeras och utvärderas i praktiken.
-
-## 22. När vi upptäckte att RAG:en inte höll måttet
-
-Den 10 juli 2026 gjorde vi ett mer systematiskt kvalitetspass mot den deployade chatboten via Gradio API i stället för att bara klicktesta GUI:t.
-
-Det var ett viktigt skifte. Så länge vi bara ställde enstaka frågor manuellt gick det att få intrycket att lösningen fungerade "ganska bra". När vi däremot började köra samma frågor om och om igen som regressionstester blev svagheterna tydliga.
-
-### Vilka fel vi såg
-
-Två typer av fel stack ut direkt:
-
-- frågor om `acceptanstest` drog inte alltid upp de mest relevanta acceptanstestdokumenten
-- definitionsfrågor som `Vad är ett arbetsområde?` kunde ranka ett testplandokument före själva checklistan för arbetsområden
-
-Vi såg också en tredje svaghet:
-
-- vanliga stavfel i svenska frågor gjorde retrievalen märkbart sämre
-
-Exempel på detta var att frågor som innehöll former som `acceptanstst` eller `implmenteringen` tappade precision trots att användarens avsikt fortfarande var mycket tydlig.
-
-### Hur testerna avslöjade problemen
-
-Vi byggde först live-tester mot den deployade Gradio-API:n. De testerna valdes medvetet för att täcka tre saker:
-
-- typiska verksamhetsfrågor
-- frågor där rätt källdokument borde vara ganska uppenbara
-- frågor med små stavfel som en praktiskt användbar RAG borde tåla
-
-Detta gav oss en bättre signal än rena enhetstester, eftersom vi kunde se hela kedjan:
-
-- fråga
-- retrieval
-- syntes
-- källänkar i svaret
-
-När testen för `acceptanstest` och `arbetsområde` föll blev det tydligt att problemet satt i retrievalen, inte primärt i LLM-prompten.
-
-Det viktiga var alltså inte bara att ett svar blev "lite svagt", utan att fel dokumentfamilj eller fel sektion faktiskt vann rankningen.
-
-### Vår diagnos
-
-Efter att ha läst igenom `rag/search.py` och kört förklarande sökningar lokalt kunde vi se flera konkreta orsaker.
-
-#### 1. För strikt matchning av originaltermer
-
-Den tidigare funktionen `_has_retrieval_support(...)` krävde i praktiken att originaltermer från frågan återfanns ganska direkt i chunkens text eller titel.
-
-Det gav två problem:
-
-- singular och plural möttes inte alltid väl nog
-- ett dokument som var rätt i sak men där termen främst syntes i filnamn eller närliggande variationer kunde filtreras bort
-
-Detta förklarade till stor del varför `Vad är ett arbetsområde?` kunde missa `Checklista_Arbetsomraden.pdf` trots att just den filen uppenbart är central.
-
-#### 2. För svag användning av filnamn och dokumentfamilj
-
-Den tidigare retrievalen tittade främst på titel och löptext. Men i ett fast corpus som detta bär själva filnamnen mycket domäninformation:
-
-- `Acceptanstest`
-- `Konvertering`
-- `Utbildning`
-- `Driftsättning`
-- `Checklista_Arbetsomraden`
-
-Att inte använda dessa signaler fullt ut var ett misstag, särskilt när dokumentbeståndet är stabilt och känt.
-
-#### 3. För liten tolerans för svenska stavfel och skrivvarianter
-
-Den tidigare normaliseringen var enkel och hjälpte vid vissa böjningar, men inte tillräckligt för:
-
-- `arbetsområde` kontra `arbetsområden`
-- `införande` kontra `inforande`
-- `acceptanstest` kontra `acceptanstst`
-- `implementeringen` kontra `implmenteringen`
-
-Det gjorde att retrievalen fortfarande i hög grad betedde sig som en ganska strikt ordmatchare.
-
-#### 4. Webbkällor kunde konkurrera för lätt med de kuraterade PDF:erna
-
-Vi hade både PDF-material och vissa webbkällor i indexet. För mer allmänna frågor kunde webbsidor ibland rankas för högt, trots att vår viktigaste kunskapsmassa i praktiken finns i PDF:erna.
-
-För just denna lösning var det fel prioritering.
-
-### Vad vi ändrade
-
-När diagnosen var klar gjorde vi förbättringarna i retrievallagret först. Vi ändrade inte prompten först, eftersom testen redan visade att fel chunkar kom in i kedjan.
-
-#### 1. Vi gjorde tokeniseringen mer svensk-robust
-
-Vi införde en tydligare normaliseringskedja:
-
-- teckenfoldning för `å`, `ä`, `ö`
-- fortsatt suffixnormalisering
-- kanonisering av vanliga domänord till samma form
-
-Detta gjorde att exempelvis:
-
-- `införandet` och `inforande` hamnar närmare varandra
-- `arbetsområde` och `arbetsområden` kopplas starkare ihop
-- vissa felstavade former av centrala ord kan landa i rätt domänterm
-
-Det var ett medvetet val att hålla detta heuristiskt och lättviktigt i stället för att dra in en tung svensk NLP-pipeline.
-
-#### 2. Vi började använda filnamn som en förstklassig retrievalsignal
-
-Varje chunk får nu även sökbara token från sin källa, alltså filnamnet.
-
-Det betyder att sökningen inte bara ser:
-
-- rubriken i chunken
-- löptexten i chunken
-
-utan också:
-
-- vilken dokumentfamilj chunken tillhör
-
-I en smal, fast dokumentmängd är detta mycket värdefullt. Ett dokument som heter `210_Acceptanstest_testplan.pdf` ska naturligtvis få extra chans att vinna på frågor om acceptanstest.
-
-#### 3. Vi lade till dokumentfamiljer och domänboostar
-
-Vi införde starkare regler för dokumentfamiljer som:
-
-- `acceptanstest`
-- `arbetsomrade`
-- `konvertering`
-- `projekt`
-
-Dessutom förstärktes `DOMAIN_RULES` för frågor om:
-
-- acceptanstest
-- leveransgodkännande
-- implementering
-- planering
-- uppföljning
-- verifiering
-
-Skälet var enkelt: med ett fast corpus är det rationellt att använda domänkunskap explicit. Detta är inte ett generellt webbsökproblem utan en kuraterad kunskapsmängd.
-
-#### 4. Vi lade till fuzzy-expansion mot corpusets eget vokabulär
-
-I stället för att försöka gissa alla stavfel manuellt lät vi frågetermer expandera mot indexets eget ordförråd när avståndet är litet nog.
-
-Det är en enkel men effektiv strategi för interna RAG-lösningar:
-
-- den kräver ingen extern stavningsmodell
-- den använder bara de ord som faktiskt finns i corpus
-- den hjälper just där användaren ligger "nära rätt"
-
-Detta förbättrade särskilt frågor som innehöll små skrivfel i centrala begrepp.
-
-#### 5. Vi nedviktade webbkällor
-
-För denna labb är PDF:erna det viktigaste källmaterialet. Därför lades en mindre straffpoäng på webbkällor i retrievalen.
-
-Detta innebär inte att webbinnehåll ignoreras, men att det inte lika lätt får slå ut de kuraterade PDF-dokument som bygger själva verksamhetskunskapen.
-
-### Varför vi inte började med embeddings direkt
-
-Det hade varit möjligt att gå direkt till hybrid retrieval eller embeddingsökning. Vi valde ändå att först pressa den lexikala retrievalen längre.
-
-Det valet gjordes av tre skäl:
-
-- corpus är litet och stabilt
-- domänspråket är smalt och på svenska
-- vi ville först förstå exakt vilka fel som kom från index, normalisering och rankning
-
-Det gav bättre transparens. När en förbättring fungerar vet vi då också varför den fungerar.
-
-### De nya lokala regressionstesterna
-
-Efter live-testerna lade vi också till lokala retrievaltester. Det var viktigt av två skäl:
-
-- de går snabbt att köra utan deploy
-- de låser fast de svagheter vi redan har hittat så att de inte smyger tillbaka
-
-Testerna fokuserar på fyra riskzoner:
-
-- att `acceptanstest` leder till acceptanstestdokument
-- att `arbetsområde` leder till rätt checklista
-- att stavfel i nyckelord fortfarande ger rätt dokumentfamilj
-- att projektets PDF:er prioriteras före webbkällor i interna kvalitetsfrågor
-
-Detta är ett bra exempel på varför RAG bör testas som en sök- och rankningsprodukt, inte bara som "något som får en LLM att svara".
-
-### Vad resultaten visade efter förbättringen
-
-Efter retrievaländringarna kunde vi lokalt verifiera att:
-
-- frågor om `acceptanstest` nu tydligt drog upp acceptanstestdokument
-- `Vad är ett arbetsområde?` rankade `Checklista_Arbetsomraden.pdf` först
-- vanliga stavfel i centrala ord inte längre slog sönder retrievalen på samma sätt
-- PDF-spåret fick högre prioritet än webbsidor i våra regressioner
-
-Det betyder inte att RAG:en nu är "färdig". Men det betyder att den inte längre faller på samma grundläggande retrievalmisstag som tidigare.
-
-### Den viktigaste lärdomen från detta förbättringspass
-
-Den viktigaste lärdomen var att en svag RAG mycket ofta ser ut som ett promptproblem fast den i själva verket är ett retrievalproblem.
-
-Så länge fel dokumentfamilj, fel sektion eller fel stavningshantering vinner i rankningen hjälper det begränsat att:
-
-- byta modell
-- ändra temperatur
-- skriva längre prompt
-
-Det som gav verklig effekt här var i stället:
-
-- bättre svensk normalisering
-- bättre användning av metadata
-- bättre dokumentfamiljsignaler
-- regressionstester som gjorde svagheterna synliga
-
-Detta kapitel är därför kanske den viktigaste praktiska lärdomen i hela labben: RAG förbättras inte främst genom att man "ber modellen smartare", utan genom att man gör retrievalen mer sann mot den kunskap man faktiskt har.
-
-## 20. Ny corpus, mindre hårdkodning och bättre processsvar
-
-När PDF-underlaget byttes ut blev det tydligt att flera retrievalregler var för tätt bundna till de gamla filnamnen.
-
-Det syntes direkt i lokala körningar:
-
-- retrieval pekade fortfarande på gamla dokumentnamn i indexet
-- testsviten förutsatte gamla källor
-- vissa kvalitetsförbättringar byggde mer på dokumentnamn än på egenskaper i innehållet
-
-Den här delen av labben handlade därför om att göra lösningen mer portabel utan att tappa kvalitet i de frågor vi redan visste var svåra.
-
-### Steg 1. Vi byggde om indexet efter corpusbytet
-
-Det första praktiska steget var att köra om ingest och skriva om `rag/data/chunks.json` mot det nya PDF-beståndet.
-
-Detta var nödvändigt eftersom retrieval annars fortfarande arbetade mot chunkar från den gamla dokumentmängden.
-
-Lärdomen är enkel men viktig:
-
-- corpusbyte utan omindexering ger missvisande felsökning
-- retrievalfel kan annars se ut som rankningsfel fast indexet bara är stale
-
-### Steg 2. Vi uppdaterade regressionstesterna till den nya dokumentmängden
-
-De tidigare testerna i `tests/test_search_quality.py` och `tests/data/live_api_scenarios.json` var skrivna mot gamla filnamn.
-
-Vi justerade därför regressionerna så att de:
-
-- fortfarande testar samma användarfrågor
-- men accepterar de nya dokumenten som rätt svarskällor
-
-Detta gjorde två saker:
-
-- testerna blev användbara igen
-- vi kunde mäta förbättringar utan att vara låsta till gamla filstrukturer
-
-### Steg 3. Vi gick från dokumentnamnsstyrning till egenskapsstyrning i retrievalen
-
-Tidigare var retrievalen starkt påverkad av explicita regler för specifika dokumentnamn och dokumentfamiljer.
-
-Det fungerade bra i ett fast corpus, men blev skört när PDF:erna byttes ut.
-
-Vi ersatte därför stora delar av den logiken med mer generiska signaler:
-
-- titelmatch mot frågetermer
-- om frågan är en definitionsfråga, processfråga eller listfråga
-- om sektionen ligger tidigt i dokumentet
-- om rubriken ser ut som översikt, modell, kompetens, process eller planering
-- om chunken verkar handla om ämnet i själva titeln eller bara råkar ligga i rätt dokument
-
-Detta gav två viktiga effekter:
-
-- retrievalen blev mindre beroende av exakt filnamn
-- samma kod blev mer rimlig att återanvända mot ett annat corpus
-
-Den viktigaste lärdomen här var att hårdkodade boostar kan vara effektiva, men att de bör ersättas av egenskapsbaserade signaler så snart man vill ha en mer portabel RAG.
-
-### Steg 4. Vi lade till en lätt lokal reranker ovanpå BM25
-
-Efter att den första rankningen blivit mer generell lade vi in en andra rankningsfas ovanpå toppkandidaterna.
-
-Denna reranker:
-
-- arbetar lokalt
-- kräver inga externa modeller
-- använder en TF-IDF-liknande likhetsbedömning på teckenn-gram
-- kör bara på de högst rankade kandidaterna från första retrievalsteget
-
-Poängen var inte att ersätta BM25, utan att förbättra ordningen bland redan rimliga kandidater.
-
-Det gav särskilt nytta i frågor där flera chunkar innehöll samma domänord men där bara en av dem faktiskt var den bästa förstakällan.
-
-Ett tydligt exempel var:
-
-- `Vad är en projektorganisation`
-
-Där kunde en mallsektion och en riktig definitionssektion båda se relevanta ut, men rerankern hjälpte den verkliga ämnessektionen att vinna.
-
-Lärdomen är att en lätt andra rankingfas kan ge tydlig kvalitetsvinst även utan embeddings eller cross-encoder.
-
-### Steg 5. Vi förbättrade retrievalen för processfrågor
-
-När vi granskade frågan:
-
-- `Hur används acceptanstest i införandet?`
-
-så såg vi att retrievalen först gynnade en sektion om `Uppföljning` i en mall, snarare än den sektion som faktiskt hette `Acceptanstest`.
-
-Problemet var inte att ordmatchningen var fel, utan att processord som:
-
-- planering
-- uppföljning
-- genomförande
-
-ibland slog ut den chunk som faktiskt bar ämnet i rubriken.
-
-Vi justerade därför retrievalen så att:
-
-- chunkar vars titel innehåller den verkliga ämnestermen får starkare vikt
-- chunkar som bara matchar via generiska processord får mindre fördel
-
-Det förbättrade ordningen för både:
-
-- `Hur används acceptanstest i införandet?`
-- den felstavade varianten `Hur anvnds acceptanstst i införandet?`
-
-Detta var en viktig lärdom:
-
-- i processfrågor räcker det inte att hitta "processliknande" chunkar
-- man måste också hitta rätt process om flera konkurrerar
-
-### Steg 6. Vi byggde en särskild generator för processsvar
-
-När retrievalen väl gav bättre chunkar blev nästa svaghet tydlig:
-
-- den extractive svarsgenereringen var fortfarande för mekanisk
-
-För `hur`-frågor lade vi därför till en särskild processgenerator i `rag/extractive.py`.
-
-Den känner igen fasrubriker som:
-
-- `Planering`
-- `Förberedelser`
-- `Genomförande`
-- `Uppföljning`
-
-och bygger sedan ett svar som följer processens ordning.
-
-I stället för att bara välja "bästa meningar" gör den nu detta:
-
-- identifierar processfaser
-- samlar punktinnehåll under varje fas
-- sammanfattar faserna i ordning
-- bygger ett kompakt svar som liknar hur en människa förklarar ett arbetsflöde
-
-Detta förbättrade tydligt svaret på acceptanstestfrågan.
-
-Lärdomen här var att bättre retrieval inte automatiskt ger bättre svar. När retrievalen blivit tillräckligt bra behöver också själva syntesen bli mer frågetypsmedveten.
-
-### Nya regressioner från verkliga loggar
-
-Vi lade under detta pass också till regressioner för frågor som kom från verkliga loggar, bland annat:
-
-- `Finns det en checklista för införandekrav`
-- `Vad är ett arbetsområde?`
-- `Vad är ett projektbibliotek`
-- `Vad är en projektorganisation`
-- `Hur används acceptanstest i införandet?`
-
-Det viktiga med dessa tester är att de inte bara fångar retrieval utan också om svaret uttrycker rätt sak för den aktuella frågetypen.
-
-### Resultatet efter detta pass
-
-Efter dessa ändringar kunde vi lokalt verifiera att:
-
-- retrievalen fortfarande fungerar mot det nya corpuset
-- lösningen är mindre bunden till gamla filnamn
-- acceptanstestfrågan nu rankar rätt ämnessektion först
-- processfrågor får mer naturliga stegvisa svar
-- regressionstesterna fortsatt passerar lokalt
-
-### Viktigaste lärdomar från detta pass
-
-Detta förbättringspass gav tre centrala lärdomar:
-
-1. Dokumentnamnsstyrning kan vara effektivt, men är skör när corpus förändras.
-2. En lätt lokal reranker kan förbättra ordningen mellan redan relevanta träffar utan tunga externa beroenden.
-3. När retrievalen blir bättre måste även svargenereringen bli mer frågetypsspecifik, annars stannar kvalitetsvinsten i söksteget.
-
-Den kanske viktigaste sammanfattningen är därför:
-
-- portabel RAG kräver att retrievalsignaler uttrycks som innehållsegenskaper snarare än dokumenthårdkodning
-- och bra svar kräver att syntesen känner igen frågans struktur, inte bara källans ord
-
-## 21. Frågetypsstyrd svargenerering utöver processfrågor
-
-Efter att retrievalen och processgeneratorn förbättrats blev nästa steg att göra svargenereringen mer frågetypsmedveten även för andra typer av frågor.
-
-Det visade sig att flera svar fortfarande var "tekniskt rimliga" men kvalitativt svaga:
-
-- listfrågor kunde ge generiska uppräkningar av rubriker i stället för ett ärligt svar
-- syftesfrågor kunde fastna på ordet `syfte` och dra in fel chunk
-- tids- och beslutsfrågor kunde upprepa formuleringar från källan utan att tydligt säga om ett datum faktiskt fanns eller inte
-
-### Steg 1. Vi gjorde listsvaret för etappfrågor mer ärligt
-
-Frågan `Vilka etapper finns det` visade att retrievalen hittade material om etappindelning, men att de hämtade utdragen inte alltid faktiskt listade etapperna tydligt.
-
-Det tidigare listsvaret blev därför lätt missvisande: det lät konkret trots att underlaget i de hämtade chunkarna inte räckte till.
-
-Vi ändrade därför logiken så att etappsvaret:
-
-- listar etapper när de verkligen går att extrahera
-- annars uttryckligen säger att materialet visar att införandet är etappindelat men att de hämtade utdragen inte räcker för att återge varje etapp
-
-Lärdomen här är viktig:
-
-- ett bra RAG-svar ska inte bara vara relevant
-- det ska också vara ärligt om gränsen för vad de hämtade utdragen faktiskt stöder
-
-### Steg 2. Vi lade till en riktad generator för syftesfrågor
-
-Frågan `Vad är syftet med beslutspunkter?` visade en klassisk RAG-svaghet:
-
-- ordet `syfte` matchade generellt många chunkar
-- men den relevanta kunskapen låg i chunken `Beslutspunkter`, inte i andra chunkar som råkade innehålla ord om syfte eller mål
-
-Vi lade därför till en särskild syftesgenerator för frågor av typen:
-
-- `Vad är syftet med ...`
-
-Den gör inte bara ordmatchning på `syfte`, utan letar efter chunkar där själva ämnet också finns i titel eller innehåll.
-
-För `beslutspunkter` kunde den därefter formulera ett bättre svar:
-
-- syftet är att ge projektets ansvariga möjlighet att kontrollera och styra projektets fortskridande
-- beslutspunkter används för att starta och avsluta faser, etapper och viktiga delresultat
-- beslut ska kunna fattas på rätt organisatorisk nivå
-
-Lärdomen var att syftesfrågor ofta kräver en mer ämnesspecifik syntes än vanliga definitionsfrågor.
-
-### Steg 3. Vi lade till en riktad generator för tids- och beslutsfrågor
-
-Frågor som:
-
-- `När ska driftsättning ske?`
-- `När fattas beslut om leveransgodkännande?`
-
-blev tidigare lätt mekaniska. De kunde upprepa samma formulering flera gånger utan att tydligt säga det viktigaste:
-
-- finns det en exakt tidpunkt i underlaget eller inte?
-
-Vi lade därför till en särskild generator för tids- och beslutsfrågor som gör en mer användbar bedömning:
-
-- om materialet saknar exakt datum säger svaret det tydligt
-- om materialet bara anger att en tidpunkt ska planeras eller fastställas, så uttrycks just det
-- om beslut ska knytas till kriterier, beslutsfattare och planerad tidpunkt framgår det uttryckligt
-
-Detta förbättrade kvalitativt svaren, eftersom de nu säger vad materialet faktiskt ger stöd för i stället för att bara spegla frågans ord tillbaka.
-
-### Vad dessa ändringar förbättrade
-
-Efter detta pass blev svaren bättre på tre sätt:
-
-1. de blev ärligare när underlaget var begränsat
-2. de blev tydligare om vad som faktiskt anges i materialet
-3. de blev mer användbara för användaren än rena omformuleringar av chunkar
-
-### Nya regressioner från detta pass
-
-Vi lade även till lokala regressioner för:
-
-- `Vad är syftet med beslutspunkter?`
-- `När ska driftsättning ske?`
-- `När fattas beslut om leveransgodkännande?`
-
-Detta gav en viktig förstärkning av testmodellen:
-
-- vi testar nu inte bara retrieval och processfrågor
-- vi testar också om svaret uttrycker rätt kunskapstyp för syfte, tid och beslut
-
-### Viktigaste lärdomar från detta pass
-
-Detta förbättringspass gav en tydlig slutsats:
-
-- olika frågetyper behöver olika syntesstrategier
-
-Det räcker inte att retrievalen hittar rätt chunk. Om svargenereringen behandlar alla frågor som "plocka några bra meningar", blir svaren ofta:
-
-- för mekaniska
-- för vaga
-- eller för tvärsäkra på sådant som källan inte egentligen säger
-
-Den praktiska lärdomen är därför:
-
-- processfrågor bör byggas som steg
-- syftesfrågor bör byggas som funktion och avsikt
-- tids- och beslutsfrågor bör byggas som evidens om datum, villkor och ansvar
-
-Detta är ett viktigt steg mot en RAG där svargenereringen inte bara är korrekt, utan även mer användbar och mer sann mot underlaget.
-
-## 22. Planeringsfrågor som egen syntestyp
-
-Efter att vi lagt till generatorer för process-, syftes- och tidsfrågor återstod fortfarande en typ av fråga som inte blev riktigt bra:
-
-- `Hur används arbetsområden i planeringen?`
-
-Retrievalen för den frågan var redan tillräckligt bra. Den hämtade bland annat:
-
-- `Verktyget_och_systeminforandet.pdf | 1.4 Arbetsområden vid systeminförande`
-- `Verktyget_projektstyrning.pdf | 2.3 Planering och uppföljning`
-
-Problemet låg alltså inte främst i sökningen, utan i syntesen. Den generella extractive-logiken gav ett svar som i praktiken bara återgav att arbetsområden finns, inte hur de används i planeringen.
-
-### Vad vi ändrade
-
-Vi lade därför till en liten riktad generator för frågor som samtidigt handlar om:
-
-- `hur`
-- `arbetsområden`
-- `planering`
-
-Generatorn bygger inte svaret från enstaka meningar utan uttrycker den funktion som arbetsområden har i materialet:
-
-- de används för att strukturera planeringen
-- de gör det lättare att planera aktiviteter
-- de hjälper till att fördela ansvar
-- de fungerar som grund för uppföljning
-
-### Varför detta var viktigt
-
-Det här är ett bra exempel på att vissa frågor inte bara kräver en korrekt definition eller ett processflöde, utan en förklaring av hur ett begrepp används i projektstyrningen.
-
-Om man svarar för bokstavligt på sådana frågor blir svaret lätt:
-
-- sant men tunt
-- relevant men inte användbart
-
-Med en riktad generator kunde vi i stället ge ett svar som ligger närmare användarens verkliga avsikt:
-
-- inte bara vad arbetsområden är
-- utan vilken roll de spelar i planering och uppföljning
-
-### Ny regression från detta pass
-
-Vi lade till ett lokalt test som kontrollerar att svaret på:
-
-- `Hur används arbetsområden i planeringen?`
-
-innehåller signaler om:
-
-- planering
-- struktur
-- ansvar
-- uppföljning
-
-### Lärdomen
-
-Den här förbättringen förstärkte en tidigare slutsats:
-
-- även när retrievalen är god nog måste svargenereringen förstå vilken typ av användningsfråga som ställs
-
-Det räcker alltså inte alltid med:
-
-- definition
-- process
-- tidpunkt
-- syfte
-
-Vissa frågor kräver i stället ett svar om funktion i arbetssättet. Det är en egen kunskapstyp, och den blev tydlig just i frågorna om arbetsområden och planering.
-
-## 23. RAGAS, loggar och live modelljämförelse
-
-Efter de första retrieval- och syntesförbättringarna behövde vi ett bättre sätt att bedöma kvalitet än att bara läsa enstaka svar och känna efter om de lät bra. Det ledde till nästa fas i labben: RAGAS-inspirerad utvärdering, analys av verkliga frågor från produktionsloggar, striktare källgrundning och live jämförelse av modellval på Hugging Face.
-
-Den viktigaste förändringen var synsättet. Vi började behandla chatboten som ett system som måste kunna mätas fråga för fråga, mot samma deployade HF-gränssnitt som användaren faktiskt möter. Lokala tester är fortfarande viktiga, men de räcker inte för att avgöra hur den driftsatta RAG-lösningen beter sig.
-
-### RAGAS-tänkandet vi införde
-
-Vi använde RAGAS och RAGAS-liknande mått som ett praktiskt språk för att prata om kvalitet:
-
-- `faithfulness`: håller svaret sig till det hämtade underlaget?
-- `answer relevance`: svarar systemet faktiskt på frågan?
-- `context precision`: är den hämtade kontexten fokuserad och relevant?
-- `context recall`: hämtas tillräckligt underlag för att kunna svara?
-
-Detta gjorde felsökningen mer konkret. Ett svar kan vara språkligt snyggt men ändå dåligt om det inte är troget källorna. Ett annat svar kan vara korrekt i sak men svagt om det inte svarar direkt på användarens fråga. RAGAS-tänkandet hjälpte oss därför att skilja på flera olika fel:
-
-- retrieval hittar fel eller för lite material
-- svaret bygger på rätt material men täcker inte frågan
-- svaret låter rimligt men lägger till process- eller livscykelpåståenden som inte finns i PDF:erna eller på hemsidan
-- källorna är relevanta men syntesen blir för fragmenterad eller mekanisk
-
-### Fast 30-frågedataset mot live HF
-
-Vi definierade därefter ett fast dataset med 30 frågor i `tests/data/ragas_hf_evaluation_dataset_30_questions.json`. Syftet var att kunna köra samma frågor återkommande mot den publika Hugging Face-chatboten och jämföra resultat över tid.
-
-Det var en viktig skillnad mot lokala smoke tests. Den här lösningen måste fungera i den deployade miljön, med samma Gradio-/REST-gränssnitt, samma modellrouting och samma loggning som produktionen. Därför byggdes även stödskript runt datasetet:
-
-- `tools/validate_ragas_hf_evaluation_dataset.py`
-- `tools/run_ragas_hf_capture.py`
-- `tools/score_ragas_hf_capture_local.py`
-- `tools/score_ragas_hf_capture_official.py`
-
-Tidiga baseline-artefakter, till exempel `tests/results/hf_interface_baseline_rag_evaluation_2026-07-18.md`, visade tydligt varför detta behövdes. Av 30 frågor var 10 godkända, 6 underkända och 14 behövde granskning. Många svar var källgrundade men ofullständiga, indirekta eller för mekaniska. Det är just den typen av nyans som försvinner om man bara frågar "fungerar chatboten?".
-
-### Produktionsloggarna blev en felkatalog
-
-Nästa lärdom var att verkliga chatloggar är mer värdefulla än påhittade demofrågor. Genom att läsa produktions- och HF-loggar hittade vi svaga frågor och återkommande felmönster, till exempel sammansatta frågor, antalfrågor, kontrollfrågor och frågor där användaren förväntade sig ett direkt verksamhetssvar.
-
-Loggarna hjälpte oss också att förstå vilken version som faktiskt hade svarat. När loggarna började innehålla revisionsinformation kunde vi skilja mellan svar från olika deployer, till exempel `5a2c740...` och `4c377b4...`. Det var praktiskt viktigt: annars riskerar man att felsöka ett svar från en gammal deploy och dra fel slutsats om den nuvarande koden.
-
-En närliggande detalj är att olika gränssnitt loggar olika frågetyper. Nuvarande Gradio `/submit` loggar exempelvis `chat_question`, medan REST `/api/ask` loggar `api_question`. Det är inte bara en teknisk detalj, utan påverkar hur man läser loggar och jämför körningar.
-
-### Striktare, men ibland mer formelbundna, svar
-
-När vi började granska svaren hårdare blev det tydligt att prosa som låter flytande inte automatiskt är bättre. Flera LLM-liknande svar riskerade att lägga till allmänna rekommendationer om livscykel, ansvar, process eller best practice som inte gick att spåra till PDF:erna eller hemsidan.
-
-Därför förbättrade vi och syntetiserade om svar så att de blev mer källbundna. Standardvägen blev mer försiktig och mer extractive/model-free. Det minskade risken för hallucinationer, men hade en tydlig baksida: svaren kunde kännas hårdkodade och börja med återkommande fraser som `Materialet visar att ...`.
-
-Det är en verklig tradeoff:
-
-- den extractive vägen i `rag/extractive.py` är snabb, transparent och tryggare mot källorna
-- särskilda mallar och specialbyggare ger bättre kontroll för kända frågetyper
-- men för många mallfraser gör att svaren känns mindre syntetiska och mindre resonerande
-
-Den senare stilförbättringen var därför inte att gå tillbaka till fri LLM-prosa, utan att hitta ett bättre mellanläge: mer naturliga, sammanhängande svar som fortfarande bara säger sådant som stöds av underlaget. Ett konkret exempel är frågan om svarstider. Ett bättre svar säger direkt att svarstider och körningstider behöver ingå i acceptanstest och vara verifierade före leveransgodkännande, medan källor och sidinformation visas separat i källsektionen i stället för att avbryta resonemanget i varje mening.
-
-### Mer debug- och källtransparens
-
-För att kunna bedöma kvalitet behövde vi mer synlig evidens. Därför lade vi till och använde metadata som visar:
-
-- källor och sidor
-- retrievalpoäng
-- retrievaldiagnos
-- query terms
-- relaterade hemsidelänkar
-- modellval och syntesstatus
-- versions-/revisionsinformation
-
-Det gjorde det möjligt att bedöma svaret med två frågor samtidigt:
-
-1. Är svaret bra för användaren?
-2. Finns det faktiskt underlag i retrievalen för det svaret?
-
-Den andra frågan är avgörande. I RAG räcker det inte att sluttexten låter rimlig; man måste kunna se varför systemet vågade säga den.
-
-### Tokenförbrukning och ofullständiga providerdata
-
-Vi lade också till tokenförbrukningsloggning från Hugging Face där den finns tillgänglig. Det är viktigt för att kunna jämföra modeller praktiskt, inte bara kvalitativt. En modell som ger marginellt bättre text men kräver mycket mer tid eller tokens kan vara fel val för en enkel publik chatbot.
-
-Samtidigt visade arbetet att tokenusage inte alltid finns. Vissa providers eller modellvägar returnerar tomma usagefält, och vissa debug-jämförelser kan ge tekniska fel trots att den extractive användarvägen fungerar. Det betyder att utvärderingen måste dokumentera både lyckade och saknade mätvärden. Saknad tokenusage ska inte tolkas som noll kostnad, utan som saknad observability.
-
-### Modellväljare och live jämförelse
-
-Nästa steg var att införa live modellval via `llm_model` och testa flera kandidater:
-
-- `openai/gpt-oss-120b`
-- `Qwen/Qwen3-32B`
-- `google/gemma-4-31B-it`
-- `mistralai/Mistral-Small-4-119B-2603`
-
-Här lärde vi oss en viktig gränssnittsläxa. Gradio `/submit` fungerade för manuella och modellvalda smoke tests, men det räckte inte för strikt utvärdering av syntes på/av. Den vägen kunde ta emot `llm_model`, men exponerade inte alltid `enable_synthesis`, använd modell, tokenusage eller strukturerad `llm_status` på ett tillräckligt maskinläsbart sätt.
-
-Därför behövdes en separat kontrollsyta för utvärdering:
-
-- `POST /api/ask`
-- `GET /health`
-- `GET /ready`
-- per request: `enable_synthesis` och `llm_model`
-- strukturerade metadatafält för retrieval, syntes, modell och diagnos
-
-Detta är skillnaden mellan tre vägar som annars lätt blandas ihop:
-
-- extractive/model-free svarsväg: användarsvaret byggs utan extern LLM och är standard/fallback
-- debug-only LLM comparison: LLM kan köras för jämförelse, men användarsvaret förblir extractive
-- faktisk synthesis rewrite: LLM skriver om användarsvaret, men bara när `enable_synthesis` är på och groundingkontrollerna accepterar resultatet
-
-### Artefakter från modelljämförelsen
-
-Den första Gradio-baserade modellvalscapturen finns i `tests/results/live_gradio_model_selection_capture_20260720T093725Z/`. Den körde de fyra modell-ID:na mot både 7 svaga frågor och 30-frågedatasetet. Resultatet var nyttigt men begränsat: alla användarsvar var identiska mellan modellerna, vilket visade att den vägen inte bevisade att vald modell faktiskt påverkade svaret.
-
-Den sammanfattande rapporten `tests/results/grounded_synthesis_model_selection_report_20260720.md` drog därför en försiktig slutsats: behåll grounded synthesis avstängd som default, exponera den bara som valfri/debug tills den deployade kontrollsidan kan bevisa vald modell och faktisk syntesanvändning, och testa `openai/gpt-oss-120b` först när kontrollsidan är på plats. Skälet var inte att OpenAI-modellen bevisats bäst i användarsvaret, utan att tidigare debug-evidens visade användbar syntestext med rimligare latens än Qwen och Gemma, medan Mistral hade tekniska debugfel.
-
-Efter att `/api/ask`, `/health` och `/ready` fixades och verifierades live kunde vi köra en striktare svagfrågejämförelse i `tests/results/live_weak_prompt_synthesis_compare_20260720T103404Z/`. Där svarade live `/api/ask` med strukturerad metadata, 7/7 baselines och 28/28 syntesvarianter fångades, och 13 rewrites applicerades. Samtidigt föll 15 syntesförsök tillbaka till extractive på grund av groundingkontroll. Det är precis den typ av beteende vi vill se i en försiktig RAG: modellen får förbättra språket när underlaget håller, men inte skriva över svaret när kontrollen säger nej.
-
-### Vad vi lärde oss / praktiska slutsatser
-
-Den här fasen gav några tydliga rekommendationer för fortsatt RAG-arbete:
-
-1. Kör utvärdering mot den deployade HF-chatboten, inte bara lokalt. Lokala tester visar kodens intention, men live-tester visar användarens verkliga system.
-2. Använd ett fast frågedataset. Annars går det inte att veta om en förbättring faktiskt förbättrade samma problem eller bara råkade se bra ut på nya exempel.
-3. Bedöm svar med grounding och retrievalevidens, inte bara prose fluency. Ett välformulerat men ogrundat svar är sämre än ett torrare svar som håller sig till källorna.
-4. Logga version/revision i varje svar eller körning. Annars blir det för lätt att blanda ihop gamla och nya deployer.
-5. Håll källhänvisningar och debugevidens synliga, men låt själva svarstexten vara mer naturlig. Källor bör ligga i `Källor` och debugmetadata, inte avbryta varje resonemangsmening.
-6. Skilj tydligt mellan extractive svar, debug-only LLM-jämförelse och faktisk synthesis rewrite. De har olika risk, kostnad och evidenskrav.
-7. Gör `enable_synthesis` och `llm_model` styrbara per request. Annars går det inte att göra rättvisa modelljämförelser.
-8. Behandla saknad tokenusage och debugfel som observability-problem. De måste dokumenteras, inte döljas.
-9. Låt grounded synthesis vara valfri tills den konsekvent visar bättre direkta svar utan att minska källtroheten. Första modellen att fortsätta testa är `openai/gpt-oss-120b`, men valet ska avgöras av ny live-evidens via `/api/ask`, inte av modellnamn eller katalogrykte.
-
-## 24. Promptstyrd svarskvalitet utan att släppa källgrundningen
-
-Nästa lärdom var att svarskvalitet inte bör lösas genom allt fler hårdkodade domänregler i ingest. Ingest ska framför allt göra generisk texthygien: ta bort brus, metadata, återkommande sidhuvuden och tomma figurreferenser, men inte bestämma hur ett verksamhetssvar ska resonera. Den delen hör hemma i syntesen och i LLM-prompten.
-
-Vi skärpte därför promptkontraktet för grounded synthesis. Prompten instruerar nu modellen att först identifiera vad användaren faktiskt frågar efter, hålla sig inom den ramen och börja med ett direkt svar. Därefter ska svaret utveckla vad de belagda punkterna betyder, varför de spelar roll och hur de hänger ihop.
-
-Samtidigt blev gränsen för källgrundning tydligare:
-
-- PDF-metadata, dokumenttitlar, författarnamn, versioner, copyright, sidhuvuden och sidfötter är inte faktainnehåll.
-- Om texten bara säger att en figur, bild eller tabell visar något får modellen inte inferera sakuppgifter från den saknade bilden eller tabellen.
-- Om underlaget är smalt ska svaret säga det, inte fylla luckor med generisk konsultkunskap.
-- Källor och sidor ska fortsätta ligga separat i källsektionen, inte inne i resonemangsprosan.
-
-Det här är särskilt viktigt för frågor som låter enkla men egentligen kräver utveckling, till exempel `Finns det en arbetsmodell för att införa system?`. Ett bra svar ska inte stanna vid `ja` om källorna faktiskt beskriver modellen. Det ska också förklara de stödda delarna, som process, etapper, cykler, planering, godkännande och uppföljning.
-
-Lärdomen är att prompten ska bära kvalitetsprinciperna medan kodens kontroller fungerar som skyddsräcken. Modellen får gärna skriva mer professionellt och sammanhängande, men bara inom det underlag som retrievalen faktiskt ger och som groundingkontrollen accepterar.
-
-Den samlade lärdomen är att RAG-kvalitet inte är en enda poäng. Den uppstår i skärningen mellan rätt kontext, troget svar, direkt relevans, observerbar metadata, rimlig latens och kontrollerad modellgenerering. När alla dessa delar mäts i den deployade miljön blir förbättringsarbetet mycket mer konkret.
-
-## 25. Manuell granskning, metadatahygien och nästa live-mätning
-
-Tomas manuella genomgång av frågorna Q01-Q07 gav en viktig korrigering av hur vi bedömer kvalitet. Flera svar kunde se relevanta ut vid första läsning, men ändå vara svaga i faithfulness: de svarade på ungefär rätt ämne, men lutade sig för mycket mot metadata, rubriker, boilerplate eller allmänna slutsatser som inte var tydligt belagda i PDF:erna eller på hemsidan. Därför räcker det inte att ett svar känns hjälpsamt. Det måste också gå att se vilket faktiskt källinnehåll som bär påståendet.
-
-### Metadata får inte bli fakta
-
-En konkret felkälla var metadata leakage. Författarnamn, dokumentboilerplate, copyright-rader, versionsnummer, sidhuvuden, sidfötter och liknande återkommande rader kan få hög retrievalträff utan att vara sakuppgifter om systeminförande. Om sådant material får följa med in i chunkarna kan modellen börja behandla det som svarsfakta.
-
-Den lärdomen ledde till en tydligare ansvarsfördelning:
-
-- ingest ska göra generisk texthygien och ta bort uppenbart brus
-- ingest ska inte hårdkoda svar på Q01-Q07 eller fatta domänspecifika beslut om vad ett verksamhetssvar ska säga
-- prompten och syntesen ska bära policyn för hur källmaterialet får användas
-
-Det är en viktig skillnad. Att rensa bort metadata, headers och footers är corpus-hygien. Att säga hur arbetsmodeller, acceptanstest eller införandekrav ska förklaras är svarspolicy och hör hemma i prompten, syntesen och regressionstesterna.
-
-### Prompten ska bära källpolicyn
-
-Efter granskningen skärptes promptstrategin. Modellen ska inte bara skriva snyggare prosa, utan följa ett tydligt källkontrakt:
-
-- identifiera användarens faktiska fråga och håll svaret fokuserat på den
-- behandla metadata som icke-faktuellt stöd
-- dra inte slutsatser från en saknad figur, bild eller tabell bara för att texten hänvisar till den
-- säg när underlaget är tunt eller bara indirekt
-- skriv utvecklade resonemang när källorna stödjer det, men håll resonemanget inom källornas gränser
-- låt källor och sidinformation ligga separat från den löpande svarstexten
-
-Detta är mellanläget vi vill åt: svaret ska vara mer professionellt och utvecklat än en mekanisk extractive sammanställning, men inte friare än källorna tillåter.
-
-### Regressionerna ska fånga feltypen, inte hela facitsvar
-
-Q01-Q07-kommentarerna ska leva vidare som regressionstester, men inte som hårdkodade fullständiga svar. Testerna ska i stället låsa de failure modes som granskningen faktiskt hittade:
-
-- metadata får inte dominera eller läcka in som sakpåstående
-- figur- eller tabellhänvisningar utan faktisk figurtext räcker inte som bevis
-- svaret ska hålla frågefokus och inte glida över i allmän metodkunskap
-- underlaget ska beskrivas som tunt när det bara ger svagt stöd
-- svaret ska kunna utveckla stödda begrepp, exempelvis arbetsmodell, process, etapper och uppföljning, utan att hitta på mer än källorna säger
-
-På så sätt blir testerna robusta mot förbättrad formulering. De kontrollerar vad svaret måste undvika och vilka stödpunkter som måste finnas, men kräver inte att modellen skriver exakt samma meningar varje gång.
-
-### Ny mätning måste göras i deployad HF-miljö
-
-Efter metadatahygien, ombyggt chunkindex och promptförstärkning är nästa nödvändiga steg att köra om den deployade Hugging Face-utvärderingen. Lokal pytest visar att kodens kontrakt håller, men den avgörande frågan är hur den publika chatboten svarar när samma RAGAS-/HF-frågedataset körs mot live-gränssnittet.
-
-Den nya körningen ska jämföras mot tidigare baselines, inte bara läsas isolerat. Särskilt viktigt är att jämföra:
-
-- faithfulness och source-grounding före och efter metadatahygienen
-- answer relevance för Q01-Q07-frågorna
-- hur ofta svaren behöver säga att underlaget är tunt
-- om de LLM-skrivna svaren blivit mer utvecklade utan att tappa källtrohet
-- om chunkantal, källträffar och modell-/synthesismetadata visar att rätt deploy faktiskt testades
-
-Den praktiska slutsatsen är att RAG-förbättringen inte är färdig när lokala tester passerar. Den är färdig först när samma frågor har körts mot den deployade HF-chatboten och resultatet har jämförts med tidigare RAGAS-baselines.
-
-## 26. Agentic RAG: kontrollerad 3-agentdesign
-
-Nästa föreslagna steg är inte att släppa språkmodellen fri, utan att dela upp LLM-arbetet i tre tydliga roller med explicita JSON-kontrakt. Den detaljerade designen finns i [`docs/agentic-rag-contracts.md`](./agentic-rag-contracts.md).
-
-Grundprincipen är att användarens originalfråga alltid är ankaret för slutsvaret. En första mindre modell, `openai/gpt-oss-20b`, får bara skriva om frågan för retrieval och föreslå generella svenska böjnings-, synonym- och sammansättningsvarianter. Den får inte formulera svaret. En starkare modell, `openai/gpt-oss-120b`, får därefter jämföra evidens och skriva ett svar, men bara mot originalfrågan och bara med stöd i de hämtade källorna. En tredje mindre modell, `openai/gpt-oss-20b`, granskar grounding, metadata-läckage och drift från originalfrågan innan svaret får publiceras.
-
-Det viktiga arkitekturbeslutet är att Agent 1:s omskrivning aldrig får bli den fråga som svaret bedöms mot. Omskrivningen är ett retrievalhjälpmedel, inte en ny användarfråga. Detta skyddar mot att systemet blir bättre på att hitta närliggande material men samtidigt svarar på fel sak.
-
-Designen använder feature flags så att kedjan först kan köras i `shadow`-läge. Då loggas agenternas JSON-kontrakt, retrievaleffekt, tokenbudget och fallbackorsaker, men användaren får fortfarande den nuvarande säkra svarsvägen. Först när live-HF-mätning visar bättre context precision/recall och oförsämrad faithfulness bör läget höjas till `reviewed_answer`.
-
-Fallbackregeln är medvetet konservativ: ogiltig JSON, timeout, låg confidence, drift från originalfrågan, metadata som fakta eller unsupported claims leder tillbaka till den befintliga extractive/grounded vägen. Frånvaro av Agent 3-godkännande är alltså aldrig ett tyst godkännande.
-
-Tokenbudgeten hålls kompakt utifrån 2026-07-20-loggbaslinjen. Den enda kompletta tokenusage-raden i den tillgängliga loggen var cirka 5 216 prompttokens, 846 completiontokens och 6 062 totalt. Därför ska den nya kedjan undvika att skicka fulla chunkar till alla agenter: Agent 1 får kort retrievaldiagnos, Agent 2 får deduplicerade toppchunkar, och Agent 3 får bara originalfråga, svarskandidat och kort evidenslista. Saknad tokenusage för `openai/gpt-oss-120b` behandlas som ett observability-problem, inte som noll kostnad.
-
-En central lärdom från tidigare RAG-arbete gäller även här: lösningen ska generalisera till svenska språkvariationer i stället för att hårdkoda enskilda domänord. Testerna bör därför innehålla generiska böjningsexempel, till exempel `undervisning`, `undervisade` och `undervisat`, inte bara tidigare systeminförandetermer som råkat fallera i en viss fråga.
-
-## 27. Agentic RAG 7: live-utvärdering och kvarvarande risker
-
-Den senaste Agentic RAG-mätningen gjordes 2026-07-23 mot den deployade Hugging Face-appen, inte bara lokalt. Det var viktigt eftersom lokala tester bara visar att koden håller sina kontrakt, medan live-mätningen visar vad användaren faktiskt möter i Gradio/HF-miljön.
-
-### Vad som verifierades
-
-Först kördes hela den lokala regressionssviten i den kanoniska repokopian. `pytest -q` gav `143 passed, 6 warnings` på 76,40 sekunder. Därefter kördes live smoke-testet `python3 tools/run_live_http_smoke.py` mot `https://helmfridsson-systeminforande.hf.space`. Det passerade `/gradio_api/info`, åtta scenarier och två regressionsfrågor. Smoke-artefakten finns i `tests/results/live_http_smoke_2026-07-23_openai-gpt-oss-120b.md`.
-
-Live-proben visade samtidigt en viktig gränssnittsrisk: `/health` och `/ready` svarade `200` med deployrevision `a64798811f70acaed2e2e8df95f911a9c90b338c`, men `/api/ask` svarade `404` i den deployade appen. Den fungerande livevägen i den här körningen var därför Gradio `/submit`, där fjärde input är `llm_model`.
-
-### RAGAS-liknande resultat för Q22 och svaga frågor
-
-En riktad livecapture kördes med fem repetitioner av Q22, `Hur ska överlämning till drift och förvaltning gå till?`, samt svagfrågorna Q09, Q13, Q18, Q20 och Q30. Capturen finns i `tests/results/ragas_hf_capture_20260723T133131Z_openai-gpt-oss-120b.json` och den deterministiska RAGAS-liknande scoringen finns i `tests/results/ragas_hf_capture_scores_20260723T133137Z_offline.json`.
-
-Den sammanlagda bilden för de tio frågorna var:
-
-- `faithfulness`: medel `0.6884`, median `0.6641`
-- `answer relevance`: medel `0.7367`, median `0.5917`
-- `context precision`: medel `0.2519`, median `0.2127`
-- `context recall`: medel `0.3468`, median `0.2326`
-
-Q22 var deterministisk över fem repetitioner: samma 471 tecken långa svar och samma scoring varje gång. Det är bra för stabilitet, men inte tillräckligt som kvalitetsbevis. Svaret var grundat i `Verktyget_aktiviteter.pdf`, men scoringen markerade fortfarande `missing_direct_answer`, `unfocused_retrieval` och `insufficient_retrieval`. Med andra ord: systemet hallucinerade inte fritt, men hämtade och formulerade fortfarande för smalt underlag för hela frågan om överlämning till drift och förvaltning.
-
-Svagfrågorna visade samma mönster i olika grad. Q18 fick stark faithfulness och relevans, medan Q13 föll tydligt på faithfulness. Flera frågor hade låg context precision/recall trots att slutanvändarsvaret ofta var begripligt. Det bekräftar den tidigare lärdomen: svaret kan vara hjälpsamt på ytan men ändå behöva bättre retrievalevidens innan vi räknar det som löst.
-
-### Tokenusage och modellrisk
-
-Jämförelsebaslinjen `/Users/tomashelmfridsson/Downloads/2026-07-21.jsonl` innehöll 52 rader med användbar `metadata.llm_usage.total_tokens`. Medianen var `8 459,5` total tokens, med medel `7 870,9` och spann `2 712` till `14 505`.
-
-I den nya livecapturen skickades det explicita modellvalet `openai/gpt-oss-120b` via Gradio `/submit`, men svaret exponerade ingen strukturerad tokenusage. Dessutom rapporterade alla tio debugsektioner att LLM-jämförelsen misslyckades med Hugging Face Inference Provider `402 Payment Required`, eftersom de inkluderade månadskrediterna var förbrukade. Den här körningen kan därför inte bevisa att den valda modellen håller målbilden `4k-5k` tokens. Det ska behandlas som ett observability- och providercredits-problem, inte som noll kostnad.
-
-### Arkitekturslutsats
-
-Den säkra extractive/model-free vägen är liveverifierad, snabb och stabil nog för smoke-regressionerna. Däremot är den här körningen inte ett godkännande av full Agentic RAG med vald LLM-modell, eftersom den deployade miljön inte gav strukturerad `/api/ask`-metadata och providerkrediterna stoppade LLM-jämförelsen. Nästa skarpa mätning behöver därför göras när live `/api/ask` åter är tillgänglig eller när `/submit` exponerar motsvarande strukturerade metadata: requested model, resolved model, synthesis used, grounding fallback reason och tokenusage.
-
-Praktiskt betyder det att lösningen bör fortsätta behandla agentisk LLM-syntes som kontrollerad och villkorad. Retrievalförbättringar och promptpolicy kan fortsätta utvecklas, men slutsatsen om bättre svarskvalitet och lägre tokenbudget måste bygga på deployad evidens där modellen faktiskt får köras och metadata går att läsa maskinellt.
-
-## 28. Frikopplat RAG-API och första livekörningen av treagentskedjan
-
-Den 28 juli 2026 deployades revision `3691b74b5530d300ad8d4b7832dac72c65a2226f`, där FastAPI gjordes till ägare av kontrollgränssnittet och Gradio monterades som en separat UI-applikation på `/`. Det ersatte den tidigare kopplingen till Gradio-interna appklasser och privata launch-varianter. Efter deployen svarade `/health`, `/ready` och `/api/ask` korrekt samtidigt som Gradio fortfarande exponerade `/gradio_api/info` och `/submit`.
-
-`/health` bekräftade både rätt revision och `agentic_rag_enabled: true`. Agentic RAG aktiveras som standard i Docker/HF med `SYSTEMINFORANDE_ENABLE_AGENTIC_RAG=true`, men `/api/ask` kan överstyra läget per anrop. Exempelvis väljer `?enable_agentic_rag=false&debug=false` kontrollvägen och `?enable_agentic_rag=true&debug=false` agentvägen. JSON-body har högre prioritet än URL-parametrar, och URL-parametrar har högre prioritet än miljökonfigurationen. Detta gör det möjligt att A/B-testa samma fråga på samma deployrevision utan omstart.
-
-Det är viktigt att skilja denna faktiska implementation från det tidigare designförslaget om `off`, `shadow` och `reviewed_answer`. Den deployade implementationen är för närvarande binär: av eller på, med per-anrop-override. Ett fullständigt shadow-läge där agentkedjan körs och loggas utan att kunna påverka användarsvaret är ännu inte implementerat.
-
-### Första A/B-proben mot `/api/ask`
-
-Den första liveproben använde Q22, `Hur ska överlämning till drift och förvaltning gå till?`, med `openai/gpt-oss-120b` och `enable_synthesis=false` för att isolera agentkedjan.
-
-Kontrollvägen med Agentic RAG av gav:
-
-- svarstid `153,43 ms`
-- noll LLM-anrop och noll rapporterade tokens
-- det tidigare extraktiva och källbundna svaret
-- en separat `Källor`-sektion med `Verktyget_aktiviteter.pdf`
-
-Agentvägen gav:
-
-- svarstid `3 904,56 ms`
-- två LLM-anrop
-- `3 611` prompttokens, `1 649` completiontokens och `5 260` tokens totalt
-- Agent 1 `ok`, med fem accepterade retrievalvarianter
-- Agent 2 `fallback` med `agent2_schema_error`
-- Agent 3 `not_run`
-- ett sämre icke-svar trots att retrievalen hade relevant stöd
-
-Den större tiopunktsmätningen stoppades därför. Det hade varit missvisande att räkna detta som ett kvalitetsresultat för treagentsdesignen när Agent 3 aldrig kördes och felet låg i kontraktskopplingen mellan modell och parser.
-
-### Vad schemafelet faktiskt var
-
-Ett direkt diagnosanrop med exakt Agent 2-prompt visade att modellen returnerade giltig JSON och ett relevant, källnära svar. Modellen använde dock:
-
-```json
-{
-  "answer_scope": "sufficient",
-  "evidence_used": [
-    {"chunk_id": "Verktyget_aktiviteter_7.1.20"},
-    {"chunk_id": "Verktyget_projektstyrning_2.8"}
-  ]
-}
+```text
+SYSTEMINFORANDE_ENABLE_AGENTIC_RAG=false
 ```
 
-Parsern accepterade bara `direct`, `partial_due_to_thin_evidence` och `insufficient_evidence`. Den krävde dessutom att modellen duplicerade `source`, `pages` och `claim_supported` i varje `evidence_used`-objekt, trots att applikationen redan har auktoritativ källmetadata för varje `chunk_id`. Resultatet blev ett schemafel trots att svaret och de refererade chunk-ID:na var användbara.
+Den kostnadsstyrda agentkedjan finns kvar bakom feature flaggan. Agent 1–3 använder 20B och endast ett underkänt Agent 3-svar kan utlösa en kompakt 120B-korrigering.
 
-Detta visar en viktig skillnad mellan fail-safe validering och onödigt sköra kontrakt. Parsern ska avvisa okända eller osäkra svar, men den bör inte underkänna ett semantiskt likvärdigt statusvärde eller kräva att modellen återger metadata som systemet redan äger och kan kontrollera.
+Den lokala testsviten passerar med 173 tester. Den senaste kompletta RAGAS-körningen för Agentic RAG kunde däremot inte slutföras eftersom Hugging Face-krediterna tog slut.
 
-### Fallbackbuggen
+## 2026-07-10 – Från PDF-samling till första RAG-lösning
 
-Liveproben avslöjade även en separat säkerhetsbugg. När Agent 2 föll tillbaka skickades Agent 2:s generiska icke-svar in som `fallback_answer` till den befintliga svarsgeneratorn. Därmed ersattes det fungerande extraktiva svaret. Samma kodväg hade även kunnat återanvända ett Agent 2-svar som Agent 3 uttryckligen hade avvisat.
+### Utgångsläge
 
-Den korrekta fallbackregeln är striktare:
+Målet var både att skapa en praktiskt användbar chatbot för systeminförande och att förstå vilka delar som faktiskt avgör kvaliteten i en RAG-lösning.
 
-- endast ett svar som Agent 3 godkänt eller säkert reviderat får publiceras som agentsvar
-- schemafel, Agent 2-fallback eller Agent 3-reject ska återgå till den oberoende extraktiva/grounded vägen
-- ett underkänt agentsvar får aldrig bli fallback för sig självt
+### Ändring
 
-### Korrigering och nästa verifiering
+Den första kedjan byggdes med:
 
-Korrigeringen deployades i commit `5b93832`:
+1. PDF-extraktion sida för sida
+2. rubrikbaserad chunkning
+3. lokalt JSON-index
+4. BM25-baserad retrieval
+5. modellfri svargenerering
+6. klickbara källänkar via GitHub Pages
+7. Gradio som användargränssnitt på Hugging Face
 
-- Agent 2-prompten listar nu exakt tillåtna `answer_scope`-värden och evidensfält.
-- Det observerade och säkra synonymvärdet `sufficient` normaliseras till `direct`.
-- `source` och `pages` hämtas från applikationens egna chunks i stället för att litas på från modelltexten.
-- Agent 3 är fortfarande obligatorisk innan agentsvaret får publiceras.
-- Underkända eller ogiltiga agentsvar kan inte längre ersätta det extraktiva reservsvaret.
-- Regressionstest täcker både liveformatet och att Agent 3-reject bevarar reservsvaret.
+### Observation
 
-Efter korrigeringen passerade den lokala sviten med `143 passed`, `15 deselected` live-tester och `5 warnings`. Nästa steg var att deploya `5b93832` och upprepa exakt samma Q22-prob. Först när Agent 2 blir `ok`, Agent 3 faktiskt körs och kontroll-/agentresultaten kan jämföras meningsfullt bör den tidigare tiopunktsmätningen återupptas.
+Det blev snabbt tydligt att språkmodellen inte var den enda eller ens den första kvalitetsfrågan. Om fel chunkar valdes kunde ingen prompt skapa ett pålitligt svar.
 
-## 29. Andra livekörningen: tokenkapning och isolerad fallback-retrieval
+### Lärdom
 
-Den andra Q22-körningen gjordes mot den deployade korrigeringen `5b938324...`. `/health` och `/ready` bekräftade samma revision, att Agentic RAG var aktiverad och att det frikopplade `/api/ask` fortfarande fungerade. Testet använde återigen `enable_synthesis=false` för att jämföra kontrollvägen med agentskedjan utan att blanda in en separat syntesmodell.
+RAG är en kedja. Materialberedning, chunkning och retrieval måste fungera innan modellval och promptjustering kan bedömas meningsfullt.
 
-Kontrollvägen gav:
+## 2026-07-10 – Den första systematiska kvalitetsgranskningen
 
-- svarstid `178,2 ms`
-- noll LLM-anrop och noll tokens
-- ett fokuserat extraktivt svar om överlämning till drift och förvaltning
-- en separat källsektion med `Verktyget_aktiviteter.pdf`
+### Utgångsläge
 
-Agentvägen gav:
+Chatboten fungerade tekniskt, men enstaka klicktester räckte inte för att avgöra om den hittade rätt underlag.
 
-- svarstid `4 567,05 ms`
-- två LLM-anrop
-- `3 680` prompttokens, `1 884` completiontokens och `5 564` tokens totalt
-- Agent 1 `ok`
-- Agent 2 `fallback` med `agent2_invalid_json`
-- Agent 3 `not_run`
+### Observation
 
-Den första fallbackbuggen var korrigerad: användaren fick inte längre Agent 2:s generiska icke-svar. Ändå blev reservsvaret sämre än kontrollsvaret, eftersom det byggdes från Agent 1:s breddade retrievalresultat och gled över mot driftsättning i stället för att hålla fokus på överlämningen.
+Livefrågor via Gradio API visade flera återkommande fel:
 
-### Exakt tokenkapning var den nya huvudorsaken
+- fel dokumentfamilj rankades högst
+- detaljavsnitt slog ut bättre översiktsavsnitt
+- processfrågor fick fragmentariska svar
+- mindre stavfel kunde ge svaga träffar
+- hårdkodade dokumentnamnsboostar gjorde retrievalen skör
 
-Agent 2:s completion var exakt `1 200` tokens, samma värde som den gemensamma hårdkodade gränsen i LLM-klienten. Det är ett starkt tecken på att JSON-svaret kapades innan modellen hann avsluta objektet. Parserns `agent2_invalid_json` var därför korrekt fail-safe-beteende, men grundorsaken var inte längre kontraktets semantik utan ett för litet outpututrymme.
+### Diagnos
 
-En gemensam tokenbudget passar dåligt när agenterna har olika uppgifter. Agent 1 och Agent 3 ska lämna små kontrollobjekt, medan Agent 2 både ska resonera över evidens och returnera ett komplett JSON-svar. Korrigeringen inför därför separata maxgränser:
+Problemen kom huvudsakligen från retrieval:
 
-- Agent 1: `1 000` outputtokens
-- Agent 2: `1 800` outputtokens
-- Agent 3: `1 000` outputtokens
+- otillräcklig svensk normalisering
+- för svag skillnad mellan rubrik, källnamn och brödtext
+- ingen tydlig hantering av frågetyp
+- ingen lokal reranking av toppkandidater
+- för stor tillit till en enda rankningssignal
 
-Tokenbudgeten skickas nu hela vägen till Hugging Face-klienten och testas uttryckligen, så att ett högre Agent 2-värde inte bara finns i konfigurationen utan faktiskt används i modell-anropet.
+### Ändring
 
-### Fallback måste vara oberoende av den misslyckade agentvägen
+Retrievalen kompletterades med:
 
-Den andra lärdomen är att ett säkert reservsvar inte bara får vara oberoende av Agent 2:s text. Även dess retrievalunderlag måste vara oberoende. Om Agent 1 har breddat frågan och senare agenter underkänns kan samma breddade resultat bära med sig den ämnesdrift som granskningskedjan skulle skydda mot.
+- svenska böjnings- och stavningsvarianter
+- titel-, käll- och dokumentfamiljssignaler
+- frågetyper för definition, syfte, lista, process och beslut
+- generella egenskapsbaserade boostar
+- en lokal reranker ovanpå BM25
+- lokala regressionstester för verkliga svagfrågor
 
-Den nya fallbackregeln är därför:
+### Resultat
 
-1. om Agent 2 eller Agent 3 inte producerar ett godkänt svar, kör retrieval på nytt med användarens originalfråga
-2. använd ingen omskrivning från Agent 1 i denna reservsökning
-3. bygg både extraktivt svar och källista från de nya baslinjeresultaten
-4. exponera `agentic_fallback_retrieval_used` i `/api/ask` så att beteendet går att verifiera
+Översiktsfrågor hittade oftare översiktsavsnitt och processfrågor fick bättre sammanhängande underlag.
 
-Den första kontrollen efter nästa deploy ska åter vara samma Q22 A/B-test. Ett meningsfullt framsteg kräver att Agent 2 returnerar giltig JSON, Agent 3 faktiskt körs och agentsvaret förbättrar frågefokus eller evidensanvändning. Om kedjan fortfarande faller tillbaka ska svaret åtminstone motsvara den stabila kontrollvägen och inte ärva Agent 1:s retrievaldrift.
+### Lärdom
 
-## 30. Tredje livekörningen: evidenskontraktet mellan Agent 2 och Agent 3
+Ett svar som ser ut som ett promptproblem är ofta ett retrievalproblem. Rankningen bör testas som en egen produkt, inte bara bedömas genom sluttexten.
 
-Efter deploy av `82dee9c` verifierade `/health` att rätt revision kördes. Samma Q22-fråga testades åter med syntes avstängd. Kontrollvägen svarade på `140,02 ms` utan LLM-anrop. Agentvägen tog `4 314,95 ms`, gjorde två LLM-anrop och använde `3 211` prompttokens, `1 808` completiontokens och `5 019` tokens totalt.
+## 2026-07-11–2026-07-17 – Frågetypsstyrd modellfri syntes
 
-Den höjda outputgränsen fungerade: Agent 2 avslutade efter `895` completiontokens, tydligt under den nya gränsen `1 800`, och felet `agent2_invalid_json` försvann. Agent 2 föll i stället tillbaka med `agent2_missing_evidence`, vilket gjorde att Agent 3 inte kördes.
+### Utgångsläge
 
-Den isolerade fallback-retrievalen fungerade däremot som avsett. Agentvägen returnerade exakt samma fokuserade svar, källa och sida som kontrollvägen. Agentskedjan gav alltså ännu ingen kvalitetsvinst, men den försämrade inte längre användarsvaret när en agent underkändes.
+Även med bättre retrieval blev det modellfria svaret ibland mekaniskt. Samma svarsmall passade inte för alla frågor.
 
-### Agent 2 ska inte behöva duplicera systemets metadata
+### Observation
 
-Granskningen visade att evidenskontraktet var onödigt redundant. Agent 2 ombads returnera både `evidence_used` och `evidence_ids_used` samt duplicera `source` och `pages`, trots att applikationen redan äger denna metadata. Dessutom användes samma fallbackorsak för flera skilda fel, vilket gjorde livefelet svårt att diagnostisera.
+Fyra svarstyper behövde olika behandling:
 
-Kontraktet förenklades därför:
+- listfrågor behövde korta och fullständiga uppräkningar
+- syftesfrågor behövde skilja mål från aktiviteter
+- tids- och beslutsfrågor behövde uttrycka när något sker
+- process- och planeringsfrågor behövde ett begripligt förlopp
 
-- Agent 2 ska primärt returnera `chunk_id` och `claim_supported` i `evidence_used`.
-- Ett exakt och känt `chunk_id` är det obligatoriska ankaret; tom `claim_supported` tolereras för bakåtkompatibilitet och granskas semantiskt i nästa steg.
-- `source` och `pages` hämtas alltid från applikationens auktoritativa chunk.
-- Det äldre `evidence_ids_used` får förekomma men behövs inte och är inte den auktoritativa listan.
-- Okänt ID, saknat ID, tom evidenslista och felaktig evidensstruktur får separata fallbackorsaker med en säker lista över tillåtna ID:n.
+### Ändring
 
-### Alla liknande retrievalträffar är inte använda källor
+Separata lokala generatorer infördes för listor, syfte, tid/beslut, process och planering.
 
-Den tidigare deterministiska kontrollen krävde att alla hämtade chunkar som delade minst tre innehållsord med svaret skulle citeras. Det blandade ihop två olika saker: en chunk kan likna svaret utan att faktiskt vara den evidens som Agent 2 använde. Med flera agentiska sökvarianter blir många träffar naturligt språkligt närliggande, vilket gjorde regeln överkänslig.
+### Resultat
 
-Den regeln togs bort. Groundingkontrollen använder nu bara:
+Svarens form blev bättre anpassad till frågan utan att en extern modell behövde skriva ny saktext.
+
+### Lärdom
+
+Modellfri syntes kan vara både säker och användbar när frågetypen är tydlig. Korthet är inte alltid ett fel: frågan `Vilka etapper finns?` bör i första hand ge en korrekt lista. Mer resonemang kräver en mer detaljerad fråga.
+
+## 2026-07-18 – Första fasta 30-frågebaslinjen
+
+### Utgångsläge
+
+Kvaliteten bedömdes fortfarande för mycket genom enstaka exempel och subjektiv läsning.
+
+### Ändring
+
+En fast uppsättning med 30 frågor infördes för jämförbara körningar. Frågorna täckte bland annat:
+
+- definitioner
+- listor
+- processer
+- ansvar
+- planering
+- beslut och tidpunkt
+- svaga eller tvetydiga formuleringar
+
+### Resultat
+
+En tidig HF-baslinje gav:
+
+- 10 godkända svar
+- 6 underkända svar
+- 14 svar som krävde manuell granskning
+
+Många svar var källgrundade men ofullständiga, indirekta eller för mekaniska.
+
+### Lärdom
+
+Frågan `fungerar chatboten?` är för grov. Retrieval, grounding, relevans, svarsstil, latens och kostnad behöver följas var för sig.
+
+## 2026-07-18–2026-07-20 – RAGAS, modelljämförelser och grounded syntes
+
+### Utgångsläge
+
+Den modellfria vägen var säker men kunde ge styva svar. Vi ville undersöka om en språkmodell kunde förbättra formuleringen utan att ta över faktainnehållet.
+
+### Ändring
+
+En valfri LLM-syntes lades efter det extraktiva svaret. Modellen fick:
 
 - originalfrågan
-- de chunkar som Agent 2 faktiskt citerat med giltiga ID:n
-- Agent 2:s korta beskrivning av vilket påstående som stöds
-- säkra termrelationer från Agent 1, endast för ordformer och sammansättningar
+- hämtade chunkar
+- det modellfria fallbacksvaret
+- ett tydligt kontrakt om att inte lägga till fakta
 
-Okända chunk-ID:n avvisas fortfarande deterministiskt och ostödda formuleringar faller fortfarande tillbaka. Skillnaden är att ett svar inte längre underkänns bara för att en annan retrievalträff råkar innehålla samma domänord. Om Agent 2 passerar denna kontroll får Agent 3 göra den avsedda semantiska granskningen mot originalfrågan och de citerade källorna.
+En lokal groundingkontroll fick avgöra om omskrivningen kunde användas.
 
-## 31. Fjärde livekörningen: systemberäknad coverage och första kompletta agentkedjan
+Flera modeller jämfördes mot samma svagfrågor. API-metadata utökades med modell, tokenusage, revisionsinformation, retrievalstatus och fallbackorsak.
 
-Revision `11c7a16` verifierades live den 29 juli 2026. Kontrollvägen för Q22 svarade på `99,07 ms` utan LLM-anrop. Agentvägen tog `4 414,9 ms`, gjorde två LLM-anrop och använde `3 714` prompttokens, `1 949` completiontokens och `5 663` tokens totalt. Fallbacken gav åter exakt samma svar, källa och sida som kontrollen.
+### Resultat
 
-Agent 2 föll denna gång med `agent2_grounding_failed`. Ett riktat anrop med modellens faktiska JSON visade att evidens-ID:na nu var korrekta och att svaret var källnära. Den blockerande skillnaden var i stället att modellen returnerade `source_coverage` som en kommaseparerad sträng:
+I livejämförelsen den 20 juli:
 
-```json
-"source_coverage": "uses_retrieved_chunks, answers_original_question, ignores_metadata_as_facts"
+- 7 av 7 baselines fångades
+- 28 av 28 syntesvarianter fångades
+- 13 omskrivningar användes
+- 15 syntesförsök föll säkert tillbaka efter groundingkontroll
+
+### Observation
+
+Providerdata för tokenusage var ibland ofullständig. Saknade tokenvärden kunde inte behandlas som noll förbrukning.
+
+### Lärdom
+
+En språkmodell kan förbättra språket, men den måste ligga bakom ett evidenskontrakt. En säker fallback är en avsedd del av lösningen, inte bara felhantering.
+
+## 2026-07-20–2026-07-21 – Metadata får inte bli fakta
+
+### Utgångsläge
+
+Vissa svar använde rubriker, filnamn eller interna beskrivningar som om de vore källinnehåll.
+
+### Observation
+
+Modellen kunde formulera trovärdig text utifrån metadata trots att motsvarande påstående inte fanns i själva chunktexten.
+
+### Ändring
+
+- Prompten skärptes så att metadata bara fick användas för navigation.
+- Groundingkontrollen fick skilja mellan innehåll och källmetadata.
+- Regressionstester skapades för feltypen i stället för ett enskilt facitsvar.
+- Deployrevision började registreras tydligare i loggar och svar.
+
+### Lärdom
+
+En källa kan vara relevant utan att varje ord i dess titel är evidens. Systemet måste veta skillnaden mellan att hitta ett dokument och att ha stöd för ett påstående.
+
+## 2026-07-22 – Design av en kontrollerad treagentskedja
+
+### Utgångsläge
+
+Den lokala retrievalen behövde bättre stöd för svenska synonymer, böjningar och sammansättningar. Samtidigt fick en agentisk lösning inte göra svaret friare eller svårare att verifiera.
+
+### Beslut
+
+En kedja med tre separata roller definierades:
+
+1. Agent 1 skapar betydelsebevarande sökvarianter.
+2. Agent 2 skriver ett svar från en begränsad evidenspool.
+3. Agent 3 granskar svaret mot originalfrågan och citerad evidens.
+
+Originalfrågan är ankare genom hela kedjan. Agent 1 får påverka retrieval men inte ändra vilken fråga Agent 2 besvarar.
+
+### Säkerhetsregler
+
+- strikt JSON mellan stegen
+- stabila chunk-ID:n
+- maximalt antal sökvarianter och evidenschunkar
+- timeout och fallback per agent
+- lokal validering utöver modellernas egen bedömning
+- frånvaro av Agent 3-review är aldrig ett godkännande
+
+### Lärdom
+
+Agentic RAG behöver tydligare ansvar, inte bara fler modellrop. Varje agent ska göra en liten kontrollerbar uppgift.
+
+## 2026-07-23 – Första liveutvärderingen av Agentic RAG
+
+### Utgångsläge
+
+Den lokala implementationen passerade tester, men det behövde verifieras att samma beteende fanns i den deployade HF-miljön.
+
+### Resultat
+
+Den lokala sviten gav:
+
+```text
+143 passed, 6 warnings
 ```
 
-Parsern krävde tidigare ett objekt med tre booleaner. Det är ett svagt kontrakt eftersom fältet är modellens egen försäkran om sådant som systemet och Agent 3 ändå måste kontrollera. `source_coverage` tas därför bort från Agent 2:s obligatoriska output och beräknas av systemet efter att evidens-ID:n och grounding har validerats.
+Live smoke-testet passerade Gradio-information, åtta scenarier och två regressionsfrågor.
 
-Den sista deterministiska groundingkontrollen var också för ordagrann: två nya innehållsord i en mening räckte för avslag. Den ersattes med en kontroll av total täckning och mindre påståendeenheter, där meningar även delas vid exempelvis `samt`, `dessutom` och semikolon. Det tillåter naturlig svensk parafras men stoppar fortfarande separata eller tillagda påståenden utan stöd.
+### Problem
 
-### Första verifierade Agent 1–2–3-passeringen
+`/health` och `/ready` svarade `200`, men `/api/ask` gav `404`. Den fungerande livevägen var Gradio `/submit`, vilket inte exponerade all strukturerad metadata som behövdes för en rättvis agentutvärdering.
 
-Efter korrigeringen kördes ett riktat end-to-end-test mot samma HF-modeller:
+### Lärdom
+
+Lokala tester kan bekräfta kontrakt, men inte den deployade produktens verkliga integrationsyta. Ett separat och stabilt API behövdes.
+
+## 2026-07-28 – FastAPI frikopplades från Gradio
+
+### Utgångsläge
+
+RAG-utvärderingen var beroende av Gradio-interna endpointar och privata launch-varianter.
+
+### Ändring
+
+FastAPI gjordes till ägare av:
+
+- `/api/ask`
+- `/health`
+- `/ready`
+
+Gradio monterades som en separat UI-applikation på `/`.
+
+### Resultat
+
+Revision `3691b74b5530d300ad8d4b7832dac72c65a2226f` svarade korrekt på kontroll-endpointarna samtidigt som Gradio fortsatte fungera.
+
+Feature flaggan kunde nu överstyras per anrop. Prioriteten blev:
+
+1. JSON-body
+2. URL-parametrar
+3. miljökonfiguration
+
+### Lärdom
+
+Gradio är ett bra användargränssnitt men ska inte vara ägare av lösningens integrationskontrakt. Ett frikopplat API gör både testning och framtida integration enklare.
+
+## 2026-07-28 – Första livekörningen av hela agentkedjan
+
+### Utgångsläge
+
+Frågan om överlämning till drift och förvaltning, Q22, användes för A/B-jämförelse mellan kontrollvägen och Agentic RAG.
+
+### Observation
+
+Kontrollvägen svarade snabbt utan LLM-anrop. Agent 1 kördes, men Agent 2 föll på ogiltig eller ofullständig JSON. Agent 3 kunde därför inte granska något svar.
+
+### Problem
+
+Det första fallbacksvaret byggdes delvis från Agent 1:s breddade retrieval. Om Agent 1 hade drivit frågan mot ett närliggande ämne kunde samma drift följa med in i fallbacken.
+
+### Ändring
+
+Fallbacken isolerades:
+
+1. kör retrieval på nytt med originalfrågan
+2. använd inga Agent 1-varianter
+3. bygg svar och källor från den nya kandidatpoolen
+4. exponera `agentic_fallback_retrieval_used`
+
+### Lärdom
+
+En säker fallback måste vara oberoende både av den misslyckade modelltexten och av dess retrievalunderlag.
+
+## 2026-07-29 – Tokenkapning i Agent 2
+
+### Observation
+
+I nästa livekörning nådde Agent 2 exakt sin outputgräns. JSON-svaret kapades innan objektet avslutades.
+
+### Ändring
+
+Outputgränsen höjdes och prompten gjordes kompaktare.
+
+### Resultat
+
+Agent 2 kunde returnera komplett JSON, men nästa valideringsfel blev `agent2_missing_evidence`.
+
+Kontrollvägen svarade på cirka `140,02 ms`. Agentvägen tog cirka `4 314,95 ms` och använde:
+
+- 3 211 prompttokens
+- 1 808 completiontokens
+- 5 019 tokens totalt
+
+### Lärdom
+
+`invalid_json` var ett symtom, inte hela orsaken. Outputgränser måste följas tillsammans med exakt fallbackorsak och faktisk modelloutput.
+
+## 2026-07-29 – Evidenskontraktet förenklades
+
+### Utgångsläge
+
+Agent 2 behövde returnera både evidens-ID:n, källnamn, sidor och en egen `source_coverage`. Samma information ägdes redan av applikationen.
+
+### Observation
+
+Det redundanta kontraktet ökade risken för schemafel utan att göra svaret säkrare.
+
+### Ändring
+
+- Agent 2 behöver primärt ange `chunk_id` och vilket påstående chunken stöder.
+- Källnamn och sidor hämtas från applikationens auktoritativa chunk.
+- `source_coverage` beräknas av systemet.
+- Okända ID:n och felaktiga evidensstrukturer får separata fallbackorsaker.
+- Groundingkontrollen granskar använda chunkar, inte alla språkligt närliggande retrievalträffar.
+
+### Lärdom
+
+Modellen ska inte duplicera metadata som systemet redan känner till. Ju mindre och tydligare kontrakt, desto lättare blir det att validera.
+
+## 2026-07-29 – Första kompletta Agent 1–2–3-passeringen
+
+### Resultat
+
+Efter korrigeringen gav ett riktat end-to-end-test:
 
 - Agent 1: `ok`
 - Agent 2: `ok`
-- Agent 2 använde två giltiga evidens-ID:n
 - Agent 3: `approved`
+- två giltiga evidens-ID:n
 
-Agent 2 svarade fokuserat om förvaltningsobjekt, ansvar hos leverantör och mottagare, katalogstruktur, tidplan samt flytt eller arkivering av projektmaterial. Agent 3 returnerade strikt JSON, godkände svaret och angav samma två evidens-ID:n. Detta var den första observerade kompletta passeringen genom hela treagentskedjan.
+Agent 3 fick bara se de chunkar som Agent 2 hade citerat.
 
-En separat körning visade samtidigt att Agent 1 ibland nådde exakt sin gräns på `1 000` completiontokens och gav `agent1_invalid_json`. Gränsen höjs därför till `1 200`, medan Agent 2 ligger kvar på `1 800` och Agent 3 på `1 000`.
+I revision `11c7a16` tog kontrollvägen cirka `99,07 ms`. Agentvägen tog cirka `4 414,9 ms` och använde:
 
-Agent 3 får nu endast se de chunks som Agent 2 faktiskt citerade. Samma filtrering används i den deterministiska efterkontrollen. Det hindrar Agent 3 från att godkänna eller revidera ett svar med stöd från en annan, ociterad retrievalträff. Nästa deploytest ska upprepa Q22 A/B och därefter köra flera frågor för att mäta hur ofta Agent 3 väljer `approved`, `revision` respektive `rejected`.
+- 3 714 prompttokens
+- 1 949 completiontokens
+- 5 663 tokens totalt
 
-## 32. Första kompletta livekedjan och en enda auktoritativ källista
+Den körningen föll fortfarande tillbaka efter en för strikt groundingkontroll, men ett separat riktat anrop bekräftade att den fullständiga kedjan kunde passera.
+
+### Lärdom
+
+Groundingkontrollen måste vara tillräckligt strikt för att stoppa nya påståenden men tillräckligt tolerant för naturlig svensk parafras.
+
+## 2026-07-29 – Första kompletta livekedjan
+
+### Resultat
 
 Revision `fe32085` gav den första kompletta livepasseringen för Q22:
 
@@ -1707,83 +421,191 @@ Revision `fe32085` gav den första kompletta livepasseringen för Q22:
 - Agent 3 `approved`
 - ingen agentisk fallback
 - svarstid `7 468,54 ms`
-- `5 596` prompttokens, `2 585` completiontokens och `8 181` tokens totalt
+- 5 596 prompttokens
+- 2 585 completiontokens
+- 8 181 tokens totalt
 
-Kontrollvägen svarade på `163,9 ms` utan LLM-anrop. Agentsvaret var mer utvecklat men tog även med omläggningsplan och aktiviteter kring driftsättning. Detta visar att kedjan tekniskt fungerar, men att Agent 3:s fokusgranskning fortfarande behöver följas upp över flera frågor.
+Kontrollvägen svarade på `163,9 ms` utan LLM-anrop.
 
-Frågan `Vilka etapper finns?` kördes både mot `/api/ask` och den faktiska Gradio-endpointen. Båda svarade korrekt med de fem etapperna och endast en synlig `Källor`-rubrik på denna revision. Ett äldre GUI-svar hade däremot innehållit först en modellgenererad `**Källor**`-sektion och därefter applikationens klickbara `### Källor`-sektion. Den befintliga saneringen kände bara igen det senare rubrikformatet.
+### Observation
 
-Källhanteringen görs därför generell och auktoritativ:
+Agentsvaret var mer utvecklat men tog även med närliggande aktiviteter kring driftsättning. Kedjan fungerade tekniskt, men frågefokus och kostnad behövde följas över fler frågor.
 
-- modellgenererade fristående rubriker som `**Källor**`, `### Källor` och `Källor:` tas bort tillsammans med efterföljande modellmetadata
-- applikationen är ensam ansvarig för den klickbara källsektionen
-- ett Agent 3-godkänt svar visar endast de retrievalresultat vars chunk-ID faktiskt godkändes
-- ociterade toppträffar får inte längre följa med bara för att de fanns i den sammanfogade retrievalrankingen
+### Lärdom
 
-Agentic RAG är fortsatt standard i Docker/HF. `/api/ask` kan välja den äldre vägen med JSON-fältet eller URL-parametern `enable_agentic_rag=false`. Gradio läser nu samma URL-override, så GUI:t kan jämföras på samma deploy genom att öppnas med `?enable_agentic_rag=false`; utan override används miljöns standardvärde `true`.
+En fungerande kedja är inte automatiskt en bättre lösning. Kvalitetsvinst, latens och tokenkostnad måste jämföras samtidigt.
 
-## 33. RAGAS-körning med Agentic RAG stoppades av HF-krediter
+## 2026-07-29 – Dubbla källsektioner i GUI
 
-Den 29 juli kördes den befintliga utvärderingsuppsättningen med 30 frågor mot revision `d719bbe` via `/api/ask` och explicit `enable_agentic_rag=true`. API-ytan gjorde det möjligt att spara svar, retrieval-contexts, agentstatus, fallbackorsak, tokens och latens per fråga.
+### Utgångsläge
 
-Körningen blev inte en giltig fullständig mätning av agentkedjan. Endast Q01 nådde `approved` utan fallback. Q02–Q05 utlöste olika fallbackorsaker och från fallbackanropet i Q05 returnerade Hugging Face `402 Payment Required` eftersom månadens inkluderade Inference Provider-krediter var slut. Q06–Q30 kunde därför inte köra LLM-agenterna och föll direkt tillbaka.
+Frågan `Vilka etapper finns?` gav rätt lista men visade två sektioner med rubriken `Källor`.
 
-Tokenobservationerna ska därför läsas som en kostnadsvarning, inte som ett medelvärde för 30 agentiska svar:
+### Orsak
 
-- fyra frågor hade kompletta tokenrader: totalt `46 903` tokens
-- med kända delanrop i Q05 observerades minst `55 120` tokens
-- kompletta rader låg mellan `8 448` och `17 891` tokens, med medel `11 725,75`
-- 29 av 30 frågor använde fallback; endast en fråga godkändes utan fallback
+Modellen skrev en egen källsektion i svarstexten. Därefter lade applikationen till sin klickbara och auktoritativa källista.
 
-Den deterministiska RAGAS-anpassade scorern kunde tekniskt poängsätta alla 30 slutliga svar och gav faithfulness `0,6277`, answer relevance `0,7700`, context precision `0,3514` och context recall `0,5657`. Dessa aggregat får inte jämföras som ett resultat för `enable_agentic_rag=true`, eftersom 29 svar kom från fallback och merparten kördes efter providerfelet. En rättvis jämförelse kräver nya HF-krediter och en ny komplett capture där varje rad visar en lyckad agentkedja eller där agentfel redovisas separat från kvalitetsaggregatet.
+Saneringen kände bara igen vissa rubrikformat och missade exempelvis `**Källor**`.
 
-Lärdomen är att utvärderingsverktyget måste spara både RAGAS-underlag och operativ telemetri. Ett svar kan vara poängsättningsbart trots att den avsedda arkitekturen aldrig kördes, vilket annars kan ge en falsk bild av förbättrad kvalitet.
+### Ändring
 
-## 34. Kostnadsstyrd agentkedja: 20B som standard och 120B endast vid korrigering
+- flera varianter av modellgenererade källrubriker tas bort
+- applikationen är ensam ägare av källsektionen
+- agentiska svar visar bara källor från godkända evidens-ID:n
+- ociterade retrievalträffar följer inte längre med
 
-Kostnadsrapporten visade att `openai/gpt-oss-120b` användes både för Agent 2 och för den stora generella fallbacksyntesen. Vid underkända svar kunde fallbacken ensam använda omkring 8 000–9 000 tokens. Det gjorde att en misslyckad agentkedja blev dyrare än en godkänd kedja och bidrog till att HF-krediterna tog slut under 30-frågorskörningen.
+### Resultat
 
-Kedjan ändras därför till en kontrollerad eskalering:
+Både `/api/ask` och Gradio visade de fem etapperna med en enda källsektion.
 
-1. Agent 1 använder 20B för retrievalvarianter.
-2. Agent 2 använder 20B för första evidenssvaret.
-3. Agent 3 använder 20B för groundinggranskning.
-4. Endast om Agent 3 returnerar `rejected` görs exakt ett nytt, kompakt korrigeringsanrop med 120B. Korrigeringen får samma originalfråga, underkänt utkast, granskningsorsak och auktoritativa evidens.
-5. Om korrigeringen inte passerar det deterministiska evidenskontraktet används baseline-retrieval och extraktivt svar utan ytterligare LLM-syntes.
+### Lärdom
 
-Agent 3:s `revision` fortsätter att användas direkt eftersom den redan är ett källkontrollerat svar från 20B och därför inte behöver en dyr eskalering. Om Agent 2 själv inte producerar ett validerat utkast körs inte heller 120B; systemet går direkt till det säkra extraktiva svaret.
+Källpresentation är en systemfunktion. Modellen ska formulera svaret, inte skapa en parallell källförteckning.
 
-Modellerna kan överstyras med `SYSTEMINFORANDE_AGENT1_MODEL`, `SYSTEMINFORANDE_AGENT2_MODEL`, `SYSTEMINFORANDE_AGENT3_MODEL` och `SYSTEMINFORANDE_AGENT_CORRECTION_MODEL`. Standarderna i Docker är 20B, 20B, 20B och 120B.
+## 2026-07-29 – RAGAS-körningen stoppades av HF-krediter
 
-API-metadata skiljer nu mellan granskning och slutresultat. `review_status` visar Agent 3:s beslut, `final_status` visar om svaret blev `approved`, `revised`, `corrected` eller `fallback`, och `escalation` visar orsak, modell, status samt tokens för det enda tillåtna 120B-anropet.
+### Utgångsläge
 
-## 35. Out-of-domain-frågor får inte räddas av agentisk retrievaldrift
+Den fasta 30-frågesviten kördes mot revision `d719bbe` med `enable_agentic_rag=true`.
 
-Frågan `Vilket bodtennis gummi är bäst?` gav tidigare ett påhittat svar om systeminförandets sammanhängande delar, med kravmall och acceptanstestrapport som källor. Frågan saknar helt stöd i korpusen och skulle ha stoppats.
+### Resultat
 
-Felet hade två samverkande orsaker:
+Endast Q01 nådde `approved` utan fallback. Q02–Q05 utlöste olika fallbackorsaker. Från fallbackanropet i Q05 returnerade Hugging Face `402 Payment Required`.
 
-- Agent 1 kunde behålla ett generiskt värdeord som `bäst` och samtidigt driva sökvarianten till systeminförandedomänen.
-- Relevansgrinden accepterade en enda matchande originalterm om retrievalscoren var hög. Den höga scoren kom i praktiken från den driftade sökvarianten, inte från originalfrågans ämne.
+Q06–Q30 kunde därför inte köra den avsedda agentkedjan.
 
-Skyddet görs därför i flera lager:
+Fyra frågor hade kompletta tokenrader:
 
-1. Generiska värde- och rekommendationsord som `bäst`, `bra`, `bättre`, `välja` och `rekommendation` räknas inte som en semantisk brygga mellan originalfråga och sökvariant.
-2. En hög score ensam kan inte längre godkänna en träff med otillräcklig täckning av originalfrågans meningsbärande ämnesord.
-3. Om endast omskrivna agentfrågor ger träffar, utan originalträff eller ämnesöverlapp, klassas resultatet som irrelevant.
-4. Irrelevanta frågor stoppas före Agent 2 och returnerar inga användarvända PDF-källor eller relaterade hemsidor.
+- totalt 46 903 tokens
+- spann 8 448–17 891 tokens
+- medel 11 725,75 tokens
 
-Regressionstestet använder avsiktligt en skadligt driftad sökvariant mot `kravmall`, `testrapport`, `sammanfattning` och `rekommendation`. Trots höga retrievalträffar måste resultatet bli den explicita källbegränsade fallbacken. Kontrollfrågor om implementationsplanering, utbildningsstrategi och etapper verifierar samtidigt att legitima domänfrågor fortfarande passerar relevansgrinden.
+Med kända delanrop i Q05 observerades minst 55 120 tokens.
 
-## 36. Tillfällig driftprofil: Agentic RAG av tills nya HF-credits
+### RAGAS-liknande resultat
 
-Efter att månadens inkluderade Hugging Face-krediter tog slut ändrades Docker-konfigurationen till `SYSTEMINFORANDE_ENABLE_AGENTIC_RAG=false`. Den äldre RAG-vägen är därmed tillfällig standard i både Gradio och `/api/ask` när anropet inte innehåller någon override.
+Den deterministiska scorern kunde tekniskt poängsätta slutsvaren:
 
-Den kostnadsstyrda agentkedjan tas inte bort. Agent 1–3 använder fortsatt 20B och endast ett underkänt svar från Agent 3 kan utlösa den enda tillåtna 120B-korrigeringen. Kedjan kan därför testas på samma deploy med `enable_agentic_rag=true` när nya credits finns, medan `enable_agentic_rag=false` uttryckligen väljer kontrollvägen.
+- faithfulness: `0,6277`
+- answer relevance: `0,7700`
+- context precision: `0,3514`
+- context recall: `0,5657`
 
-Detta skiljer på två saker som inte bör blandas ihop:
+### Bedömning
 
-- feature flaggan avgör vilken väg ett visst anrop använder
-- Docker-värdet avgör den ekonomiskt säkra standarden för anrop som saknar override
+Resultatet är inte en giltig mätning av Agentic RAG. 29 av 30 svar kom från fallback och merparten kördes efter providerfelet.
 
-När nya credits finns ska den snålare kedjan först verifieras på ett mindre frågeurval med token-, latens-, fallback- och kvalitetsmätning. Därefter kan Docker-standarden åter sättas till `true` om resultatet motiverar kostnaden.
+### Lärdom
+
+Ett svar kan vara poängsättningsbart trots att den avsedda arkitekturen aldrig kördes. Kvalitetsmätning måste därför alltid kombineras med agentstatus, fallbackorsak, tokens och providerfel.
+
+## 2026-07-29 – Kostnadsstyrd agentkedja
+
+### Utgångsläge
+
+`openai/gpt-oss-120b` användes både för Agent 2 och för en stor generell fallbacksyntes. Ett misslyckat flöde kunde därmed bli dyrare än ett godkänt flöde.
+
+### Ändring
+
+Kedjan gjordes om:
+
+1. Agent 1 använder 20B.
+2. Agent 2 använder 20B.
+3. Agent 3 använder 20B.
+4. Endast `rejected` från Agent 3 kan utlösa exakt en kompakt 120B-korrigering.
+5. En misslyckad korrigering går direkt till baseline-retrieval och extraktivt svar.
+6. Den tidigare stora `agentic_fallback_synthesis` används inte längre.
+
+### Observerbarhet
+
+API-metadata skiljer nu på:
+
+- `review_status`
+- `final_status`
+- `escalation`
+- fallbackorsak
+- usage per agent och totalt
+
+### Lärdom
+
+Den stora modellen ska användas där den har ett tydligt avgränsat värde, inte som generell räddning efter varje fel.
+
+## 2026-07-29 – Domänfrämmande frågor stoppas före Agent 2
+
+### Utgångsläge
+
+Frågan `Vilket bodtennis gummi är bäst?` gav ett konstruerat svar om systeminförande med irrelevanta PDF-källor.
+
+### Orsak
+
+- Agent 1 kunde behålla det generiska ordet `bäst` och samtidigt driva sökningen till systeminförandedomenen.
+- Relevansgrinden accepterade en hög score trots att originalfrågans ämne saknade stöd.
+
+### Ändring
+
+- Generiska rekommendationsord räknas inte som semantisk brygga.
+- Hög score räcker inte utan täckning av originalfrågans ämnesord.
+- Träffar från enbart omskrivna frågor underkänns om originalfrågan saknar ämnesstöd.
+- Irrelevanta frågor stoppas före Agent 2.
+- Svaret får inga PDF-källor eller relaterade hemsidor.
+
+### Resultat
+
+Regressionstestet använder en avsiktligt driftad sökvariant med höga men irrelevanta träffar. Frågan måste ändå få det explicita källbegränsade svaret.
+
+### Lärdom
+
+Agentisk retrieval får förbättra recall men får aldrig omdefiniera vilket ämne användaren frågade om.
+
+## 2026-07-29 – Tillfällig driftprofil
+
+### Utgångsläge
+
+Månadens inkluderade Hugging Face-krediter var slut samtidigt som den kostnadsstyrda agentkedjan ännu inte hade fått en fullständig jämförbar mätning.
+
+### Beslut
+
+Docker-konfigurationen sattes till:
+
+```text
+SYSTEMINFORANDE_ENABLE_AGENTIC_RAG=false
+```
+
+Den kontrollerade RAG-vägen är därmed standard för Gradio och `/api/ask` när anropet saknar override.
+
+Den agentiska vägen finns kvar och kan väljas med:
+
+```text
+enable_agentic_rag=true
+```
+
+### Lärdom
+
+Feature flaggan och driftstandarden har olika ansvar:
+
+- feature flaggan väljer körväg för ett anrop
+- Docker-värdet väljer den ekonomiskt säkra standarden
+
+## Samlade lärdomar
+
+Arbetet hittills har gett några återkommande slutsatser:
+
+1. Retrievalproblemet kommer före promptproblemet.
+2. Rubrikbaserad chunkning är en del av lösningens kvalitet, inte bara preprocessing.
+3. BM25 är fortfarande användbart för ett avgränsat material med tydliga verksamhetsbegrepp.
+4. Modellfri syntes är en stark säkerhets- och kostnadsbaseline.
+5. En LLM-omskrivning måste granskas mot evidensen.
+6. Originalfrågan måste vara ankare genom hela agentkedjan.
+7. Fallback-retrieval får inte ärva en misslyckad agents ämnesdrift.
+8. Modellen ska referera till chunk-ID:n; applikationen ska äga källmetadata.
+9. Kvalitetspoäng utan drifttelemetri kan ge en falsk bild av arkitekturen.
+10. En fungerande agentkedja måste motivera sin extra latens och kostnad med mätbar kvalitetsvinst.
+
+## Relaterade dokument och artefakter
+
+- [RAG Solution](./rag-solution.html) – aktuell lösningsbeskrivning
+- [Agentic RAG contracts and architecture](./agentic-rag-contracts.md) – ursprungligt designkontrakt
+- [RAGAS evaluation proposal](./ragas-evaluation-proposal.md)
+- [RAGAS HF evaluation spec](./ragas-hf-evaluation-spec.md)
+- [Weak RAG regression notes](./WEAK_RAG_REGRESSION_NOTES.md)
+- `tests/results/` – captures, jämförelser och mätresultat

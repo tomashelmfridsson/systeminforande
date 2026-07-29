@@ -4,6 +4,8 @@ __pycache__/
 .venv/
 tests/
 tools/
-docs/
+docs/*
+!docs/RAG_SOLUTION.md
+!docs/rag-solution.html
 minimal_app.py
 logs/
