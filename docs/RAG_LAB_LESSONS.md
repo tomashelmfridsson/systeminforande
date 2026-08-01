@@ -643,6 +643,18 @@ Agent 2-prompten fick `Reasoning: high`. Den ska analysera utdragen internt men 
 
 Riktade tester passerade (48 tester). Ändringen finns i commit `1c52bc0`. Nästa steg är att deploya till HF och köra samma 30 frågor igen mot baseline innan Agent 4:s inferensregler ändras.
 
+## 2026-08-01 – Utförligare Agent 2 och starkare Agent 4
+
+### Ändring
+
+Agent 2 instrueras nu att utveckla direktsvaret med viktiga förklaringar, konsekvenser och konkreta delar från evidensen. Målet är 2–5 sammanhängande stycken eller en tydlig punktlista, utan mekaniska starter eller telegramsvar. Outputbudgeten höjdes i promptkontraktet till 700 tokens.
+
+Agent 4 fick `Reasoning: high` och en förbättrad korrigeringsinstruktion. Den ska analysera Agent 3:s kritik internt, skriva ett mer utförligt och naturligt svenskt svar, börja direkt och markera försiktiga slutsatser som tolkningar.
+
+### Resultat och beslut
+
+Riktade tester passerade (48 tester). Ändringen finns i commit `745bab6`. Nästa HF-körning ska jämföras med baseline med särskilt fokus på svarslängd, språk, slutsatskvalitet och Agent 4:s korrigeringar.
+
 ## Samlade lärdomar
 
 Arbetet hittills har gett några återkommande slutsatser:
