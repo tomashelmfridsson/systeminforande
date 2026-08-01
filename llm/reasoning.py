@@ -53,6 +53,7 @@ def _call_llm_with_usage(
     model: str | None = None,
     *,
     max_tokens: int = 1200,
+    temperature: float = 0.2,
 ) -> LLMCallResult:
     client = get_llm_client(model=model)
     response = client.chat_completion(
@@ -67,7 +68,7 @@ def _call_llm_with_usage(
             }
         ],
         max_tokens=max_tokens,
-        temperature=0.2
+        temperature=temperature
     )
 
     return LLMCallResult(
@@ -120,11 +121,17 @@ def generate_reasoning_from_prompt_with_usage(
     model: str | None = None,
     *,
     max_tokens: int = 1200,
+    temperature: float = 0.2,
 ) -> LLMCallResult:
     """
     Genererar resonemang från färdig prompt (RAG) och behåller tokenanvändning.
     """
-    return _call_llm_with_usage(prompt, model=model, max_tokens=max_tokens)
+    return _call_llm_with_usage(
+        prompt,
+        model=model,
+        max_tokens=max_tokens,
+        temperature=temperature,
+    )
 
 
 # =========================

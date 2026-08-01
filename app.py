@@ -851,6 +851,7 @@ def safe_generate_reasoning_from_prompt_with_usage_records(
             prompt,
             model=model,
             max_tokens=max_tokens,
+            temperature=0.0 if purpose.startswith(("agent1_", "agent3_")) else 0.2,
         )
         latency_ms = round((time.perf_counter() - started_at) * 1000, 2)
         usage_records.append(
