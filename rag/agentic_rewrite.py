@@ -107,7 +107,14 @@ def generate_retrieval_rewrite(
     except Exception:
         return _fallback(question, "agent1_exception", model=model)
 
-    return parse_retrieval_rewrite_response(question, raw_response, model=model)
+    result = parse_retrieval_rewrite_response(question, raw_response, model=model)
+    debug = result.get("debug") or {}
+    if result.get("status") == "fallback" and debug.get("fallback_reason") == "agent1_invalid_json":
+        result["status"] = "recovered"
+        debug["recovery_reason"] = "agent1_invalid_json"
+        debug["fallback_reason"] = None
+        result["debug"] = debug
+    return result
 
 
 def parse_retrieval_rewrite_response(

@@ -337,8 +337,7 @@ def parse_evidence_answer_response(
     if unexpected:
         return _fallback(original_question, "agent2_unexpected_fields", model=model, extra={"unexpected_fields": unexpected})
 
-    if payload.get("original_question") != original_question:
-        return _fallback(original_question, "agent2_original_question_mismatch", model=model)
+    model_original_question = str(payload.get("original_question") or "").strip()
 
     answer_scope = str(payload.get("answer_scope") or "").strip()
     answer_scope = _SCOPE_ALIASES.get(answer_scope, answer_scope)
@@ -398,6 +397,7 @@ def parse_evidence_answer_response(
         "unsupported_or_uncertain": unsupported,
         "source_coverage": coverage,
         "grounding_notes": str(payload.get("grounding_notes") or "").strip()[:600],
+        "model_original_question": model_original_question,
         "debug": {
             "agent": "evidence_answer",
             "model": model,

@@ -1463,12 +1463,27 @@ def build_rag_response(
                 ),
                 model=AGENT3_MODEL,
             )
+            review_fallback_reason = _fallback_reason_from_debug(agent3_review)
+            if review_fallback_reason in {
+                "agent3_invalid_json",
+                "agent3_unexpected_fields",
+                "agent3_schema_error",
+            }:
+                agent3_review["status"] = "unavailable"
+                agent3_review["debug"] = {
+                    **(agent3_review.get("debug") or {}),
+                    "recovery_reason": review_fallback_reason,
+                    "fallback_reason": None,
+                }
             if agent3_review.get("status") == "approved":
                 agentic_reviewed_answer = draft_answer
                 approved_evidence_ids = list(agent3_review.get("evidence_ids_used") or [])
             elif agent3_review.get("status") == "revision" and str(agent3_review.get("revision") or "").strip():
                 agentic_reviewed_answer = str(agent3_review.get("revision") or "").strip()
                 approved_evidence_ids = list(agent3_review.get("evidence_ids_used") or [])
+            elif agent3_review.get("status") == "unavailable":
+                agentic_reviewed_answer = draft_answer
+                approved_evidence_ids = list(evidence_ids if isinstance(evidence_ids, list) else [])
             elif agent3_review.get("status") == "rejected":
                 correction_answer = generate_corrected_evidence_answer(
                     query,
