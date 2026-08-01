@@ -75,7 +75,7 @@ def build_evidence_answer_prompt(
         "Använd accepterad rewrite-metadata bara för att förstå ordformer och samma begreppsfamilj mellan fråga och evidens, inte som egna fakta.\n"
         "Skriv naturlig svensk prosa. Acceptera grammatiska böjningar och svenska sammansättningar när de stöds av evidensen.\n"
         "Varje central svarspunkt måste stödjas av minst ett evidence_used-objekt.\n"
-        "Om evidensen inte räcker: answer_scope=insufficient_evidence och ge ett kort ärligt icke-svar.\n"
+        "Skriv alltid ett så användbart utkast som evidensen tillåter. Markera osäkerhet i unsupported_or_uncertain och använd partial_due_to_thin_evidence vid behov; Agent 3 avgör sedan om utkastet håller.\n"
         "Returnera enbart strikt JSON, utan markdown eller prosa utanför objektet.\n"
         "JSON-fält: original_question, answer, answer_scope, evidence_used, unsupported_or_uncertain, grounding_notes.\n"
         "answer_scope måste vara exakt direct, partial_due_to_thin_evidence eller insufficient_evidence.\n"
@@ -341,9 +341,6 @@ def parse_evidence_answer_response(
     answer_scope = _SCOPE_ALIASES.get(answer_scope, answer_scope)
     if answer_scope not in _ALLOWED_SCOPES:
         return _fallback(original_question, "agent2_schema_error", model=model)
-    if answer_scope == "insufficient_evidence":
-        return _fallback(original_question, "thin_evidence", model=model)
-
     answer = str(payload.get("answer") or "").strip()
     if len(answer) < 40:
         return _fallback(original_question, "agent2_empty_answer", model=model)
