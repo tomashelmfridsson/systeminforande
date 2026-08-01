@@ -28,6 +28,7 @@ from rag.synthesis import (
     build_synthesis_prompt,
     build_final_grounded_answer,
     resolve_synthesis_settings,
+    strip_generated_answer_metadata,
 )
 
 
@@ -440,6 +441,14 @@ def test_synthesis_stage_strips_llm_generated_sources_before_app_sources_are_app
     assert result["synthesis_used"] is True
     assert final_answer.count("### Källor") == 0
     assert "Felaktig extra källista" not in final_answer
+
+
+def test_answer_box_renders_only_answer_field_when_agent_returns_json_envelope():
+    raw = '{"original_question":"Vad är svårast?","answer":"Samordningen mellan flera arbetsområden är ofta mest krävande."}'
+    rendered = strip_generated_answer_metadata(raw)
+    assert rendered == "Samordningen mellan flera arbetsområden är ofta mest krävande."
+    assert "original_question" not in rendered
+    assert '"answer"' not in rendered
 
 
 @pytest.mark.parametrize(
