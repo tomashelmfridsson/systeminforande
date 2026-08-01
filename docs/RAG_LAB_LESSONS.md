@@ -655,6 +655,20 @@ Agent 4 fick `Reasoning: high` och en förbättrad korrigeringsinstruktion. Den 
 
 Riktade tester passerade (48 tester). Ändringen finns i commit `745bab6`. Nästa HF-körning ska jämföras med baseline med särskilt fokus på svarslängd, språk, slutsatskvalitet och Agent 4:s korrigeringar.
 
+## 2026-08-01 – Kontrollmätning efter utförligare Agent 2 och Agent 4 high reasoning
+
+### Observation
+
+30-frågepaketet kördes om efter ändringarna i Agent 2 och Agent 4. Den nya körningen gav 246 129 tokens, 8 204 tokens per fråga, 3,89 sekunders genomsnittlig svarstid, 7 fallbackmarkeringar och 93 lyckade LLM-anrop.
+
+### RAGAS-aligned jämförelse
+
+Den offline-deterministiska RAGAS-aligned mätningen gav faithfulness `0,4972`, answer relevance `0,8503`, context precision `0,3303` och context recall `0,5804`. Föregående körning låg på `0,4974`, `0,8738`, `0,3319` respektive `0,5959`.
+
+### Beslut eller lärdom
+
+Den högre reasoning-nivån gav ännu ingen mätbar kvalitetsvinst. Answer relevance och context recall sjönk något, medan tokens ökade cirka 9 procent och svarstiden ökade. Nästa ändring bör därför fokusera på promptens källurval och slutsatsregler, inte bara mer reasoning. Denna scoring är RAGAS-aligned offline scoring; officiell RAGAS-LLM-bedömning kördes inte i denna miljö.
+
 ## Samlade lärdomar
 
 Arbetet hittills har gett några återkommande slutsatser:
