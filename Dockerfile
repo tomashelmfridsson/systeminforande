@@ -9,7 +9,7 @@ ENV PYTHONUNBUFFERED=1 \
     SYSTEMINFORANDE_AGENT1_MODEL=openai/gpt-oss-20b \
     SYSTEMINFORANDE_AGENT2_MODEL=openai/gpt-oss-20b \
     SYSTEMINFORANDE_AGENT3_MODEL=openai/gpt-oss-20b \
-    SYSTEMINFORANDE_AGENT_CORRECTION_MODEL=openai/gpt-oss-120b
+    SYSTEMINFORANDE_AGENT_CORRECTION_MODEL=openai/gpt-oss-20b
 
 RUN apt-get update \
     && apt-get install -y --no-install-recommends \

@@ -234,7 +234,7 @@ En mindre källstödd revision kan publiceras direkt. Ett godkänt svar visar en
 
 Agent 1, Agent 2 och Agent 3 använder normalt `openai/gpt-oss-20b`.
 
-Om Agent 3 returnerar `rejected` får systemet göra exakt ett kompakt korrigeringsanrop med `openai/gpt-oss-120b`. Korrigeringen får samma originalfråga, det underkända svaret, granskningsorsaken och den auktoritativa evidensen.
+Om Agent 3 returnerar `rejected` får systemet göra exakt ett kompakt korrigeringsanrop med `openai/gpt-oss-20b`. Korrigeringen får samma originalfråga, det underkända svaret, granskningsorsaken och den auktoritativa evidensen. `openai/gpt-oss-120b` tillåts inte som korrigeringsmodell; ett gammalt sådant miljövärde ersätts automatiskt med 20B-standarden.
 
 Om korrigeringen inte passerar kontraktet görs inga fler LLM-anrop. Systemet kör då retrieval på nytt med endast originalfrågan och returnerar ett säkert extraktivt svar.
 
@@ -313,7 +313,7 @@ SYSTEMINFORANDE_LLM_SYNTHESIS_MODEL=openai/gpt-oss-20b
 SYSTEMINFORANDE_AGENT1_MODEL=openai/gpt-oss-20b
 SYSTEMINFORANDE_AGENT2_MODEL=openai/gpt-oss-20b
 SYSTEMINFORANDE_AGENT3_MODEL=openai/gpt-oss-20b
-SYSTEMINFORANDE_AGENT_CORRECTION_MODEL=openai/gpt-oss-120b
+SYSTEMINFORANDE_AGENT_CORRECTION_MODEL=openai/gpt-oss-20b
 ```
 
 Docker-konfigurationen sätter Agentic RAG till `true`, vilket gör agentkedjan till standard i den deployade miljön. En miljövariabel som konfigureras direkt i Hugging Face Space överstyr Docker-värdet och måste därför också vara `true` eller tas bort inför deployen.
@@ -332,7 +332,7 @@ Varje strukturerat API-svar kan innehålla information om:
 - agenternas modeller och status
 - `review_status`
 - `final_status`
-- eventuell 120B-eskalering
+- eventuellt korrigeringssteg
 - fallbackorsak
 - tokens per anrop och totalt
 - total svarstid

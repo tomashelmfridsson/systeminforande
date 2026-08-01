@@ -38,10 +38,10 @@ Den agentiska modellkedjan är kostnadsstyrd:
 - `SYSTEMINFORANDE_AGENT1_MODEL=openai/gpt-oss-20b` skapar retrievalvarianter.
 - `SYSTEMINFORANDE_AGENT2_MODEL=openai/gpt-oss-20b` skriver första evidenssvaret.
 - `SYSTEMINFORANDE_AGENT3_MODEL=openai/gpt-oss-20b` granskar grounding och frågefokus.
-- Om Agent 3 väljer `rejected` görs exakt ett korrigeringsanrop med `SYSTEMINFORANDE_AGENT_CORRECTION_MODEL=openai/gpt-oss-120b`.
+- Om Agent 3 väljer `rejected` görs exakt ett korrigeringsanrop med `SYSTEMINFORANDE_AGENT_CORRECTION_MODEL=openai/gpt-oss-20b`.
 - Om korrigeringen inte ger ett validerat svar används ett extraktivt reservsvar. Den tidigare stora `agentic_fallback_synthesis` körs inte längre.
 
-`retrieval.agentic_pipeline.escalation` visar om 120B-korrigeringen användes, varför den utlöstes, status och separat tokenusage. `final_status` är `approved`, `revised`, `corrected` eller `fallback`.
+`retrieval.agentic_pipeline.escalation` visar om korrigeringssteget användes, varför det utlöstes, status och separat tokenusage. `final_status` är `approved`, `revised`, `corrected` eller `fallback`. Den dyra modellen `openai/gpt-oss-120b` avvisas uttryckligen som korrigeringsmodell och ersätts med 20B-standarden även om ett gammalt HF-miljövärde ligger kvar.
 
 Domänfrämmande frågor stoppas före Agent 2. En hög retrievalscore från Agent 1:s omskrivna sökvarianter räcker inte om originalfrågans meningsbärande ämnesord saknar stöd i materialet. Sådana svar returnerar den källbegränsade fallbacktexten med tomma `sources` och `homepage_links`.
 

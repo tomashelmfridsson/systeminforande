@@ -9,3 +9,10 @@ def test_hugging_face_docker_defaults_to_agentic_rag():
 
     assert "SYSTEMINFORANDE_ENABLE_AGENTIC_RAG=true" in dockerfile
     assert "SYSTEMINFORANDE_ENABLE_AGENTIC_RAG=false" not in dockerfile
+
+
+def test_hugging_face_docker_never_uses_120b_for_agentic_correction():
+    dockerfile = (ROOT / "Dockerfile").read_text(encoding="utf-8")
+
+    assert "SYSTEMINFORANDE_AGENT_CORRECTION_MODEL=openai/gpt-oss-20b" in dockerfile
+    assert "SYSTEMINFORANDE_AGENT_CORRECTION_MODEL=openai/gpt-oss-120b" not in dockerfile

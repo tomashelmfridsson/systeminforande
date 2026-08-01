@@ -56,9 +56,14 @@ AGENTIC_RAG_FEATURE_FLAG_ENV = "SYSTEMINFORANDE_ENABLE_AGENTIC_RAG"
 AGENT1_MODEL = os.getenv("SYSTEMINFORANDE_AGENT1_MODEL", DEFAULT_REWRITE_MODEL).strip() or DEFAULT_REWRITE_MODEL
 AGENT2_MODEL = os.getenv("SYSTEMINFORANDE_AGENT2_MODEL", DEFAULT_ANSWER_MODEL).strip() or DEFAULT_ANSWER_MODEL
 AGENT3_MODEL = os.getenv("SYSTEMINFORANDE_AGENT3_MODEL", DEFAULT_REVIEW_MODEL).strip() or DEFAULT_REVIEW_MODEL
-AGENT_CORRECTION_MODEL = (
+_CONFIGURED_AGENT_CORRECTION_MODEL = (
     os.getenv("SYSTEMINFORANDE_AGENT_CORRECTION_MODEL", DEFAULT_CORRECTION_MODEL).strip()
     or DEFAULT_CORRECTION_MODEL
+)
+AGENT_CORRECTION_MODEL = (
+    DEFAULT_CORRECTION_MODEL
+    if _CONFIGURED_AGENT_CORRECTION_MODEL == "openai/gpt-oss-120b"
+    else _CONFIGURED_AGENT_CORRECTION_MODEL
 )
 AGENT1_MAX_OUTPUT_TOKENS = 1200
 AGENT2_MAX_OUTPUT_TOKENS = 1800
@@ -1225,7 +1230,7 @@ def _agentic_pipeline_metadata(
             "fallback_reason": _fallback_reason_from_debug(correction_answer),
             "usage": _agent_usage_summary(
                 usage_records,
-                "agent2_120b_correction",
+                "agent2_correction",
                 _agent_model(correction_answer, AGENT_CORRECTION_MODEL),
             ),
         },
@@ -1417,7 +1422,7 @@ def build_rag_response(
                     lambda prompt, model: safe_generate_reasoning_from_prompt_with_usage_records(
                         prompt,
                         model,
-                        purpose="agent2_120b_correction",
+                        purpose="agent2_correction",
                         usage_records=llm_usage_records,
                         max_tokens=AGENT_CORRECTION_MAX_OUTPUT_TOKENS,
                     ),
@@ -1451,7 +1456,7 @@ def build_rag_response(
         )
         synthesis_result["final_answer"] = agentic_reviewed_answer
         if correction_answer and correction_answer.get("status") == "ok":
-            synthesis_result["llm_status"] = "agentic_120b_correction"
+            synthesis_result["llm_status"] = "agentic_correction"
         else:
             review_status = _agent_status(agent3_review, "approved")
             synthesis_result["llm_status"] = f"agentic_review_{review_status}"

@@ -117,6 +117,22 @@ def _agentic_pipeline_chunk() -> dict:
     }
 
 
+def test_expensive_120b_model_is_rejected_for_agentic_correction(monkeypatch):
+    monkeypatch.setenv("SYSTEMINFORANDE_AGENT_CORRECTION_MODEL", "openai/gpt-oss-120b")
+
+    app_module = _load_local_app_without_launch(monkeypatch)
+
+    assert app_module.AGENT_CORRECTION_MODEL == "openai/gpt-oss-20b"
+
+
+def test_lower_cost_agentic_correction_model_can_be_configured(monkeypatch):
+    monkeypatch.setenv("SYSTEMINFORANDE_AGENT_CORRECTION_MODEL", "Qwen/Qwen3-32B")
+
+    app_module = _load_local_app_without_launch(monkeypatch)
+
+    assert app_module.AGENT_CORRECTION_MODEL == "Qwen/Qwen3-32B"
+
+
 def _stub_common_agentic_pipeline_rag(app_module, monkeypatch, calls: list[str]) -> None:
     chunk = _agentic_pipeline_chunk()
 
@@ -472,7 +488,7 @@ def test_agentic_rag_usage_metadata_includes_per_agent_tokens_latency_counts_and
     }
 
 
-def test_agentic_rag_rejected_agent_answer_uses_one_120b_correction(monkeypatch):
+def test_agentic_rag_rejected_agent_answer_uses_one_correction(monkeypatch):
     app_module = _load_local_app_without_launch(monkeypatch)
     monkeypatch.setenv("SYSTEMINFORANDE_ENABLE_AGENTIC_RAG", "true")
     calls: list[str] = []
@@ -573,10 +589,10 @@ def test_agentic_rag_rejected_agent_answer_uses_one_120b_correction(monkeypatch)
 
     assert response["answer_markdown"].startswith("Det korrigerade svaret")
     assert correction_calls == [
-        ("Svaret är inte tillräckligt källbundet.", "openai/gpt-oss-120b")
+        ("Svaret är inte tillräckligt källbundet.", "openai/gpt-oss-20b")
     ]
     assert calls == ["retrieval_with_rewrite"]
-    assert response["retrieval"]["llm_status"] == "agentic_120b_correction"
+    assert response["retrieval"]["llm_status"] == "agentic_correction"
     assert response["retrieval"]["agentic_pipeline"]["final_status"] == "corrected"
     assert response["retrieval"]["agentic_pipeline"]["fallback_reason"] is None
     escalation = response["retrieval"]["agentic_pipeline"]["escalation"]
@@ -584,7 +600,7 @@ def test_agentic_rag_rejected_agent_answer_uses_one_120b_correction(monkeypatch)
     assert escalation["status"] == "ok"
     assert escalation["usage"]["calls"] == 1
     assert [call["purpose"] for call in response["llm_usage"]["calls_detail"]] == [
-        "agent2_120b_correction"
+        "agent2_correction"
     ]
 
 

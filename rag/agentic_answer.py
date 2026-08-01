@@ -6,7 +6,7 @@ from typing import Any, Callable
 
 DEFAULT_ANSWER_MODEL = "openai/gpt-oss-20b"
 DEFAULT_REVIEW_MODEL = "openai/gpt-oss-20b"
-DEFAULT_CORRECTION_MODEL = "openai/gpt-oss-120b"
+DEFAULT_CORRECTION_MODEL = "openai/gpt-oss-20b"
 MAX_ANSWER_EVIDENCE_CHUNKS = 8
 MAX_CHUNK_EXCERPT_CHARS = 650
 MAX_REVIEW_EVIDENCE_CHUNKS = 6
