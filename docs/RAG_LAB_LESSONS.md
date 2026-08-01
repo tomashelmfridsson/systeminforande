@@ -683,6 +683,18 @@ Agent 1 återhämtar nu invalid JSON genom att fortsätta med originalfrågan. A
 
 Formatrobusthet ska separeras från kvalitetsbedömning. Agent 4 ska bara arbeta vid verkliga innehållsproblem, inte vid JSON- eller metadatafel. Commit: `8b8895d`.
 
+## 2026-08-01 – Formatåterhämtning testad i HF och negativ kontroll
+
+### Resultat
+
+Efter deploy av formatåterhämtningen kördes 30 frågor igen. Fallbackmarkeringarna sjönk från 7 till 2 och alla 89 LLM-anrop lyckades. Den offline RAGAS-aligned mätningen förbättrades till faithfulness `0,5267`, answer relevance `0,9102`, context precision `0,3425` och context recall `0,5885`.
+
+Negativ kontroll med ”Vilket bordtennisrack är bäst?” gav inget svar, inga källor och körde inte Agent 2 eller Agent 3. Det är korrekt abstention.
+
+### Kvarvarande problem
+
+Q18 gav fortfarande `agent2_invalid_json` och Q29 markerades fortfarande med `original_question_mismatch`. Formatåterhämtningen behöver därför även täcka Agent 2:s fullständigt ogiltiga JSON och Agent 1:s mismatch-signal. Språkproblem kvarstår i 21 av 30 offline-scoringar som `fragmented_language`.
+
 ## Samlade lärdomar
 
 Arbetet hittills har gett några återkommande slutsatser:
