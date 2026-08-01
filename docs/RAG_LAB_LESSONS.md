@@ -721,6 +721,18 @@ Kontrakten dokumenterades i `docs/agentic-rag-contracts.md` och fick egna tester
 
 Målet är att framtida modellbyten och underhåll ska påverka en normaliseringsadapter, inte hela agentkedjan. Commit: `7ffe8b7`.
 
+## 2026-08-01 – Kontraktslösningen verifierad i HF
+
+### Resultat
+
+Efter deploy av kontraktslagret kördes 30-frågepaketet igen. HF körde revision `5b28c5d`. Körningen hade 0 fallbackmarkeringar, 91 lyckade LLM-anrop, 236 457 tokens och 3,43 sekunders genomsnittlig svarstid. Agent 4 användes en gång för Q03; övriga avvikelser hanterades utan fallback.
+
+Den offline RAGAS-aligned scoring-körningen gav faithfulness `0,5157`, answer relevance `0,8793`, context precision `0,3391` och context recall `0,5704`. Jämfört med kontrollen före kontrakten förbättrades faithfulness och answer relevance, medan retrievalmåtten var i princip oförändrade.
+
+### Beslut eller lärdom
+
+Kontraktslagret verkar minska formatrelaterade fallbackproblem utan att lägga till fler Agent 4-körningar. Retrieval är fortfarande nästa separata förbättringsområde. Commiten för kontrakten är `7ffe8b7`.
+
 ## Samlade lärdomar
 
 Arbetet hittills har gett några återkommande slutsatser:
