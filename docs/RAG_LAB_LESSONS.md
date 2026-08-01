@@ -695,6 +695,20 @@ Negativ kontroll med ”Vilket bordtennisrack är bäst?” gav inget svar, inga
 
 Q18 gav fortfarande `agent2_invalid_json` och Q29 markerades fortfarande med `original_question_mismatch`. Formatåterhämtningen behöver därför även täcka Agent 2:s fullständigt ogiltiga JSON och Agent 1:s mismatch-signal. Språkproblem kvarstår i 21 av 30 offline-scoringar som `fragmented_language`.
 
+## 2026-08-01 – Råtextåterhämtning före LLM-baserad chunkning
+
+### Ändring
+
+Agent 1 accepterar nu mismatch i modellens `original_question` och återställer den inkommande frågan. Agent 2 försöker extrahera JSON ur kodblock och återhämtar även ett längre råtextsvar som utkast med automatiskt kopplade chunkar. På så sätt förloras inte ett användbart svar på grund av formatproblem.
+
+### Resultat
+
+Riktade tester passerade (48 tester). Agent 4 ska inte aktiveras av dessa formatfel. Commit: `a3a2a00`.
+
+### Nästa steg
+
+Deploya och kör 30-frågepaketet igen. Först när formatåterhämtningen är verifierad går vi vidare till experimentet med LLM-baserad chunkning.
+
 ## Samlade lärdomar
 
 Arbetet hittills har gett några återkommande slutsatser:
