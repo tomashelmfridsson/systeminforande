@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import os
 import re
+import json
 from typing import Any, Callable
 
 from rag.extractive import build_extractive_reasoning
@@ -215,6 +216,13 @@ def _has_disallowed_metadata_phrase(text: str) -> bool:
 
 def strip_generated_answer_metadata(answer: str) -> str:
     text = (answer or "").strip()
+    if text.startswith("{"):
+        try:
+            payload = json.loads(text)
+        except (TypeError, json.JSONDecodeError):
+            payload = None
+        if isinstance(payload, dict) and isinstance(payload.get("answer"), str):
+            text = payload["answer"].strip()
     match = _GENERATED_SECTION_HEADING_RE.search(text)
     if match:
         text = text[: match.start()].strip()

@@ -325,6 +325,14 @@ def parse_evidence_answer_response(
 ) -> dict[str, Any]:
     raw = (raw_response or "").strip()
     recovered_from_raw = False
+    if raw.startswith("{"):
+        try:
+            payload_prefix, end = json.JSONDecoder().raw_decode(raw)
+        except json.JSONDecodeError:
+            payload_prefix, end = None, 0
+        if isinstance(payload_prefix, dict) and isinstance(payload_prefix.get("answer"), str):
+            raw = json.dumps(payload_prefix, ensure_ascii=False)
+            recovered_from_raw = end < len((raw_response or "").strip())
     if not raw.startswith("{") or not raw.endswith("}"):
         fenced = re.search(r"\{.*\}", raw, flags=re.DOTALL)
         if fenced:
@@ -332,6 +340,12 @@ def parse_evidence_answer_response(
             recovered_from_raw = True
         else:
             answer = re.sub(r"```(?:json)?|```", "", raw, flags=re.IGNORECASE).strip()
+            answer_match = re.search(r'"answer"\s*:\s*"((?:\\.|[^"\\])*)', answer, flags=re.DOTALL)
+            if answer_match:
+                try:
+                    answer = json.loads('"' + answer_match.group(1) + '"')
+                except json.JSONDecodeError:
+                    pass
             if len(answer) >= 40:
                 inferred = _infer_evidence_for_draft(chunks)
                 if inferred:
