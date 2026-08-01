@@ -60,7 +60,7 @@ Lösningen har två valbara svarsvägar:
 - en kontrollerad RAG-väg med lokal retrieval och modellfri eller valfri grounded syntes
 - en agentisk RAG-väg där tre avgränsade agenter hjälper till med sökning, svar och verifiering
 
-Feature flaggan `enable_agentic_rag` avgör vilken väg som används. Den äldre kontrollerade vägen är för närvarande standard i Docker/Hugging Face genom `SYSTEMINFORANDE_ENABLE_AGENTIC_RAG=false`.
+Feature flaggan `enable_agentic_rag` avgör vilken väg som används. Agentkedjan är standard i Docker/Hugging Face genom `SYSTEMINFORANDE_ENABLE_AGENTIC_RAG=true`. Den äldre kontrollerade vägen finns kvar för rollback och reproducerbara jämförelser.
 
 ## 3. Källmaterial och indexering
 
@@ -307,7 +307,7 @@ FastAPI äger dessa endpointar och `/api/ask`. Gradio är monterat som användar
 Viktigaste miljövariablerna är:
 
 ```text
-SYSTEMINFORANDE_ENABLE_AGENTIC_RAG=false
+SYSTEMINFORANDE_ENABLE_AGENTIC_RAG=true
 SYSTEMINFORANDE_ENABLE_LLM_SYNTHESIS=false
 SYSTEMINFORANDE_LLM_SYNTHESIS_MODEL=openai/gpt-oss-20b
 SYSTEMINFORANDE_AGENT1_MODEL=openai/gpt-oss-20b
@@ -316,7 +316,7 @@ SYSTEMINFORANDE_AGENT3_MODEL=openai/gpt-oss-20b
 SYSTEMINFORANDE_AGENT_CORRECTION_MODEL=openai/gpt-oss-120b
 ```
 
-Docker-konfigurationen sätter Agentic RAG till `false`, vilket gör den kontrollerade vägen till standard i den deployade miljön. En miljövariabel som konfigureras direkt i Hugging Face Space kan överstyra Docker-värdet.
+Docker-konfigurationen sätter Agentic RAG till `true`, vilket gör agentkedjan till standard i den deployade miljön. En miljövariabel som konfigureras direkt i Hugging Face Space överstyr Docker-värdet och måste därför också vara `true` eller tas bort inför deployen.
 
 Feature flaggan ändrar körväg men tar inte bort någon funktion. Samma deploy kan därför användas för kontrollerade jämförelser med `enable_agentic_rag=false` och `enable_agentic_rag=true`.
 
