@@ -206,9 +206,9 @@ def build_answer_review_prompt(
     )
     return (
         "Agent 3: review och grounding judge för svensk RAG. Modellmål: openai/gpt-oss-20b.\n"
-        "Granska om draftsvar exakt svarar på originalfrågan och endast stöds av evidensen.\n"
-        "Avvisa svar som driver till en omskriven eller annan fråga, t.ex. driftsättning när originalfrågan gäller överlämning till förvaltning/ledning.\n"
-        "Avvisa unsupported claims, generiska råd, process/lifecycle/best-practice och styrning som inte uttryckligen finns i evidensen.\n"
+        "Granska om draftsvar i huvudsak svarar på originalfrågan och har rimligt stöd i evidensen.\n"
+        "Var tolerant mot formuleringar, ofullständighet och mindre avvikelser. Använd revision för en kort källstödd förbättring när det går.\n"
+        "Använd rejected endast vid uppenbart fel ämne, påhittade centrala fakta, tydligt motsägelsefullt svar eller helt avsaknad av stöd.\n"
         "Returnera enbart strikt JSON utan markdown: {status, reason, revision, evidence_ids_used}.\n"
         "status måste vara approved, rejected eller revision. revision används bara om en kort källstödd korrigering kan ges från evidensen.\n"
         "evidence_ids_used får bara innehålla listade id. Tokenbudget: <=1 800 input tokens och <=200 output tokens.\n\n"
@@ -532,7 +532,7 @@ def _review_answer_supported(original_question: str, answer: str, evidence_snipp
     if not (answer_tokens & question_tokens):
         return False
     supported_tokens = answer_tokens & (evidence_tokens | question_tokens)
-    return len(supported_tokens) / max(len(answer_tokens), 1) >= 0.45
+    return len(supported_tokens) / max(len(answer_tokens), 1) >= 0.30
 
 
 def _compact_rewrite_metadata(metadata: dict[str, Any]) -> str:
