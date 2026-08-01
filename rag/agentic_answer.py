@@ -4,6 +4,8 @@ import json
 import re
 from typing import Any, Callable
 
+from rag.agent_contracts import normalize_answer_draft, normalize_correction, normalize_review
+
 DEFAULT_ANSWER_MODEL = "openai/gpt-oss-20b"
 DEFAULT_REVIEW_MODEL = "openai/gpt-oss-20b"
 DEFAULT_CORRECTION_MODEL = "openai/gpt-oss-20b"
@@ -115,13 +117,13 @@ def generate_evidence_answer(
     except Exception:
         return _fallback(original_question, "agent2_exception", model=model)
 
-    return parse_evidence_answer_response(
+    return normalize_answer_draft(parse_evidence_answer_response(
         original_question,
         chunks,
         raw_response,
         rewrite_metadata=rewrite_metadata,
         model=model,
-    )
+    ), original_question)
 
 
 def build_evidence_correction_prompt(
@@ -178,13 +180,13 @@ def generate_corrected_evidence_answer(
     except Exception:
         return _fallback(original_question, "correction_exception", model=model)
 
-    return parse_evidence_answer_response(
+    return normalize_correction(parse_evidence_answer_response(
         original_question,
         chunks,
         raw_response,
         rewrite_metadata=rewrite_metadata,
         model=model,
-    )
+    ), original_question)
 
 
 def build_answer_review_prompt(
@@ -242,14 +244,14 @@ def generate_answer_review(
     except Exception:
         return _review_fallback(original_question, draft_answer, "agent3_exception", model=model)
 
-    return parse_answer_review_response(
+    return normalize_review(parse_answer_review_response(
         original_question,
         draft_answer,
         evidence_snippets,
         evidence_ids,
         raw_response,
         model=model,
-    )
+    ), draft_answer)
 
 
 def parse_answer_review_response(

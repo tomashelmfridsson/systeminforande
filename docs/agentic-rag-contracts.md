@@ -2,7 +2,22 @@
 
 Datum: 2026-07-22
 
-> **Historiskt designdokument:** Detta dokument beskriver det ursprungliga agentkontraktet före implementation och senare kostnadsoptimeringar. Aktuella modeller, körvägar och feature flags beskrivs i [RAG Solution](./rag-solution.html).
+> Aktuella modeller, körvägar och feature flags beskrivs i [RAG Solution](./rag-solution.html). Kontraktsnormalisering är implementerad i `rag/agent_contracts.py`.
+
+## Implementerat hand-off-kontrakt
+
+Varje agent passerar nu en gemensam normaliseringsgräns innan nästa agent körs:
+
+```text
+modelloutput → normalisering → internt agentobjekt → nästa agent
+```
+
+- Agent 1 normaliseras till `RetrievalRewriteContract`. Formatfel återställs till originalfrågan.
+- Agent 2 normaliseras till `AnswerDraftContract`. Utkastets osäkerhet är inte ett avslag.
+- Agent 3 normaliseras till `ReviewContract`. Formatfel blir `unavailable` och behåller Agent 2-utkastet.
+- Agent 4 normaliseras till `CorrectionContract` och körs endast efter ett verkligt innehållsproblem.
+
+Kontrakten är typer och normaliseringsregler, inte kvalitetsdomare. Kvalitetsbedömningen hör hemma i Agent 3.
 
 Syftet med detta dokument är att definiera en kontrollerad 3-agentdesign för nästa RAG-steg innan implementation. Designen ska förbättra svensk retrieval och svarskvalitet utan att göra lösningen beroende av hårdkodade domänord som `överlämna` eller `förvalta`. Den ska fungera generellt för svensk grammatik, böjningar och synonymer, till exempel `undervisning`, `undervisade` och `undervisat`.
 

@@ -4,6 +4,8 @@ import json
 import re
 from typing import Any, Callable
 
+from rag.agent_contracts import normalize_retrieval_rewrite
+
 DEFAULT_REWRITE_MODEL = "openai/gpt-oss-20b"
 MAX_RETRIEVAL_QUERIES = 5
 MIN_REWRITE_CONFIDENCE = 0.55
@@ -107,7 +109,10 @@ def generate_retrieval_rewrite(
     except Exception:
         return _fallback(question, "agent1_exception", model=model)
 
-    result = parse_retrieval_rewrite_response(question, raw_response, model=model)
+    result = normalize_retrieval_rewrite(
+        parse_retrieval_rewrite_response(question, raw_response, model=model),
+        question,
+    )
     debug = result.get("debug") or {}
     if result.get("status") == "fallback" and debug.get("fallback_reason") == "agent1_invalid_json":
         result["status"] = "recovered"
