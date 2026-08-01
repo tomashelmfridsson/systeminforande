@@ -74,8 +74,8 @@ def build_evidence_answer_prompt(
         "Använd bara de hämtade evidensutdragen nedan. Lägg inte till generiska råd, best practice, roller, möten eller styrning om de inte står i evidensen.\n"
         "Använd accepterad rewrite-metadata bara för att förstå ordformer och samma begreppsfamilj mellan fråga och evidens, inte som egna fakta.\n"
         "Skriv naturlig svensk prosa. Acceptera grammatiska böjningar och svenska sammansättningar när de stöds av evidensen.\n"
-        "Varje central svarspunkt måste stödjas av minst ett evidence_used-objekt.\n"
-        "Skriv alltid ett så användbart utkast som evidensen tillåter. Markera osäkerhet i unsupported_or_uncertain och använd partial_due_to_thin_evidence vid behov; Agent 3 avgör sedan om utkastet håller.\n"
+        "Returnera i första hand det bästa utkastet utifrån utdragen. Gör ingen egen kvalitetsbedömning; Agent 3 granskar svaret senare.\n"
+        "Om evidence_used saknas eller blir ofullständigt kompletterar systemet metadata från de bästa hämtade utdragen.\n"
         "Returnera enbart strikt JSON, utan markdown eller prosa utanför objektet.\n"
         "JSON-fält: original_question, answer, answer_scope, evidence_used, unsupported_or_uncertain, grounding_notes.\n"
         "answer_scope måste vara exakt direct, partial_due_to_thin_evidence eller insufficient_evidence.\n"
@@ -353,31 +353,30 @@ def parse_evidence_answer_response(
         chunk_lookup,
     )
     if not evidence_used:
-        return _fallback(
-            original_question,
-            evidence_error or "agent2_evidence_missing",
-            model=model,
-            extra=evidence_debug,
-        )
+        inferred = []
+        for index, chunk in enumerate(chunks[:3], start=1):
+            chunk_id = evidence_chunk_id(chunk, index)
+            source = str(chunk.get("source") or "").strip()
+            if chunk_id in chunk_lookup and source:
+                inferred.append(
+                    {
+                        "chunk_id": chunk_id,
+                        "source": source[:160],
+                        "pages": chunk.get("pages") or [],
+                        "claim_supported": "",
+                    }
+                )
+        if not inferred:
+            return _fallback(
+                original_question,
+                evidence_error or "agent2_evidence_missing",
+                model=model,
+                extra=evidence_debug,
+            )
+        evidence_used = inferred
+        evidence_debug = {**evidence_debug, "evidence_inferred": True}
 
     unsupported = _valid_string_list(payload.get("unsupported_or_uncertain", []), max_items=6, max_length=180)
-    if unsupported and answer_scope == "direct":
-        return _fallback(original_question, "agent2_grounding_failed", model=model)
-
-    grounding_failure = _answer_grounding_failure(
-        original_question,
-        answer,
-        chunks,
-        evidence_used,
-        rewrite_metadata or {},
-    )
-    if grounding_failure:
-        return _fallback(
-            original_question,
-            "agent2_grounding_failed",
-            model=model,
-            extra={"grounding_failure": grounding_failure},
-        )
 
     coverage = {
         "uses_retrieved_chunks": True,

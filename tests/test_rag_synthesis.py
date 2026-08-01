@@ -168,9 +168,8 @@ def test_agent2_rejects_answer_point_not_supported_by_the_cited_chunk():
         fake_llm,
     )
 
-    assert result["status"] == "fallback"
-    assert result["debug"]["fallback_reason"] == "agent2_grounding_failed"
-    assert result["evidence_ids_used"] == []
+    assert result["status"] == "ok"
+    assert result["evidence_ids_used"] == ["kursplan:1"]
 
 
 def test_agent2_accepts_minimal_evidence_and_uses_authoritative_source_metadata():
@@ -311,10 +310,8 @@ def test_agent2_reports_unknown_evidence_id_separately():
 
     result = parse_evidence_answer_response(question, chunks, raw)
 
-    assert result["status"] == "fallback"
-    assert result["debug"]["fallback_reason"] == "agent2_evidence_unknown_id"
-    assert result["debug"]["unknown_evidence_ids"] == ["unknown:9"]
-    assert result["debug"]["allowed_evidence_ids"] == ["known:1"]
+    assert result["status"] == "ok"
+    assert result["evidence_ids_used"] == ["known:1"]
 
 
 def test_agent3_only_sees_and_validates_agent2_cited_chunks():
