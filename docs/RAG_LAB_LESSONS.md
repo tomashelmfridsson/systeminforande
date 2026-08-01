@@ -743,6 +743,18 @@ Agent 1 och Agent 3 kör nu med `temperature=0.0` medan Agent 2 och Agent 4 beh�
 
 Testet ska jämföras med föregående 30-frågekörning med fokus på variation mellan upprepningar, fallbackfrekvens, Agent 4-anrop och RAGAS-aligned faithfulness. Commit: `2a01372`.
 
+## 2026-08-01 – Temperaturtest med Agent 1 och Agent 3 på noll
+
+### Resultat
+
+HF körde revision `c9f56c0`. 30-frågekörningen gav 236 293 tokens, 7 876 tokens per fråga, 3,75 sekunders genomsnittlig svarstid, 1 fallbackmarkering och 91 lyckade LLM-anrop.
+
+RAGAS-aligned scoring gav faithfulness `0,5177`, answer relevance `0,8423`, context precision `0,3396` och context recall `0,5780`. Temperatur 0 förbättrade stabiliteten i Agent 1/3 men gav ingen entydig förbättring i alla kvalitetsdimensioner.
+
+### Beslut eller lärdom
+
+Resultatet är tillräckligt stabilt för Human-in-the-Loop som extern kvalitetsgranskning, men måtten ska presenteras som baseline och inte som färdig kvalitetsgaranti. Granskaren bör särskilt bedöma språk, direkthet, slutsatskvalitet, källstöd och abstention vid out-of-domain-frågor.
+
 ## Samlade lärdomar
 
 Arbetet hittills har gett några återkommande slutsatser:
