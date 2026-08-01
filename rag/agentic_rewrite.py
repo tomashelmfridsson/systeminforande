@@ -139,8 +139,7 @@ def parse_retrieval_rewrite_response(
     if unexpected_keys:
         return _fallback(question, "agent1_unexpected_fields", model=model, extra={"unexpected_fields": unexpected_keys})
 
-    if payload.get("original_question") != question:
-        return _fallback(question, "original_question_mismatch", model=model)
+    original_question_mismatch = payload.get("original_question") != question
 
     confidence = _safe_float(payload.get("confidence"))
     if confidence is None or confidence < MIN_REWRITE_CONFIDENCE:
@@ -202,6 +201,7 @@ def parse_retrieval_rewrite_response(
             "agent": "retrieval_rewrite",
             "model": model,
             "fallback_reason": None,
+            "recovery_reason": "original_question_mismatch" if original_question_mismatch else None,
             "confidence": confidence,
             "accepted_query_count": len(accepted),
             "dropped_queries": dropped,

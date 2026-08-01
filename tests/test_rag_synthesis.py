@@ -824,8 +824,8 @@ def test_agent1_response_must_be_strict_json_and_preserve_original_question():
 
     assert invalid_json["status"] == "fallback"
     assert invalid_json["debug"]["fallback_reason"] == "agent1_invalid_json"
-    assert changed_question["status"] == "fallback"
-    assert changed_question["debug"]["fallback_reason"] == "original_question_mismatch"
+    assert changed_question["status"] == "ok"
+    assert changed_question["original_question"] == question
 
 
 def test_agent1_low_confidence_or_answer_like_rewrites_fall_back_or_are_dropped():
