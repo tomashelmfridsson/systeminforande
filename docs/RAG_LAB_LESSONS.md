@@ -615,6 +615,20 @@ Den första ändringen finns i commit `73eee44`, Agent 2-ändringen i `9884c73` 
 
 Ansvar ska ligga så sent i kedjan som möjligt: Agent 1 söker, Agent 2 formulerar, Agent 3 granskar och Agent 4 korrigerar vid behov. Tekniska kvotfel ska inte skickas mellan agenter. Extraktiv fallback ska inte presenteras som ett bra agentiskt svar när Agentic RAG har misslyckats.
 
+## 2026-08-01 – Agent 2 blev ren draft-agent
+
+### Observation
+
+Live-testet av frågan ”Vad är dyrast med ett systeminförande?” visade att Agent 2 stoppade kedjan med `agent2_evidence_missing`. Agent 3 och Agent 4 kördes därför aldrig, och användaren fick ett generiskt extraktivt fallback-svar.
+
+### Ändring
+
+Agent 2 ska nu endast hämta och formulera ett utkast. Den gör ingen kvalitetsbedömning. Om `evidence_used` saknas eller är ofullständigt kompletterar systemet metadata från de bästa hämtade utdragen och skickar utkastet vidare till Agent 3. Agent 3 ansvarar därefter för granskning, revision eller avslag.
+
+### Resultat och beslut
+
+Riktade tester passerade (48 tester). Ändringen finns i commit `24f16cf`. Detta är den avsedda ansvarsfördelningen: Agent 2 formulerar, Agent 3 granskar och Agent 4 korrigerar vid behov.
+
 ## Samlade lärdomar
 
 Arbetet hittills har gett några återkommande slutsatser:
