@@ -733,6 +733,16 @@ Den offline RAGAS-aligned scoring-körningen gav faithfulness `0,5157`, answer r
 
 Kontraktslagret verkar minska formatrelaterade fallbackproblem utan att lägga till fler Agent 4-körningar. Retrieval är fortfarande nästa separata förbättringsområde. Commiten för kontrakten är `7ffe8b7`.
 
+## 2026-08-01 – Temperaturtest för stabilare Agent 1 och Agent 3
+
+### Ändring
+
+Agent 1 och Agent 3 kör nu med `temperature=0.0` medan Agent 2 och Agent 4 behåller `0.2`. Syftet är att stabilisera retrieval och granskning utan att ta bort all språklig variation i användarsvaret.
+
+### Beslut eller lärdom
+
+Testet ska jämföras med föregående 30-frågekörning med fokus på variation mellan upprepningar, fallbackfrekvens, Agent 4-anrop och RAGAS-aligned faithfulness. Commit: `2a01372`.
+
 ## Samlade lärdomar
 
 Arbetet hittills har gett några återkommande slutsatser:
