@@ -897,6 +897,51 @@ def format_llm_error(exc: Exception) -> str:
     return f"Resonemang kunde inte genereras just nu. Tekniskt fel: {message}"
 
 
+def _provider_quota_error(record: dict[str, Any]) -> bool:
+    """Return True for provider/account quota failures (not answer-quality fallbacks)."""
+    if record.get("status") != "error":
+        return False
+    error = str(record.get("error") or "").lower()
+    return "402" in error or "payment required" in error or "depleted your monthly included credits" in error
+
+
+def _llm_unavailable_response(
+    query: str,
+    *,
+    agentic_enabled: bool,
+    resolved_llm_model: str | None,
+    usage_records: list[dict[str, Any]],
+    purpose: str,
+) -> dict[str, Any]:
+    message = "Tjänsten är tillfälligt inte tillgänglig eftersom språkmodellens kvot eller krediter inte kan användas just nu. Försök igen senare."
+    pipeline = {
+        "enabled": agentic_enabled,
+        "final_status": "unavailable",
+        "fallback_reason": "provider_error_402",
+        "provider_error": True,
+        "provider_error_purpose": purpose,
+        "usage": summarize_llm_usage(usage_records, resolved_llm_model),
+    }
+    return {
+        "route": "rag",
+        "llm_model": resolved_llm_model,
+        "enable_synthesis": False,
+        "answer_markdown": message,
+        "sources": [],
+        "homepage_links": [],
+        "llm_usage": summarize_llm_usage(usage_records, resolved_llm_model),
+        "retrieval": {
+            "query": query,
+            "relevance_supported": False,
+            "confidence": 0,
+            "llm_status": "provider_unavailable",
+            "llm_synthesis_enabled": False,
+            "agentic_rag_enabled": agentic_enabled,
+            "agentic_pipeline": pipeline,
+        },
+    }
+
+
 def _strip_answer_metadata(answer: str) -> str:
     return strip_generated_answer_metadata(answer)
 
@@ -1273,6 +1318,14 @@ def build_rag_response(
             ),
             model=AGENT1_MODEL,
         )
+        if any(_provider_quota_error(record) for record in llm_usage_records):
+            return _llm_unavailable_response(
+                query,
+                agentic_enabled=agentic_enabled,
+                resolved_llm_model=resolved_llm_model,
+                usage_records=llm_usage_records,
+                purpose="agent1_retrieval_rewrite",
+            )
 
     results = filter_allowed_results(search(query, top_k=5, retrieval_rewrite=retrieval_rewrite))
 
@@ -1385,6 +1438,14 @@ def build_rag_response(
             ),
             model=AGENT2_MODEL,
         )
+        if any(_provider_quota_error(record) for record in llm_usage_records):
+            return _llm_unavailable_response(
+                query,
+                agentic_enabled=agentic_enabled,
+                resolved_llm_model=resolved_llm_model,
+                usage_records=llm_usage_records,
+                purpose="agent2_evidence_answer",
+            )
         draft_answer = str(agent2_answer.get("answer") or "").strip()
         evidence_ids = agent2_answer.get("evidence_ids_used") or []
         if agent2_answer.get("status") == "ok" and draft_answer:
@@ -1434,6 +1495,15 @@ def build_rag_response(
                     approved_evidence_ids = list(
                         correction_answer.get("evidence_ids_used") or []
                     )
+
+    if any(_provider_quota_error(record) for record in llm_usage_records):
+        return _llm_unavailable_response(
+            query,
+            agentic_enabled=agentic_enabled,
+            resolved_llm_model=resolved_llm_model,
+            usage_records=llm_usage_records,
+            purpose="agentic_pipeline",
+        )
 
     agentic_fallback_retrieval_used = False
     if agentic_reviewed_answer:
