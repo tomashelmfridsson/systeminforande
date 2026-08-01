@@ -709,6 +709,18 @@ Riktade tester passerade (48 tester). Agent 4 ska inte aktiveras av dessa format
 
 Deploya och kör 30-frågepaketet igen. Först när formatåterhämtningen är verifierad går vi vidare till experimentet med LLM-baserad chunkning.
 
+## 2026-08-01 – Gemensamma agentkontrakt införda
+
+### Ändring
+
+Ett gemensamt kontraktslager infördes i `rag/agent_contracts.py` för Agent 1–4. Varje hand-off normaliseras nu innan nästa agent körs. Formatfel separeras från kvalitetsbedömning: Agent 1 återgår till originalfrågan, Agent 2 behåller råa utkast och Agent 3 markerar formatproblem som `unavailable` i stället för att automatiskt aktivera Agent 4.
+
+Kontrakten dokumenterades i `docs/agentic-rag-contracts.md` och fick egna tester. 52 riktade tester passerade.
+
+### Beslut eller lärdom
+
+Målet är att framtida modellbyten och underhåll ska påverka en normaliseringsadapter, inte hela agentkedjan. Commit: `7ffe8b7`.
+
 ## Samlade lärdomar
 
 Arbetet hittills har gett några återkommande slutsatser:
