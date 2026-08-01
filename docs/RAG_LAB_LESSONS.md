@@ -669,6 +669,20 @@ Den offline-deterministiska RAGAS-aligned mätningen gav faithfulness `0,4972`, 
 
 Den högre reasoning-nivån gav ännu ingen mätbar kvalitetsvinst. Answer relevance och context recall sjönk något, medan tokens ökade cirka 9 procent och svarstiden ökade. Nästa ändring bör därför fokusera på promptens källurval och slutsatsregler, inte bara mer reasoning. Denna scoring är RAGAS-aligned offline scoring; officiell RAGAS-LLM-bedömning kördes inte i denna miljö.
 
+## 2026-08-01 – Formatfel ska återhämtas, inte bli kvalitetsfallback
+
+### Observation
+
+Agent 1:s invalid JSON, Agent 2:s exakta `original_question`-matchning och Agent 3:s invalid JSON skapade onödiga fallback- och correctionflöden. Q29, ”Hur kollar man om driftrutinerna och driftorganisationen behöver ses över?”, är en giltig mätfråga och ska inte tas bort.
+
+### Ändring
+
+Agent 1 återhämtar nu invalid JSON genom att fortsätta med originalfrågan. Agent 2 accepterar modellens svar även när `original_question` är lätt omskriven. Agent 3:s formatfel behåller Agent 2-utkastet och startar inte Agent 4.
+
+### Beslut eller lärdom
+
+Formatrobusthet ska separeras från kvalitetsbedömning. Agent 4 ska bara arbeta vid verkliga innehållsproblem, inte vid JSON- eller metadatafel. Commit: `8b8895d`.
+
 ## Samlade lärdomar
 
 Arbetet hittills har gett några återkommande slutsatser:
