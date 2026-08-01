@@ -629,6 +629,20 @@ Agent 2 ska nu endast hämta och formulera ett utkast. Den gör ingen kvalitetsb
 
 Riktade tester passerade (48 tester). Ändringen finns i commit `24f16cf`. Detta är den avsedda ansvarsfördelningen: Agent 2 formulerar, Agent 3 granskar och Agent 4 korrigerar vid behov.
 
+## 2026-08-01 – Agent 2 fick högre reasoning och bättre språkkrav
+
+### Utgångsläge
+
+Baseline-körningen med 30 frågor visade att de flesta svar gick igenom Agent 2 och inte nådde Agent 4, men att språket ofta var stelt, kortfattat och mekaniskt. Särskilt bedömningsfrågor fick svaga slutsatser.
+
+### Ändring
+
+Agent 2-prompten fick `Reasoning: high`. Den ska analysera utdragen internt men endast returnera JSON, börja med ett direkt svar, skriva idiomatisk svenska, undvika mekaniska starter och göra försiktiga, tydligt markerade tolkningar när källorna inte uttrycker en rangordning direkt.
+
+### Resultat och beslut
+
+Riktade tester passerade (48 tester). Ändringen finns i commit `1c52bc0`. Nästa steg är att deploya till HF och köra samma 30 frågor igen mot baseline innan Agent 4:s inferensregler ändras.
+
 ## Samlade lärdomar
 
 Arbetet hittills har gett några återkommande slutsatser:
