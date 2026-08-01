@@ -586,6 +586,35 @@ Feature flaggan och driftstandarden har olika ansvar:
 - feature flaggan väljer körväg för ett anrop
 - Docker-värdet väljer den ekonomiskt säkra standarden
 
+## 2026-08-01 – Agentic RAG fick göras om stegvis
+
+### Utgångsläge
+
+Agentic RAG gav ibland generiska svar och vissa anrop slutade i fallback. Samtidigt visade HF-loggarna HTTP 402 när den tidigare 120B-konfigurationen hade förbrukat tillgänglig provider-kvot.
+
+### Observation
+
+120B var kostnadsdrivaren i den äldre syntes-/correction-vägen. När ett 402-fel eller ett för tidigt kvalitetsstopp inträffade kunde systemet i stället ge ett extraktivt svar som började med ”Kort sagt handlar det om följande …”. Ett live-test utan 402 visade dessutom att Agent 2 själv stoppade frågan med `thin_evidence`, så Agent 3 fick aldrig granska utkastet.
+
+### Ändring
+
+Agentkedjan tydliggjordes och fick denna ansvarsfördelning:
+
+1. Agent 1 – retrieval rewrite: förbättrar sökfrågan.
+2. Agent 2 – evidence answer: skriver ett första, generöst utkast.
+3. Agent 3 – grounded review: granskar om utkastet i huvudsak håller.
+4. Agent 4 – answer correction: försöker korrigera ett underkänt svar.
+
+120B togs bort ur correction-konfigurationen. Ett 402-fel stoppar nu anropet med ett tydligt tjänstefel i stället för fallback. Agent 2 skickar nu giltiga men osäkra utkast vidare till Agent 3. Agent 3 gjordes samtidigt mer tolerant: mindre luckor ska normalt leda till `revision` eller `approved`, medan `rejected` reserveras för helt fel ämne, centrala påhittade fakta, tydliga motsägelser eller helt saknat stöd.
+
+### Resultat
+
+Den första ändringen finns i commit `73eee44`, Agent 2-ändringen i `9884c73` och den tolerantare Agent 3-granskningen i `42da677`. Tester för Agent 2/3 passerade efter ändringarna. Live-testet med ”Vad är dyrast med ett systeminförande?” bekräftade att HF och 20B fungerade utan 402; felet var i stället att Agent 2 stoppade för tidigt.
+
+### Beslut eller lärdom
+
+Ansvar ska ligga så sent i kedjan som möjligt: Agent 1 söker, Agent 2 formulerar, Agent 3 granskar och Agent 4 korrigerar vid behov. Tekniska kvotfel ska inte skickas mellan agenter. Extraktiv fallback ska inte presenteras som ett bra agentiskt svar när Agentic RAG har misslyckats.
+
 ## Samlade lärdomar
 
 Arbetet hittills har gett några återkommande slutsatser:
