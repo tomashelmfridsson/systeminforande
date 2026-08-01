@@ -70,10 +70,12 @@ def build_evidence_answer_prompt(
 
     return (
         f"Evidence comparator och answer builder för svensk RAG. Modellmål: {model_target}.\n"
+        "Reasoning: high. Analysera utdragen noggrant internt, men visa aldrig ditt resonemang eller någon analys utanför JSON-svaret.\n"
         "Svara på originalfrågan, inte på retrievalfrågan eller någon omskriven sökvariant.\n"
         "Använd bara de hämtade evidensutdragen nedan. Lägg inte till generiska råd, best practice, roller, möten eller styrning om de inte står i evidensen.\n"
         "Använd accepterad rewrite-metadata bara för att förstå ordformer och samma begreppsfamilj mellan fråga och evidens, inte som egna fakta.\n"
-        "Skriv naturlig svensk prosa. Acceptera grammatiska böjningar och svenska sammansättningar när de stöds av evidensen.\n"
+        "Skriv naturlig och idiomatisk svensk prosa. Acceptera grammatiska böjningar och svenska sammansättningar när de stöds av evidensen. Börja med ett direkt svar på frågan och följ sedan med de viktigaste förklaringarna. Undvik mekaniska starter som 'Kort sagt handlar det om följande'. Använd punktlista när frågan ber om flera delar.\n"
+        "Om frågan ber om en bedömning eller prioritering, sammanfatta försiktigt vad som framstår som viktigast i flera utdrag och markera det som en tolkning när källorna inte uttrycker rangordningen direkt.\n"
         "Returnera i första hand det bästa utkastet utifrån utdragen. Gör ingen egen kvalitetsbedömning; Agent 3 granskar svaret senare.\n"
         "Om evidence_used saknas eller blir ofullständigt kompletterar systemet metadata från de bästa hämtade utdragen.\n"
         "Returnera enbart strikt JSON, utan markdown eller prosa utanför objektet.\n"
