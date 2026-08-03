@@ -41,6 +41,8 @@ Den agentiska modellkedjan är kostnadsstyrd:
 - Om Agent 3 väljer `rejected` görs exakt ett korrigeringsanrop med `SYSTEMINFORANDE_AGENT_CORRECTION_MODEL=openai/gpt-oss-20b`.
 - Om korrigeringen inte ger ett validerat svar används ett extraktivt reservsvar. Den tidigare stora `agentic_fallback_synthesis` körs inte längre.
 
+Agenternas maximala outputgränser är 2 400 tokens för Agent 1, 3 600 för Agent 2, 2 000 för Agent 3 och 2 000 för korrigeringsagenten. Gränserna är tak per genererat modellsvar, inte reserverad eller total tokenförbrukning. De begränsar kostnad, latens och okontrollerat långa svar men måste vara tillräckligt höga för att ett strukturerat JSON-svar inte ska kapas. Om `completion_tokens` når exakt taket samtidigt som agenten får `invalid_json` eller `unavailable` ska möjlig tokenkapning undersökas. Se avsnitt 6.6 i [RAG Solution](https://tomashelmfridsson.github.io/systeminforande/rag-solution.html).
+
 `retrieval.agentic_pipeline.escalation` visar om korrigeringssteget användes, varför det utlöstes, status och separat tokenusage. `final_status` är `approved`, `revised`, `corrected` eller `fallback`. Den dyra modellen `openai/gpt-oss-120b` avvisas uttryckligen som korrigeringsmodell och ersätts med 20B-standarden även om ett gammalt HF-miljövärde ligger kvar.
 
 Domänfrämmande frågor stoppas före Agent 2. En hög retrievalscore från Agent 1:s omskrivna sökvarianter räcker inte om originalfrågans meningsbärande ämnesord saknar stöd i materialet. Sådana svar returnerar den källbegränsade fallbacktexten med tomma `sources` och `homepage_links`.

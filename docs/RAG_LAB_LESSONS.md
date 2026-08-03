@@ -755,6 +755,25 @@ RAGAS-aligned scoring gav faithfulness `0,5177`, answer relevance `0,8423`, cont
 
 Resultatet är tillräckligt stabilt för Human-in-the-Loop som extern kvalitetsgranskning, men måtten ska presenteras som baseline och inte som färdig kvalitetsgaranti. Granskaren bör särskilt bedöma språk, direkthet, slutsatskvalitet, källstöd och abstention vid out-of-domain-frågor.
 
+## 2026-08-03 – Outputgränser dubblerade efter Agent 3-kapning
+
+### Observation
+
+I användningsloggen för 2026-08-02 fick tre frågor `review_status="unavailable"`. Leverantörsanropen för Agent 3 hade samtidigt `status="ok"` och exakt 1 000 completiontokens, vilket var den dåvarande outputgränsen. Agent 3 hade alltså svarat, men svaret kunde inte valideras mot JSON-kontraktet. Eftersom råsvaret inte sparades går kapning inte att bevisa i efterhand, men tre exakta träffar på taket är en stark indikation.
+
+### Ändring
+
+Samtliga agenters maximala outputgränser dubblerades:
+
+- Agent 1: 1 200 till 2 400 tokens
+- Agent 2: 1 800 till 3 600 tokens
+- Agent 3: 1 000 till 2 000 tokens
+- Agent 4, korrigering: 1 000 till 2 000 tokens
+
+### Beslut eller lärdom
+
+Outputgränser behövs för att kontrollera kostnad, latens och okontrollerat långa modellutdata, men ett för lågt tak kan kapa ett korrekt strukturerat svar och skapa ett falskt driftfel. Ett lyckat leverantörsanrop är därför inte samma sak som ett validerat agentresultat. Exakt träff på outputtaket ska följas upp tillsammans med `invalid_json`, schemafel och `unavailable`. En höjd gräns är inte i sig en instruktion att använda fler tokens; den ger bara modellen större utrymme när det behövs.
+
 ## Samlade lärdomar
 
 Arbetet hittills har gett några återkommande slutsatser:

@@ -267,17 +267,19 @@ Fallback ska vara deterministiskt och mätbart:
 6. Om källunderlaget är tunt ska systemet hellre svara kort med osäkerhet än skapa en mer utvecklad men ogrundad text.
 7. Alla fallbacks ska logga en maskinläsbar orsak: `agent1_invalid_json`, `agent2_grounding_failed`, `agent3_reject`, `agent_timeout`, `thin_evidence` eller motsvarande.
 
-## Kompakta tokenbudgetar
+## Kompakta tokenmål och hårda outputgränser
 
 2026-07-20-loggen innehöll 303 rader. Den enda raden med komplett tokenusage i den tillgängliga loggen var en `Qwen/Qwen3-32B`-körning med 5 216 prompttokens, 846 completiontokens och 6 062 totalt, cirka 24,2 sekunders latens. För `openai/gpt-oss-120b` saknades tokenusage i 277 händelser, vilket ska behandlas som saknad observability, inte som noll kostnad.
 
-Budgeten för agentic RAG ska därför vara kompaktare än den observerade cirka 6k-tokenbaselinen per tung synteskörning:
+Agenternas promptar och synliga resultat ska fortfarande vara kompakta. Ett kompakt tokenmål är dock inte samma sak som modellanropets hårda outputgräns. Målet beskriver normal önskad storlek; den högre hårda gränsen förhindrar att reasoning och JSON kapas när modellen behöver mer utrymme.
 
-- Agent 1 prompt: max 1 200 tokens. Output: max 350 tokens. Skicka originalfråga, topprankade titlar/kortdiagnos och instruktioner, inte hela chunktexter.
+- Agent 1: kompakt outputmål cirka 200 tokens, hård outputgräns 2 400 tokens. Skicka originalfråga, topprankade titlar/kortdiagnos och instruktioner, inte hela chunktexter.
 - Retrieval pool efter Agent 1: max 12 kandidater internt, dedupliceras ned till max 8 chunkar för Agent 2.
-- Agent 2 prompt: max 4 000 tokens. Det omfattar originalfråga, Agent 1-kontrakt, extractive fallback och 6-8 komprimerade chunkar med källa/sidor/titel/textutdrag. Output: max 900 tokens.
-- Agent 3 prompt: max 2 000 tokens. Skicka originalfråga, Agent 2-svar och evidence_used med korta utdrag, inte hela retrievalpoolen. Output: max 350 tokens.
-- Total publiceringsbudget: sikta på högst cirka 5 500-6 000 tokens för hela publiceringskedjan i normalfallet. I `shadow`-läge får kedjan stoppas tidigare om den riskerar att överskrida budgeten.
+- Agent 2: kompakt outputmål cirka 500 tokens, hård outputgräns 3 600 tokens. Prompten omfattar originalfråga, Agent 1-kontrakt och 6-8 komprimerade chunkar med källa, sidor, titel och textutdrag.
+- Agent 3: kompakt outputmål cirka 200 tokens, hård outputgräns 2 000 tokens. Skicka originalfråga, Agent 2-svar och `evidence_ids_used` med korta utdrag, inte hela retrievalpoolen.
+- Agent 4: kompakt outputmål cirka 500 tokens, hård outputgräns 2 000 tokens. Den körs högst en gång efter ett uttryckligt avslag från Agent 3.
+
+De hårda gränserna är maximala completion/outputtokens per modellanrop, inte reserverad kapacitet och inte ett mål att förbruka hela utrymmet. De finns för att kontrollera kostnad, latens och extrema utdata. Om ett anrop når exakt gränsen samtidigt som JSON-valideringen misslyckas ska möjlig tokenkapning utredas. Aktuell totalförbrukning ska mätas från loggarnas `prompt_tokens`, `completion_tokens` och `total_tokens` i stället för att härledas från taken.
 
 Praktisk konsekvens: Agent 1 och Agent 3 måste vara korta JSON-arbetare. Agent 2 är enda platsen där längre prosa får produceras. Fulla dokumentchunkar ska inte skickas till alla tre agenter.
 

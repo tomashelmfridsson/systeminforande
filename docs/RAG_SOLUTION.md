@@ -238,6 +238,23 @@ Om Agent 3 returnerar `rejected` får systemet göra exakt ett kompakt korrigeri
 
 Om korrigeringen inte passerar kontraktet görs inga fler LLM-anrop. Systemet kör då retrieval på nytt med endast originalfrågan och returnerar ett säkert extraktivt svar.
 
+### 6.6 Outputgränser per agent
+
+Varje agent har ett maximalt antal outputtokens för ett enskilt modellanrop:
+
+| Agent | Uppgift | Max outputtokens |
+| --- | --- | ---: |
+| Agent 1 | Retrieval rewrite | 2 400 |
+| Agent 2 | Evidensbaserat svar | 3 600 |
+| Agent 3 | Grounding- och frågefokusgranskning | 2 000 |
+| Agent 4 | En korrigering efter ett avslag | 2 000 |
+
+Gränserna gäller modellens genererade output, inte prompten eller den totala tokenförbrukningen. De är tak och reserverar inte tokens; ett normalt svar kan därför bli betydligt kortare.
+
+Taken finns för att begränsa kostnad och svarstid, stoppa okontrollerat långa modellutdata och göra agentkedjans drift mer förutsägbar. Samtidigt måste de lämna tillräckligt utrymme för agenternas JSON-kontrakt. Om ett svar kapas mitt i ett JSON-objekt kan kontraktet inte valideras. För Agent 3 markeras detta som `unavailable`, varefter Agent 2:s utkast behålls utan en lyckad review.
+
+Ett modellanrop med `status="ok"` betyder bara att leverantören returnerade ett svar. Det betyder inte att svaret passerade det lokala JSON-kontraktet. Om `completion_tokens` upprepade gånger är exakt lika med agentens outputgräns samtidigt som `invalid_json`, schemafel eller `unavailable` förekommer ska tokenkapning misstänkas. Prompt och kontrakt bör då först göras så kompakta som möjligt; gränsen kan höjas när agenten fortfarande behöver mer legitimt utrymme.
+
 ## 7. Källor och transparens
 
 Applikationen äger den användarvända källistan. Modellgenererade källrubriker och källmetadata tas bort från svarstexten innan den riktiga källsektionen läggs till.
@@ -317,6 +334,8 @@ SYSTEMINFORANDE_AGENT_CORRECTION_MODEL=openai/gpt-oss-20b
 ```
 
 Temperatur styrs per agentens uppgift. Agent 1 (retrieval rewrite) och Agent 3 (verifiering) körs med `temperature=0.0` för stabilare struktur och bedömning. Agent 2 (svar) och Agent 4 (korrigering) körs med `temperature=0.2` för viss språklig flexibilitet. Alla agentväxlingar valideras genom gemensamma kontrakt i `rag/agent_contracts.py`; formatfel ska inte i sig utlösa en kvalitetsmässig fallback.
+
+Agenternas aktuella outputgränser och motivet till dem beskrivs i avsnitt 6.6. Gränserna är kodkonfiguration i `app.py` och ska följas upp med `completion_tokens`, agentstatus och fallbackorsak i loggarna.
 
 Docker-konfigurationen sätter Agentic RAG till `true`, vilket gör agentkedjan till standard i den deployade miljön. En miljövariabel som konfigureras direkt i Hugging Face Space överstyr Docker-värdet och måste därför också vara `true` eller tas bort inför deployen.
 
