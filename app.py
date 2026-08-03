@@ -600,7 +600,7 @@ def format_answer(answer):
 def _format_answer_sections(answer: dict, level: int = 0) -> list[str]:
     out = []
     for key, value in answer.items():
-        if key in {"Tabell", "Kompetenser"} and isinstance(value, list) and _is_table_rows(value):
+        if key in {"Tabell", "Kompetenser", "Etapper"} and isinstance(value, list) and _is_table_rows(value):
             out.extend(_format_markdown_table(value))
             out.append("")
             continue
