@@ -1812,7 +1812,10 @@ with gr.Blocks() as demo:
     
     with gr.Tabs() as tabs:
         with gr.Tab("FAQ") as faq_tab:
-            gr.Markdown("<p class='tab-intro'>Välj ämnesområde och underfråga.</p>")
+            gr.Markdown(
+                "<p class='tab-intro'>I FAQ:n kan du välja ett ämnesområde och därefter en av de vanliga frågorna. "
+                "Om du inte hittar din fråga kan du ställa den med egna ord under fliken Chattbot.</p>"
+            )
 
             with gr.Row(elem_classes="main-card-grid"):
                 main_buttons = []
