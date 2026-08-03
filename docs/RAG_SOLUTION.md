@@ -8,7 +8,7 @@ Tomas Helmfridsson och OpenAI Codex
 
 **Senast uppdaterad**
 
-2026-07-29
+2026-08-03
 
 **Publik chatbot**
 
@@ -234,7 +234,7 @@ En mindre källstödd revision kan publiceras direkt. Ett godkänt svar visar en
 
 Agent 1, Agent 2 och Agent 3 använder normalt `openai/gpt-oss-20b`.
 
-Om Agent 3 returnerar `rejected` får systemet göra exakt ett kompakt korrigeringsanrop med `openai/gpt-oss-20b`. Korrigeringen får samma originalfråga, det underkända svaret, granskningsorsaken och den auktoritativa evidensen. `openai/gpt-oss-120b` tillåts inte som korrigeringsmodell; ett gammalt sådant miljövärde ersätts automatiskt med 20B-standarden.
+Om Agent 3 returnerar `rejected` får systemet göra exakt ett kompakt korrigeringsanrop med `openai/gpt-oss-20b`. Detta är Agent 4:s enda uppgift: att förbättra ett svar som redan har hämtats och granskats, inte att vara en generell reservväg. Korrigeringen får samma originalfråga, det underkända svaret, granskningsorsaken och den auktoritativa evidensen. `openai/gpt-oss-120b` tillåts inte som korrigeringsmodell; ett gammalt sådant miljövärde ersätts automatiskt med 20B-standarden.
 
 Om korrigeringen inte passerar kontraktet görs inga fler LLM-anrop. Systemet kör då retrieval på nytt med endast originalfrågan och returnerar ett säkert extraktivt svar.
 
@@ -316,6 +316,8 @@ SYSTEMINFORANDE_AGENT3_MODEL=openai/gpt-oss-20b
 SYSTEMINFORANDE_AGENT_CORRECTION_MODEL=openai/gpt-oss-20b
 ```
 
+Temperatur styrs per agentens uppgift. Agent 1 (retrieval rewrite) och Agent 3 (verifiering) körs med `temperature=0.0` för stabilare struktur och bedömning. Agent 2 (svar) och Agent 4 (korrigering) körs med `temperature=0.2` för viss språklig flexibilitet. Alla agentväxlingar valideras genom gemensamma kontrakt i `rag/agent_contracts.py`; formatfel ska inte i sig utlösa en kvalitetsmässig fallback.
+
 Docker-konfigurationen sätter Agentic RAG till `true`, vilket gör agentkedjan till standard i den deployade miljön. En miljövariabel som konfigureras direkt i Hugging Face Space överstyr Docker-värdet och måste därför också vara `true` eller tas bort inför deployen.
 
 Feature flaggan ändrar körväg men tar inte bort någon funktion. Samma deploy kan därför användas för kontrollerade jämförelser med `enable_agentic_rag=false` och `enable_agentic_rag=true`.
@@ -386,6 +388,19 @@ Mätningen kompletteras med:
 - manuell bedömning av tydlighet och användbarhet
 
 RAGAS-resultat ska bara jämföras när körningarna verkligen har använt den avsedda arkitekturen. Fallback-svar och providerfel måste redovisas separat.
+
+#### Senaste Agentic RAG-baslinje
+
+Efter deploy av temperaturändringen kördes den fasta sviten med 30 frågor mot Hugging Face. Den offline-deterministiska RAGAS-aligned mätningen gav:
+
+| Mått | Resultat |
+|---|---:|
+| Faithfulness | 0,5177 |
+| Answer relevance | 0,8423 |
+| Context precision | 0,3396 |
+| Context recall | 0,5780 |
+
+Körningen använde 236 293 tokens, i genomsnitt 7 876 tokens per fråga, och hade 91 lyckade LLM-anrop. En fråga gick till fallback och Agent 4 användes endast en gång. Resultatet är en jämförbar teknisk baseline; det är inte en garanti för användbarhet eller språkkvalitet. Därför kompletteras den med Human-in-the-Loop-granskning av direkthet, svenska, slutsatskvalitet, källstöd och korrekt avstående vid domänfrämmande frågor.
 
 ## 12. Deployment
 
